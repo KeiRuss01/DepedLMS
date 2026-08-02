@@ -1,0 +1,74 @@
+{% extends 'master.html' %}
+{% load static %}
+
+{% block title %}Home | Hybrid Learning Management System{% endblock %}
+
+{% block content %}
+<section class="hero-section overflow-hidden">
+    <div class="hero-orb hero-orb-one"></div>
+    <div class="hero-orb hero-orb-two"></div>
+    <div class="container site-container position-relative">
+        <div class="row align-items-center gy-5 hero-row">
+            <div class="col-lg-5 hero-copy">
+                <div class="district-pill">
+                    <i class="bi bi-buildings" aria-hidden="true"></i>
+                    <span>DepEd Iligan City Division – District 1 (Dalipuga)</span>
+                </div>
+                <h1>Hybrid Learning <span>Management System</span></h1>
+                <p class="hero-lead">An offline-capable learning management system designed for DepEd Iligan City Division – District 1 to support blended and modular learning.</p>
+                <div class="hero-actions d-flex flex-wrap gap-3">
+                    <a class="btn btn-primary btn-lg" href="/admin/"><i class="bi bi-box-arrow-in-right me-2"></i>Login to System</a>
+                    <a class="btn btn-outline-primary btn-lg download-action" href="{% url 'download' %}">
+                        <i class="bi bi-download me-2"></i>
+                        <span><strong>Download App</strong><small>Install PWA for offline access</small></span>
+                    </a>
+                </div>
+
+                <div class="feature-strip row g-3" aria-label="System benefits">
+                    <div class="col-6 col-sm-3 col-lg-6 col-xl-3">
+                        <div class="mini-feature"><i class="bi bi-cloud-check"></i><span><strong>Offline Capable</strong><small>Learn anywhere</small></span></div>
+                    </div>
+                    <div class="col-6 col-sm-3 col-lg-6 col-xl-3">
+                        <div class="mini-feature"><i class="bi bi-people"></i><span><strong>Multi-Role</strong><small>Access for all</small></span></div>
+                    </div>
+                    <div class="col-6 col-sm-3 col-lg-6 col-xl-3">
+                        <div class="mini-feature"><i class="bi bi-shield-check"></i><span><strong>Secure</strong><small>Protected data</small></span></div>
+                    </div>
+                    <div class="col-6 col-sm-3 col-lg-6 col-xl-3">
+                        <div class="mini-feature"><i class="bi bi-emoji-smile"></i><span><strong>Easy to Use</strong><small>Simple interface</small></span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+                <figure class="dashboard-image-wrap mb-0">
+                    <img
+                        class="dashboard-image img-fluid"
+                        src="{% static 'images/img.jpg' %}"
+                        alt="Preview of the Hybrid Learning Management System dashboard"
+                        width="1200"
+                        height="760"
+                    >
+                </figure>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="community-section">
+    <div class="container site-container">
+        <div class="section-heading text-center">
+            <span class="eyebrow">One connected community</span>
+            <h2>Built for the DepEd Community</h2>
+            <p>Empowering teachers, students, parents, school heads, and district administrators to achieve more together.</p>
+        </div>
+        <div class="row g-3 g-lg-0 role-grid">
+            <div class="col-6 col-md-4 col-lg"><article class="role-card"><span class="role-icon green"><i class="bi bi-people-fill"></i></span><h3>District Supervisor</h3><p>Monitor schools and performance across District 1.</p></article></div>
+            <div class="col-6 col-md-4 col-lg"><article class="role-card"><span class="role-icon purple"><i class="bi bi-building"></i></span><h3>Principal</h3><p>Oversee school activities and support teachers and learners.</p></article></div>
+            <div class="col-6 col-md-4 col-lg"><article class="role-card"><span class="role-icon gold"><i class="bi bi-book"></i></span><h3>Teacher</h3><p>Create lessons, assign tasks, and track student progress.</p></article></div>
+            <div class="col-6 col-md-4 col-lg"><article class="role-card"><span class="role-icon cyan"><i class="bi bi-mortarboard-fill"></i></span><h3>Student</h3><p>Access materials, submit assignments, and learn anytime.</p></article></div>
+            <div class="col-6 col-md-4 col-lg"><article class="role-card"><span class="role-icon red"><i class="bi bi-person-hearts"></i></span><h3>Parent</h3><p>Monitor your child's progress and stay informed.</p></article></div>
+        </div>
+    </div>
+</section>
+{% endblock %}
