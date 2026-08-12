@@ -1,0 +1,60 @@
+{% extends 'accounts/auth_base.html' %}
+{% load socialaccount %}
+
+{% block title %}Login | District 1 LMS{% endblock %}
+{% block auth_card_class %}login-auth-card{% endblock %}
+{% block visual_heading %}Welcome back to your learning community.{% endblock %}
+{% block visual_text %}Access your classes, learning materials, and school information in one place.{% endblock %}
+
+{% block auth_content %}
+<div class="login-box shared-login-box">
+    <div class="auth-heading">
+        <span class="auth-heading-icon"><i class="bi bi-mortarboard-fill"></i></span>
+        <h1>Welcome Back!</h1>
+        <p>Sign in to continue to your account</p>
+    </div>
+
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors.0 }}</div>
+    {% endif %}
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="auth-input mb-3">
+            <i class="bi bi-envelope"></i>
+            <input class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                   id="id_email" name="email" type="email"
+                   value="{{ form.email.value|default:'' }}" placeholder="Email address"
+                   autocomplete="email" autofocus required>
+            {% if form.email.errors %}<div class="invalid-feedback">{{ form.email.errors.0 }}</div>{% endif %}
+        </div>
+
+        <div class="auth-input mb-2">
+            <i class="bi bi-lock"></i>
+            <input class="form-control {% if form.password.errors %}is-invalid{% endif %}"
+                   id="id_password" name="password" type="password"
+                   placeholder="Password" autocomplete="current-password" required>
+            <button class="password-toggle" type="button" data-password-toggle="#id_password" aria-label="Show password">
+                <i class="bi bi-eye"></i>
+            </button>
+            {% if form.password.errors %}<div class="invalid-feedback">{{ form.password.errors.0 }}</div>{% endif %}
+        </div>
+
+        <div class="text-end mb-4"><span class="muted-link">Forgot password?</span></div>
+        <button class="btn btn-auth-primary w-100" type="submit">
+            Login <i class="bi bi-arrow-right"></i>
+        </button>
+    </form>
+
+    <div class="or-divider"><span>OR</span></div>
+
+    <form method="post" action="{% url 'google_login' %}">
+        {% csrf_token %}
+        <button class="btn google-button w-100" type="submit">
+            <span class="google-g">G</span> Sign in with Google
+        </button>
+    </form>
+
+    <p class="switch-auth">Don’t have an account? <a href="{% url 'accounts:signup' %}">Sign up</a></p>
+</div>
+{% endblock %}

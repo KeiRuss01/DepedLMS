@@ -1,6 +1,59 @@
 {% extends 'master.html' %}
-{% block title %}School | Hybrid Learning Management System{% endblock %}
+{% load static %}
+{% block title %}Schools | Hybrid Learning Management System{% endblock %}
+{% block extra_css %}<link href="{% static 'css/schools.css' %}" rel="stylesheet">{% endblock %}
+
 {% block content %}
-<section class="page-hero"><div class="container site-container"><span class="eyebrow">District 1 · Dalipuga</span><h1>Our School Community</h1><p>Connecting school leaders, teachers, learners, and families through accessible digital learning.</p></div></section>
-<section class="content-section"><div class="container site-container"><div class="row g-4"><div class="col-md-4"><article class="content-card h-100"><span class="big-icon"><i class="bi bi-bullseye"></i></span><h2>Our Mission</h2><p>Deliver inclusive, relevant, and learner-centered education with technology that supports classroom and modular learning.</p></article></div><div class="col-md-4"><article class="content-card h-100"><span class="big-icon"><i class="bi bi-eye"></i></span><h2>Our Vision</h2><p>A connected school community where every learner can access quality education, wherever they are.</p></article></div><div class="col-md-4"><article class="content-card h-100"><span class="big-icon"><i class="bi bi-stars"></i></span><h2>Our Values</h2><p>Service, accountability, collaboration, respect, and continuous improvement guide our work.</p></article></div></div></div></section>
+<section class="page-hero">
+    <div class="container site-container">
+        <span class="eyebrow">District 1 · Dalipuga</span>
+        <h1>Our Registered Schools</h1>
+        <p>Discover the schools connected through the District 1 Hybrid Learning Management System.</p>
+    </div>
+</section>
+
+<section class="content-section school-directory-section">
+    <div class="container site-container">
+        <div class="section-heading text-center">
+            <span class="eyebrow">School Directory</span>
+            <h2>Schools in our community</h2>
+            <p>School information is maintained by the district supervisor and each school principal.</p>
+        </div>
+
+        {% if schools %}
+        <div class="row g-4">
+            {% for school in schools %}
+            <div class="col-md-6 col-xl-4">
+                <article class="public-school-card h-100">
+                    <div class="public-school-logo">
+                        {% if school.logo %}
+                            <img src="{{ school.logo.url }}" alt="{{ school.school_name }} logo">
+                        {% else %}
+                            <span><i class="bi bi-building"></i></span>
+                        {% endif %}
+                    </div>
+                    <div class="public-school-copy">
+                        <h2>{{ school.school_name }}</h2>
+                        {% if school.school_id_number %}<p><i class="bi bi-card-text"></i> DepEd ID: {{ school.school_id_number }}</p>{% endif %}
+                        {% if school.address %}<p><i class="bi bi-geo-alt"></i> {{ school.address }}</p>{% endif %}
+                        {% if school.district or school.division %}
+                            <div class="school-tags">
+                                {% if school.district %}<span>{{ school.district }}</span>{% endif %}
+                                {% if school.division %}<span>{{ school.division }}</span>{% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </article>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-school-directory text-center">
+            <i class="bi bi-building-add"></i>
+            <h2>No schools registered yet</h2>
+            <p>The district supervisor will add schools to this directory.</p>
+        </div>
+        {% endif %}
+    </div>
+</section>
 {% endblock %}

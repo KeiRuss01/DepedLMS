@@ -1,0 +1,17 @@
+{% extends "supervisor/master2.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block content %}
+<h1 class="sv-page-title h4">Dashboard</h1>
+<p class="sv-page-subtitle">
+    Welcome back, {{ request.user.full_name|default:request.user.email }}. This is a placeholder
+    dashboard — wire up real widgets (school counts, pending student approvals, teacher/parent
+    activity, etc.) here whenever you're ready.
+</p>
+
+<div class="sv-card">
+    <p class="mb-0 text-muted">No widgets yet. This area is intentionally left empty.</p>
+</div>
+{% endblock %}

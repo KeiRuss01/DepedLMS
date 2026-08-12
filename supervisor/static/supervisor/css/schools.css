@@ -1,0 +1,32 @@
+.sv-school-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.2rem;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 10px 28px rgba(21, 57, 96, .05);
+}
+.sv-school-logo { width: 64px; height: 64px; flex: 0 0 64px; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: var(--sky); }
+.sv-school-logo img { width: 100%; height: 100%; object-fit: contain; padding: .35rem; }
+.sv-school-logo span { display: grid; width: 100%; height: 100%; place-items: center; color: var(--royal); font-size: 1.6rem; }
+.sv-school-card h2 { margin: .15rem 0 .35rem; font-size: 1rem; font-weight: 800; }
+.sv-school-card p { margin: 0; color: var(--muted); font-size: .75rem; }
+.sv-school-card small { display: block; margin-top: .45rem; color: var(--muted); font-size: .7rem; line-height: 1.5; }
+.sv-empty-state { padding: 4rem 1rem; }
+.sv-empty-state > i { color: var(--royal); font-size: 3rem; }
+.sv-empty-state h2 { margin-top: 1rem; font-size: 1.2rem; font-weight: 800; }
+.sv-empty-state p { color: var(--muted); }
+.sv-back-link { display: inline-flex; align-items: center; gap: .45rem; color: var(--royal); font-size: .8rem; font-weight: 700; text-decoration: none; }
+.sv-school-form { max-width: 900px; }
+.school-form-section { margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--line); }
+.school-form-section h2 { font-size: .95rem; font-weight: 800; }
+.school-form-section label { display: block; margin-bottom: .4rem; font-size: .75rem; font-weight: 700; }
+.school-form-section label span { color: var(--muted); font-size: .65rem; font-weight: 500; }
+.school-form-section .form-control { min-height: 46px; border-color: var(--line); }
+.school-form-section textarea.form-control { min-height: 100px; }
+.form-text { color: var(--muted); font-size: .65rem; }
+.optional-badge { padding: .3rem .55rem; color: var(--royal); font-size: .65rem; font-weight: 700; border-radius: 999px; background: var(--sky); }
+.errorlist { margin: .35rem 0 0; padding: 0; color: #c63e4d; font-size: .7rem; list-style: none; }
+@media (max-width: 575.98px) { .sv-school-card { flex-wrap: wrap; } .sv-school-card .btn { width: 100%; } .sv-school-form { padding: 1rem; } }

@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-$@sr^(chned5f+=0)huzlp*0n$k0*ag9y$0$&tmen1(pqfyk8z'
+SECRET_KEY = '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'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -37,7 +37,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'landing'
+    'landing',
+    'accounts',
+    'supervisor',
+    "django.contrib.sites",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
 ]
 
 MIDDLEWARE = [
@@ -48,6 +55,11 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    "allauth.account.middleware.AccountMiddleware",
+
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 ROOT_URLCONF = 'DepedLMS.urls'
@@ -120,3 +132,45 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Custom user model (accounts app). Must be set before the first migration.
+AUTH_USER_MODEL = 'accounts.User'
+
+# Where Django sends people who hit a @login_required view while logged out,
+# and where it sends them after logging in/out. The supervisor app is the
+# only login-protected area at the moment.
+LOGIN_URL = 'accounts:login'
+LOGIN_REDIRECT_URL = 'accounts:home'
+LOGOUT_REDIRECT_URL = 'accounts:login'
+
+SITE_ID = 2
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
+
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+
+SOCIALACCOUNT_ADAPTER = "accounts.adapters.ExistingAccountOnlyAdapter"
+SOCIALACCOUNT_LOGIN_ON_GET = False
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {
+            "access_type": "online",
+        },
+        "EMAIL_AUTHENTICATION": True,
+        "VERIFIED_EMAIL": True,
+        "OAUTH_PKCE_ENABLED": True,
+    }
+}

@@ -1,0 +1,97 @@
+{% extends 'accounts/auth_base.html' %}
+
+{% block title %}Create Account | District 1 LMS{% endblock %}
+{% block auth_card_class %}signup-auth-card{% endblock %}
+{% block visual_heading %}Join your school community.{% endblock %}
+{% block visual_text %}Create one secure account, then access the tools and information provided for your role.{% endblock %}
+
+{% block auth_content %}
+<div class="signup-container">
+    <a class="back-link" href="{% url 'accounts:login' %}"><i class="bi bi-arrow-left"></i> Back to Login</a>
+
+    <div class="signup-heading">
+        <h1>Create Account</h1>
+        <p>Fill in the details below to create your account</p>
+    </div>
+
+    <div class="step-row" aria-label="Registration progress">
+        <div class="active"><span>1</span><small>Account Info</small></div>
+        <div class="active"><span>2</span><small>Role Details</small></div>
+        <div><span>3</span><small>Complete</small></div>
+    </div>
+
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    <form method="post" id="signupForm" novalidate>
+        {% csrf_token %}
+
+        <section class="form-section">
+            <h2>Account Information</h2>
+            <div class="row g-3">
+                <div class="col-md-6"><label for="id_firstname">First name</label>{{ form.firstname }}{{ form.firstname.errors }}</div>
+                <div class="col-md-6"><label for="id_lastname">Last name</label>{{ form.lastname }}{{ form.lastname.errors }}</div>
+                <div class="col-md-8"><label for="id_middlename">Middle name <span>Optional</span></label>{{ form.middlename }}{{ form.middlename.errors }}</div>
+                <div class="col-md-4"><label for="id_suffix">Suffix <span>Optional</span></label>{{ form.suffix }}{{ form.suffix.errors }}</div>
+                <div class="col-md-7"><label for="id_email">Email address</label>{{ form.email }}{{ form.email.errors }}</div>
+                <div class="col-md-5"><label for="id_phone_number">Phone number <span>Optional</span></label>{{ form.phone_number }}{{ form.phone_number.errors }}</div>
+                <div class="col-md-6"><label for="id_password1">Password</label><div class="password-field">{{ form.password1 }}<button type="button" data-password-toggle="#id_password1"><i class="bi bi-eye"></i></button></div>{{ form.password1.errors }}</div>
+                <div class="col-md-6"><label for="id_password2">Confirm password</label><div class="password-field">{{ form.password2 }}<button type="button" data-password-toggle="#id_password2"><i class="bi bi-eye"></i></button></div>{{ form.password2.errors }}</div>
+            </div>
+        </section>
+
+        <section class="form-section">
+            <h2>Select Your Role</h2>
+            <div class="role-grid">
+                <label class="role-card" data-role-card="student"><input type="radio" name="role" value="student" {% if form.role.value == 'student' or not form.role.value %}checked{% endif %}><span class="role-check"><i class="bi bi-check"></i></span><i class="bi bi-mortarboard-fill student-color"></i><strong>Student</strong><small>Access materials and submit assignments</small></label>
+                <label class="role-card" data-role-card="teacher"><input type="radio" name="role" value="teacher" {% if form.role.value == 'teacher' %}checked{% endif %}><span class="role-check"><i class="bi bi-check"></i></span><i class="bi bi-person-video3 teacher-color"></i><strong>Teacher</strong><small>Manage classes and student progress</small></label>
+                <label class="role-card" data-role-card="principal"><input type="radio" name="role" value="principal" {% if form.role.value == 'principal' %}checked{% endif %}><span class="role-check"><i class="bi bi-check"></i></span><i class="bi bi-bank2 principal-color"></i><strong>Principal</strong><small>Manage school records and personnel</small></label>
+                <label class="role-card" data-role-card="parent"><input type="radio" name="role" value="parent" {% if form.role.value == 'parent' %}checked{% endif %}><span class="role-check"><i class="bi bi-check"></i></span><i class="bi bi-people-fill parent-color"></i><strong>Parent</strong><small>Monitor your learner’s progress</small></label>
+            </div>
+            {{ form.role.errors }}
+        </section>
+
+        <section class="form-section role-details" data-role-section="student">
+            <h2>Student Information</h2>
+            <div class="row g-3">
+                <div class="col-md-6"><label for="id_school">School</label>{{ form.school }}{{ form.school.errors }}</div>
+                <div class="col-md-6"><label for="id_lrn">Learner Reference Number</label>{{ form.lrn }}{{ form.lrn.errors }}</div>
+                <div class="col-md-6"><label for="id_gender">Gender</label>{{ form.gender }}{{ form.gender.errors }}</div>
+                <div class="col-md-6"><label for="id_birth_date">Birth date</label>{{ form.birth_date }}{{ form.birth_date.errors }}</div>
+                <div class="col-12"><label for="id_address">Address <span>Optional</span></label>{{ form.address }}{{ form.address.errors }}</div>
+            </div>
+        </section>
+
+        <section class="form-section role-details" data-role-section="teacher">
+            <h2>Teacher Information</h2>
+            <div class="row g-3">
+                <div class="col-md-6"><label for="id_school">School</label><div data-school-copy></div></div>
+                <div class="col-md-6"><label for="id_employee_id">DepEd employee ID</label>{{ form.employee_id }}{{ form.employee_id.errors }}</div>
+                <div class="col-12"><label for="id_specialization">Specialization <span>Optional</span></label>{{ form.specialization }}{{ form.specialization.errors }}</div>
+            </div>
+        </section>
+
+        <section class="form-section role-details" data-role-section="principal">
+            <h2>Principal Information</h2>
+            <div class="row g-3">
+                <div class="col-md-6"><label for="id_school">School</label><div data-school-copy></div></div>
+                <div class="col-md-6"><label for="id_employee_id">DepEd employee ID</label><div data-employee-copy></div></div>
+                <div class="col-12"><label for="id_designation">Designation <span>Optional</span></label>{{ form.designation }}{{ form.designation.errors }}</div>
+            </div>
+        </section>
+
+        <section class="form-section role-details" data-role-section="parent">
+            <h2>Parent Information</h2>
+            <label for="id_relationship">Relationship to learner</label>{{ form.relationship }}{{ form.relationship.errors }}
+        </section>
+
+        <div class="terms-row">
+            <input class="form-check-input" id="id_agree_terms" name="agree_terms" type="checkbox" {% if form.agree_terms.value %}checked{% endif %}>
+            <label for="id_agree_terms">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></label>
+        </div>
+        {{ form.agree_terms.errors }}
+
+        <button class="btn btn-auth-primary w-100" type="submit">Create Account <i class="bi bi-arrow-right"></i></button>
+        <p class="switch-auth">Already have an account? <a href="{% url 'accounts:login' %}">Login</a></p>
+    </form>
+</div>
+{% endblock %}

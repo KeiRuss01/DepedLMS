@@ -1,0 +1,32 @@
+{% extends 'master.html' %}
+{% load static %}
+
+{% block extra_css %}
+    <link href="{% static 'accounts/css/auth.css' %}" rel="stylesheet">
+    <link href="{% static 'accounts/css/auth-layout.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<section class="shared-auth-section">
+    <div class="container site-container py-4 py-lg-5">
+        <div class="shared-auth-card {% block auth_card_class %}{% endblock %}">
+            <aside class="shared-auth-visual">
+                <img src="{% static 'images/img.jpg' %}" alt="District 1 school community">
+                <div class="shared-auth-overlay">
+                    <span class="shared-auth-badge"><i class="bi bi-shield-check"></i> District 1 LMS</span>
+                    <h1>{% block visual_heading %}Learn. Connect. Succeed.{% endblock %}</h1>
+                    <p>{% block visual_text %}One secure learning space for the whole school community.{% endblock %}</p>
+                </div>
+            </aside>
+
+            <div class="shared-auth-form-panel">
+                {% block auth_content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{% static 'accounts/js/auth.js' %}"></script>
+{% endblock %}

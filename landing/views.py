@@ -1,6 +1,8 @@
 from django.contrib import messages
 from django.shortcuts import render
 
+from accounts.models import School
+
 
 def home(request):
     return render(request, "home.html")
@@ -11,7 +13,8 @@ def download(request):
 
 
 def school(request):
-    return render(request, "school.html")
+    schools = School.objects.order_by("school_name")
+    return render(request, "school.html", {"schools": schools})
 
 
 def about(request):

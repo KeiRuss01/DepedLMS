@@ -1,0 +1,25 @@
+DISTRICT SUPERVISOR SETUP
+
+1. Make sure MySQL is running.
+
+2. Open a terminal in the folder containing manage.py.
+
+3. Create the supervisor table and default login:
+
+   py manage.py migrate
+
+4. Start the project:
+
+   py manage.py runserver
+
+5. Open:
+
+   http://127.0.0.1:8000/supervisor/login/
+
+DEFAULT LOGIN
+
+Username: district_supervisor
+Password: District@123
+
+This supervisor login is separate from the landing app. The supervisor must
+log in before opening /supervisor/dashboard/.

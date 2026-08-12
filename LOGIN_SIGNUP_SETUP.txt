@@ -1,0 +1,37 @@
+LOGIN AND SIGNUP SETUP
+
+1. Make sure MySQL is running.
+
+2. In the folder containing manage.py, run:
+
+   py manage.py migrate
+   py manage.py runserver
+
+3. Open the general user pages:
+
+   Login:  http://127.0.0.1:8000/accounts/login/
+   Signup: http://127.0.0.1:8000/accounts/signup/
+
+4. Student, Teacher, and Principal registration require an existing School.
+   Add your school records through Django Admin before testing those roles.
+   Parent registration does not require a school selection.
+
+ACCOUNT STORAGE
+
+- Email and hashed password are stored once in the users table.
+- Student information is stored in the student table.
+- Teacher information is stored in the teacher table.
+- Principal information is stored in the principal table.
+- Parent information is stored in the parent table.
+- The District Supervisor still uses the separate supervisor login.
+
+GOOGLE LOGIN
+
+The Google buttons are intentionally disabled because the supplied client
+secret was exposed in a screenshot and attachment. Delete or rotate that OAuth
+client secret in Google Cloud before using it. Never copy the client-secret JSON
+file into this project or commit it to Git.
+
+For a future Google integration, the local callback URL should be:
+
+http://127.0.0.1:8000/accounts/google/login/callback/

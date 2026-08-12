@@ -17,7 +17,7 @@
                 <h1>Hybrid Learning <span>Management System</span></h1>
                 <p class="hero-lead">An offline-capable learning management system designed for DepEd Iligan City Division – District 1 to support blended and modular learning.</p>
                 <div class="hero-actions d-flex flex-wrap gap-3">
-                    <a class="btn btn-primary btn-lg" href="/admin/"><i class="bi bi-box-arrow-in-right me-2"></i>Login to System</a>
+                    <a class="btn btn-primary btn-lg" href="{% url 'accounts:login' %}"><i class="bi bi-box-arrow-in-right me-2"></i>Login to System</a>
                     <a class="btn btn-outline-primary btn-lg download-action" href="{% url 'download' %}">
                         <i class="bi bi-download me-2"></i>
                         <span><strong>Download App</strong><small>Install PWA for offline access</small></span>

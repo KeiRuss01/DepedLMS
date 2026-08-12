@@ -1,0 +1,47 @@
+{% extends "supervisor/master2.html" %}
+{% load static %}
+
+{% block title %}Schools{% endblock %}
+{% block nav_schools %}active{% endblock %}
+{% block extra_css %}<link href="{% static 'supervisor/css/schools.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-4">
+    <div>
+        <h1 class="sv-page-title h4">Schools</h1>
+        <p class="sv-page-subtitle mb-0">Create the basic school profile. Only the school name is required.</p>
+    </div>
+    <a class="btn btn-primary" href="{% url 'supervisor:school_create' %}"><i class="bi bi-plus-lg me-2"></i>Add School</a>
+</div>
+
+{% if schools %}
+<div class="row g-4">
+    {% for school in schools %}
+    <div class="col-md-6 col-xl-4">
+        <article class="sv-school-card h-100">
+            <div class="sv-school-logo">
+                {% if school.logo %}
+                    <img src="{{ school.logo.url }}" alt="{{ school.school_name }} logo">
+                {% else %}
+                    <span><i class="bi bi-building"></i></span>
+                {% endif %}
+            </div>
+            <div class="flex-grow-1">
+                <h2>{{ school.school_name }}</h2>
+                <p>{% if school.school_id_number %}DepEd ID: {{ school.school_id_number }}{% else %}Basic profile{% endif %}</p>
+                {% if school.address %}<small><i class="bi bi-geo-alt me-1"></i>{{ school.address|truncatechars:70 }}</small>{% endif %}
+            </div>
+            <a class="btn btn-sm btn-outline-primary" href="{% url 'supervisor:school_edit' school.school_id %}"><i class="bi bi-pencil-square me-1"></i>Edit</a>
+        </article>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="sv-card sv-empty-state text-center">
+    <i class="bi bi-building-add"></i>
+    <h2>No schools yet</h2>
+    <p>Add the first school profile. You can start with only its name.</p>
+    <a class="btn btn-primary" href="{% url 'supervisor:school_create' %}">Add School</a>
+</div>
+{% endif %}
+{% endblock %}

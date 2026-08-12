@@ -12,6 +12,8 @@ db.sqlite3
 
 # Environment variables
 .env
+client_secret*.json
+*googleusercontent*.json
 
 # IDE
 .vscode/
