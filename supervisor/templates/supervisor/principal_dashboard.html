@@ -1,0 +1,19 @@
+{% extends "supervisor/master2.html" %}
+
+{% block title %}Principal Dashboard{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+
+{% block content %}
+<h1 class="sv-page-title h4">Principal Dashboard</h1>
+<p class="sv-page-subtitle">
+    Welcome, {{ request.user.full_name|default:request.user.email }}.
+</p>
+
+<div class="sv-card">
+    <h2 class="h6 fw-bold">Administration access is ready</h2>
+    <p class="mb-0 text-muted">
+        Your School Profile, Teachers, Students, Classes, and Reports pages
+        can be connected here in the next module.
+    </p>
+</div>
+{% endblock %}

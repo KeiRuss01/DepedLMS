@@ -1,0 +1,233 @@
+{% extends "classroom/master.html" %}
+
+{% block title %}{{ classroom.class_name }} | District 1 Classroom{% endblock %}
+
+{% block content %}
+
+<section class="classroom-banner">
+    <div class="classroom-banner-content">
+        <a href="{% url 'classroom:classes' %}"
+           class="classroom-banner-back">
+            <i class="bi bi-arrow-left"></i>Classes
+        </a>
+
+        <small>{{ classroom.subject }}</small>
+        <h1>{{ classroom.class_name }}</h1>
+        <p>
+            {{ classroom.grade_level }} ·
+            {{ classroom.section }} ·
+            {{ classroom.school_year }}
+        </p>
+    </div>
+
+    {% if is_teacher %}
+    <div class="classroom-banner-actions">
+        <div class="class-code-small">
+            <small>Class code</small>
+            <strong>{{ classroom.class_code }}</strong>
+        </div>
+
+        <a href="{% url 'classroom:class_detail' classroom.class_id %}"
+           class="btn btn-light">
+            <i class="bi bi-gear me-2"></i>Manage Class
+        </a>
+    </div>
+    {% endif %}
+</section>
+
+<nav class="class-navigation" aria-label="Class navigation">
+    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=stream"
+       class="class-navigation-link {% if active_tab == 'stream' %}active{% endif %}">
+        <i class="bi bi-chat-left-text"></i><span>Stream</span>
+    </a>
+
+    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=modules"
+       class="class-navigation-link {% if active_tab == 'modules' %}active{% endif %}">
+        <i class="bi bi-collection"></i><span>Modules</span>
+    </a>
+
+    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=activities"
+       class="class-navigation-link {% if active_tab == 'activities' %}active{% endif %}">
+        <i class="bi bi-clipboard-check"></i><span>Activities</span>
+    </a>
+
+    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=people"
+       class="class-navigation-link {% if active_tab == 'people' %}active{% endif %}">
+        <i class="bi bi-people"></i><span>People</span>
+    </a>
+
+    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=grades"
+       class="class-navigation-link {% if active_tab == 'grades' %}active{% endif %}">
+        <i class="bi bi-journal-check"></i><span>Grades</span>
+    </a>
+</nav>
+
+<div class="class-tab-content">
+
+    {% if active_tab == "stream" %}
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <section class="classroom-card">
+                <div class="class-tab-heading mb-0">
+                    <div>
+                        <h2>Class Stream</h2>
+                        <p>Announcements and new classroom content will appear here.</p>
+                    </div>
+
+                    {% if is_teacher %}
+                    <button class="btn btn-primary" type="button" disabled>
+                        <i class="bi bi-plus-lg me-2"></i>New Announcement
+                    </button>
+                    {% endif %}
+                </div>
+
+                <div class="grade-placeholder">
+                    <span><i class="bi bi-chat-left-text"></i></span>
+                    <h3>No class posts yet</h3>
+                    <p>The Stream will display published announcements and activities.</p>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-lg-4">
+            <section class="classroom-card h-100">
+                <div class="card-heading">
+                    <h2 class="h6 mb-0">Upcoming</h2>
+                </div>
+
+                <div class="dashboard-empty-card compact">
+                    <i class="bi bi-calendar-check"></i>
+                    <h4>No upcoming deadlines</h4>
+                    <p>Published activity deadlines will appear here.</p>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    {% elif active_tab == "modules" %}
+    <div class="class-tab-heading">
+        <div>
+            <h2>Learning Modules</h2>
+            <p>Lessons and learning materials organized by quarter.</p>
+        </div>
+
+        {% if is_teacher %}
+        <button class="btn btn-primary" type="button" disabled>
+            <i class="bi bi-plus-lg me-2"></i>Add Module
+        </button>
+        {% endif %}
+    </div>
+
+    <section class="classroom-card">
+        <div class="grade-placeholder">
+            <span><i class="bi bi-collection"></i></span>
+            <h3>No learning modules yet</h3>
+            <p>Published modules will appear in this section.</p>
+        </div>
+    </section>
+
+    {% elif active_tab == "activities" %}
+    <div class="class-tab-heading">
+        <div>
+            <h2>Class Activities</h2>
+            <p>Assignments, quizzes and other classroom activities.</p>
+        </div>
+
+        {% if is_teacher %}
+        <button class="btn btn-primary" type="button" disabled>
+            <i class="bi bi-plus-lg me-2"></i>Create Activity
+        </button>
+        {% endif %}
+    </div>
+
+    <section class="classroom-card">
+        <div class="grade-placeholder">
+            <span><i class="bi bi-clipboard-check"></i></span>
+            <h3>No activities yet</h3>
+            <p>Published assignments and quizzes will appear here.</p>
+        </div>
+    </section>
+
+    {% elif active_tab == "people" %}
+    <div class="class-tab-heading">
+        <div>
+            <h2>People</h2>
+            <p>The Teacher and enrolled Students in this class.</p>
+        </div>
+
+        {% if is_teacher %}
+        <a href="{% url 'classroom:class_detail' classroom.class_id %}"
+           class="btn btn-primary">
+            <i class="bi bi-person-plus me-2"></i>Manage Students
+        </a>
+        {% endif %}
+    </div>
+
+    <section class="classroom-card people-section mb-4">
+        <div class="people-section-heading">
+            <h3>Teacher</h3>
+        </div>
+
+        <div class="person-row">
+            <span class="person-avatar teacher-avatar">
+                {{ classroom.teacher.firstname|slice:":1"|upper }}
+            </span>
+
+            <div>
+                <strong>{{ classroom.teacher }}</strong>
+                <small>{{ classroom.teacher.user.email }}</small>
+            </div>
+
+            <span class="badge text-bg-primary">Teacher</span>
+        </div>
+    </section>
+
+    <section class="classroom-card people-section">
+        <div class="people-section-heading">
+            <h3>Students <span>{{ enrolled_students|length }}</span></h3>
+        </div>
+
+        {% for enrollment in enrolled_students %}
+        <div class="person-row">
+            <span class="person-avatar">
+                {{ enrollment.student.firstname|slice:":1"|upper }}
+            </span>
+
+            <div>
+                <strong>{{ enrollment.student }}</strong>
+                <small>{{ enrollment.student.user.email }}</small>
+            </div>
+
+            <span class="badge text-bg-success">Enrolled</span>
+        </div>
+        {% empty %}
+        <div class="empty-state">No Students are enrolled in this class yet.</div>
+        {% endfor %}
+    </section>
+
+    {% elif active_tab == "grades" %}
+    <div class="class-tab-heading">
+        <div>
+            <h2>{% if is_teacher %}Gradebook{% else %}My Grades{% endif %}</h2>
+            <p>
+                {% if is_teacher %}
+                    Student grades will be managed here.
+                {% else %}
+                    Your published grades will appear here.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <section class="classroom-card">
+        <div class="grade-placeholder">
+            <span><i class="bi bi-journal-check"></i></span>
+            <h3>No grade records yet</h3>
+            <p>Published grade records will appear in this section.</p>
+        </div>
+    </section>
+    {% endif %}
+
+</div>
+
+{% endblock %}

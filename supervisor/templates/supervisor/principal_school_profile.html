@@ -1,0 +1,71 @@
+{% extends "supervisor/master2.html" %}
+{% load static %}
+
+{% block title %}School Profile{% endblock %}
+{% block nav_school_profile %}active{% endblock %}
+{% block extra_css %}<link href="{% static 'supervisor/css/schools.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 class="sv-page-title h4">School Profile</h1>
+    <p class="sv-page-subtitle">Complete and maintain the information for your assigned school.</p>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="sv-card sv-school-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    <div class="school-form-section">
+        <h2>Basic Profile</h2>
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label for="{{ form.school_name.id_for_label }}">School name <span class="text-danger">*</span></label>
+                {{ form.school_name }}{{ form.school_name.errors }}
+            </div>
+            <div class="col-md-4">
+                <label for="{{ form.logo.id_for_label }}">School logo <span>Optional</span></label>
+                {% if school.logo %}
+                <div class="mb-2"><img src="{{ school.logo.url }}" alt="{{ school.school_name }} logo" style="width:64px;height:64px;object-fit:contain"></div>
+                {% endif %}
+                {{ form.logo }}{{ form.logo.errors }}
+                <small class="form-text">JPG, PNG, or WebP</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="school-form-section">
+        <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+            <h2 class="mb-0">Official Information</h2>
+            <span class="optional-badge">Complete when available</span>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label for="{{ form.school_id_number.id_for_label }}">DepEd School ID</label>
+                {{ form.school_id_number }}{{ form.school_id_number.errors }}
+            </div>
+            <div class="col-md-6">
+                <label for="{{ form.region.id_for_label }}">Region</label>
+                {{ form.region }}{{ form.region.errors }}
+            </div>
+            <div class="col-md-6">
+                <label for="{{ form.division.id_for_label }}">Division</label>
+                {{ form.division }}{{ form.division.errors }}
+            </div>
+            <div class="col-md-6">
+                <label for="{{ form.district.id_for_label }}">District</label>
+                {{ form.district }}{{ form.district.errors }}
+            </div>
+            <div class="col-12">
+                <label for="{{ form.address.id_for_label }}">Address</label>
+                {{ form.address }}{{ form.address.errors }}
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end">
+        <button class="btn btn-primary" type="submit">
+            <i class="bi bi-check-lg me-2"></i>Save School Profile
+        </button>
+    </div>
+</form>
+{% endblock %}

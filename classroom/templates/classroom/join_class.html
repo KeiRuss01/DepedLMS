@@ -1,0 +1,51 @@
+{% extends "classroom/master.html" %}
+
+{% block title %}Join Class | District 1 Classroom{% endblock %}
+
+{% block content %}
+
+<div class="form-page">
+    <a href="{% url 'classroom:classes' %}"
+       class="back-link">
+        <i class="bi bi-arrow-left"></i>
+        Back to dashboard
+    </a>
+
+    <div class="classroom-card form-card join-class-card">
+        <div class="join-class-icon">
+            <i class="bi bi-door-open"></i>
+        </div>
+
+        <h1 class="h4 fw-bold">Join a Class</h1>
+
+        <p class="text-muted">
+            Enter the code provided by your Teacher.
+            Your request must be approved before you can enter the class.
+        </p>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="mb-3 text-start">
+                <label class="form-label"
+                       for="{{ form.class_code.id_for_label }}">
+                    Class code
+                </label>
+
+                {{ form.class_code }}
+
+                {% for error in form.class_code.errors %}
+                    <div class="text-danger small mt-1">
+                        {{ error }}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <button class="btn btn-primary w-100" type="submit">
+                Request to Join
+            </button>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

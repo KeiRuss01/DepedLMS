@@ -1,0 +1,66 @@
+{% extends "supervisor/master2.html" %}
+{% load static %}
+
+{% block title %}Teachers{% endblock %}
+{% block nav_teachers %}active{% endblock %}
+{% block extra_css %}<link href="{% static 'supervisor/css/principals.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-4">
+    <div>
+        <h1 class="sv-page-title h4">Teachers</h1>
+        <p class="sv-page-subtitle mb-0">{{ school.school_name }} Teacher accounts.</p>
+    </div>
+    <a class="btn btn-primary" href="{% url 'supervisor:teacher_create' %}">
+        <i class="bi bi-person-plus me-2"></i>Add Teacher
+    </a>
+</div>
+
+{% if teachers %}
+<div class="sv-card p-0 overflow-hidden">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0 principal-table">
+            <thead>
+                <tr>
+                    <th>Teacher</th>
+                    <th>School</th>
+                    <th>Account</th>
+                    <th>Profile</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for teacher in teachers %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="principal-avatar">{{ teacher.firstname|slice:":1" }}{{ teacher.lastname|slice:":1" }}</span>
+                            <span>
+                                <strong class="d-block">{{ teacher.firstname }} {{ teacher.lastname }}</strong>
+                                <small>{{ teacher.user.email }}</small>
+                            </span>
+                        </div>
+                    </td>
+                    <td>{{ teacher.school.school_name }}</td>
+                    <td><span class="status-badge status-{{ teacher.user.status }}">{{ teacher.user.get_status_display }}</span></td>
+                    <td>
+                        {% if teacher.employee_id %}
+                            <span class="text-success"><i class="bi bi-check-circle me-1"></i>Completed</span>
+                        {% else %}
+                            <span class="text-muted"><i class="bi bi-clock me-1"></i>Basic account</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="sv-card principal-empty text-center">
+    <i class="bi bi-person-workspace"></i>
+    <h2>No Teacher accounts yet</h2>
+    <p>Create a basic account so a Teacher can sign in to the Classroom Portal.</p>
+    <a class="btn btn-primary" href="{% url 'supervisor:teacher_create' %}">Add Teacher</a>
+</div>
+{% endif %}
+{% endblock %}

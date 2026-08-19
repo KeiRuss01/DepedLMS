@@ -1,17 +1,16 @@
 {% extends 'accounts/auth_base.html' %}
-{% load socialaccount %}
 
-{% block title %}Login | District 1 LMS{% endblock %}
+{% block title %}Classroom Login | District 1 LMS{% endblock %}
 {% block auth_card_class %}login-auth-card{% endblock %}
-{% block visual_heading %}Welcome back to your learning community.{% endblock %}
-{% block visual_text %}Access your classes, learning materials, and school information in one place.{% endblock %}
+{% block visual_heading %}Teach, learn, and stay connected.{% endblock %}
+{% block visual_text %}Classroom access for Teachers, Students, and Parents.{% endblock %}
 
 {% block auth_content %}
 <div class="login-box shared-login-box">
     <div class="auth-heading">
         <span class="auth-heading-icon"><i class="bi bi-mortarboard-fill"></i></span>
-        <h1>Welcome Back!</h1>
-        <p>Sign in to continue to your account</p>
+        <h1>Classroom Portal</h1>
+        <p>Teacher, Student, and Parent sign in</p>
     </div>
 
     {% if form.non_field_errors %}
@@ -48,13 +47,13 @@
 
     <div class="or-divider"><span>OR</span></div>
 
-    <form method="post" action="{% url 'google_login' %}">
-        {% csrf_token %}
-        <button class="btn google-button w-100" type="submit">
-            <span class="google-g">G</span> Sign in with Google
-        </button>
-    </form>
+    <button class="btn google-button w-100" type="button" disabled aria-disabled="true"
+            title="Google sign-in will be available later">
+        <span class="google-g">G</span> Sign in with Google
+    </button>
+    <p class="google-note">Google sign-in is not available yet.</p>
 
     <p class="switch-auth">Don’t have an account? <a href="{% url 'accounts:signup' %}">Sign up</a></p>
+    <p class="google-note">Public signup is for Students and Parents. Teachers receive an account from their Principal.</p>
 </div>
 {% endblock %}

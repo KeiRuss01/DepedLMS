@@ -1,0 +1,38 @@
+.principal-table th { padding: 1rem 1.2rem; color: var(--muted); font-size: .72rem; text-transform: uppercase; background: #f7f9fc; }
+.principal-table td { padding: 1rem 1.2rem; font-size: .82rem; border-color: var(--line); }
+.principal-table td small { color: var(--muted); }
+.principal-avatar { display: grid; width: 42px; height: 42px; flex: 0 0 42px; place-items: center; color: #fff; font-size: .75rem; font-weight: 800; border-radius: 50%; background: var(--royal); }
+.status-badge { display: inline-flex; padding: .3rem .55rem; font-size: .68rem; font-weight: 700; border-radius: 999px; }
+.status-active { color: #167447; background: #e4f7ed; }
+.status-inactive, .status-suspended { color: #9a4b25; background: #fff0e6; }
+.principal-empty { padding: 4rem 1rem; }
+.principal-empty > i { color: var(--royal); font-size: 3rem; }
+.principal-empty h2 { margin-top: 1rem; font-size: 1.2rem; font-weight: 800; }
+.principal-empty p { color: var(--muted); }
+.sv-back-link { display: inline-flex; align-items: center; gap: .45rem; color: var(--royal); font-size: .8rem; font-weight: 700; text-decoration: none; }
+.principal-form { max-width: 850px; }
+.principal-form-section { margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--line); }
+.principal-form-section h2 { margin-bottom: 1rem; font-size: .95rem; font-weight: 800; }
+.principal-form-section label { display: block; margin-bottom: .4rem; font-size: .75rem; font-weight: 700; }
+.principal-form-section label span { color: var(--muted); font-size: .65rem; font-weight: 500; }
+.principal-form-section .form-control,
+.principal-form-section .form-select { min-height: 46px; border-color: var(--line); }
+.form-text { color: var(--muted); font-size: .66rem; }
+.profile-later-note { display: flex; align-items: flex-start; gap: .65rem; padding: .9rem; color: #53657a; font-size: .75rem; line-height: 1.55; border-radius: .7rem; background: var(--sky); }
+.profile-later-note i { color: var(--royal); }
+.errorlist { margin: .35rem 0 0; padding: 0; color: #c63e4d; font-size: .7rem; list-style: none; }
+
+@media (max-width: 767.98px) {
+    .principal-table thead { display: none; }
+    .principal-table,
+    .principal-table tbody,
+    .principal-table tr,
+    .principal-table td { display: block; width: 100%; }
+    .principal-table tr { padding: .8rem 0; border-bottom: 1px solid var(--line); }
+    .principal-table td { padding: .45rem 1rem; border: 0; }
+    .principal-table td:not(:first-child) { padding-left: 4.65rem; }
+}
+
+@media (max-width: 575.98px) {
+    .principal-form { padding: 1rem; }
+}

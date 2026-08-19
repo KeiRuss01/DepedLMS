@@ -4,10 +4,10 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Supervisor Portal{% endblock %} | Hybrid LMS</title>
+    <title>{% block title %}Administration Portal{% endblock %} | Hybrid LMS</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}" rel="stylesheet">
     <link href="{% static 'supervisor/css/dashboard.css' %}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
 </head>
@@ -19,11 +19,11 @@
             <button class="sv-sidebar-toggle" id="svSidebarToggle" type="button" aria-label="Toggle sidebar">
                 <i class="bi bi-list"></i>
             </button>
-            <a class="sv-brand" href="{% url 'supervisor:dashboard' %}">
+            <a class="sv-brand" href="{% if request.user.role == 'principal' %}{% url 'supervisor:principal_dashboard' %}{% else %}{% url 'supervisor:dashboard' %}{% endif %}">
                 <span class="sv-brand-seal">D1</span>
                 <span class="sv-brand-copy">
                     <strong>Hybrid LMS</strong>
-                    <small>Supervisor Portal</small>
+                    <small>Administration Portal</small>
                 </span>
             </a>
         </div>
@@ -38,11 +38,11 @@
                 <button class="sv-user-menu btn btn-link text-decoration-none p-0 border-0" type="button"
                         data-bs-toggle="dropdown" aria-expanded="false">
                     <span class="sv-avatar">
-                        {{ request.user.supervisor_profile.firstname|default:"S"|slice:":1" }}
+                        {{ request.user.full_name|default:request.user.email|slice:":1" }}
                     </span>
                     <span class="sv-user-copy d-none d-sm-block">
                         <strong>{{ request.user.full_name|default:request.user.email }}</strong>
-                        <small>District Supervisor</small>
+                        <small>{{ request.user.get_role_display }}</small>
                     </span>
                     <i class="bi bi-chevron-down small ms-1 d-none d-sm-inline"></i>
                 </button>
@@ -63,16 +63,23 @@
     <!-- Left navigation -->
     <aside class="sv-sidebar">
         <div class="sv-nav-section">Main</div>
-        <a class="sv-nav-link {% block nav_dashboard %}{% endblock %}" href="{% url 'supervisor:dashboard' %}">
+        <a class="sv-nav-link {% block nav_dashboard %}{% endblock %}" href="{% if request.user.role == 'principal' %}{% url 'supervisor:principal_dashboard' %}{% else %}{% url 'supervisor:dashboard' %}{% endif %}">
             <i class="bi bi-grid-1x2"></i> Dashboard
         </a>
 
         <div class="sv-nav-section">Management</div>
+        {% if request.user.role == 'supervisor' %}
         <a class="sv-nav-link {% block nav_schools %}{% endblock %}" href="{% url 'supervisor:schools' %}"><i class="bi bi-building"></i> Schools</a>
-        <a class="sv-nav-link disabled" href="#"><i class="bi bi-person-badge"></i> Principals</a>
+        <a class="sv-nav-link {% block nav_principals %}{% endblock %}" href="{% url 'supervisor:principals' %}"><i class="bi bi-person-badge"></i> Principals</a>
         <a class="sv-nav-link disabled" href="#"><i class="bi bi-person-workspace"></i> Teachers</a>
         <a class="sv-nav-link disabled" href="#"><i class="bi bi-mortarboard"></i> Students</a>
         <a class="sv-nav-link disabled" href="#"><i class="bi bi-people"></i> Parents</a>
+        {% else %}
+        <a class="sv-nav-link {% block nav_school_profile %}{% endblock %}" href="{% url 'supervisor:principal_school_profile' %}"><i class="bi bi-building"></i> School Profile</a>
+        <a class="sv-nav-link {% block nav_teachers %}{% endblock %}" href="{% url 'supervisor:teachers' %}"><i class="bi bi-person-workspace"></i> Teachers</a>
+        <a class="sv-nav-link disabled" href="#"><i class="bi bi-mortarboard"></i> Students</a>
+        <a class="sv-nav-link disabled" href="#"><i class="bi bi-journal-bookmark"></i> Classes</a>
+        {% endif %}
 
         <div class="sv-nav-section">System</div>
         <a class="sv-nav-link disabled" href="#"><i class="bi bi-bar-chart"></i> Reports</a>
@@ -94,7 +101,7 @@
         {% block content %}{% endblock %}
     </main>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     <script src="{% static 'supervisor/js/dashboard.js' %}"></script>
     {% block extra_js %}{% endblock %}
 </body>

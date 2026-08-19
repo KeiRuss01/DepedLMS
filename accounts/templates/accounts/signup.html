@@ -41,14 +41,16 @@
 
         <section class="form-section">
             <h2>Select Your Role</h2>
-            <div class="role-grid">
+            <div class="role-grid public-role-grid">
                 <label class="role-card" data-role-card="student"><input type="radio" name="role" value="student" {% if form.role.value == 'student' or not form.role.value %}checked{% endif %}><span class="role-check"><i class="bi bi-check"></i></span><i class="bi bi-mortarboard-fill student-color"></i><strong>Student</strong><small>Access materials and submit assignments</small></label>
-                <label class="role-card" data-role-card="teacher"><input type="radio" name="role" value="teacher" {% if form.role.value == 'teacher' %}checked{% endif %}><span class="role-check"><i class="bi bi-check"></i></span><i class="bi bi-person-video3 teacher-color"></i><strong>Teacher</strong><small>Manage classes and student progress</small></label>
-                <label class="role-card" data-role-card="principal"><input type="radio" name="role" value="principal" {% if form.role.value == 'principal' %}checked{% endif %}><span class="role-check"><i class="bi bi-check"></i></span><i class="bi bi-bank2 principal-color"></i><strong>Principal</strong><small>Manage school records and personnel</small></label>
                 <label class="role-card" data-role-card="parent"><input type="radio" name="role" value="parent" {% if form.role.value == 'parent' %}checked{% endif %}><span class="role-check"><i class="bi bi-check"></i></span><i class="bi bi-people-fill parent-color"></i><strong>Parent</strong><small>Monitor your learner’s progress</small></label>
             </div>
             {{ form.role.errors }}
         </section>
+            <p class="staff-account-note mb-0">
+                <i class="bi bi-shield-check"></i>
+                Teacher and Principal accounts are issued by an authorized administrator.
+            </p>
 
         <section class="form-section role-details" data-role-section="student">
             <h2>Student Information</h2>
@@ -58,24 +60,6 @@
                 <div class="col-md-6"><label for="id_gender">Gender</label>{{ form.gender }}{{ form.gender.errors }}</div>
                 <div class="col-md-6"><label for="id_birth_date">Birth date</label>{{ form.birth_date }}{{ form.birth_date.errors }}</div>
                 <div class="col-12"><label for="id_address">Address <span>Optional</span></label>{{ form.address }}{{ form.address.errors }}</div>
-            </div>
-        </section>
-
-        <section class="form-section role-details" data-role-section="teacher">
-            <h2>Teacher Information</h2>
-            <div class="row g-3">
-                <div class="col-md-6"><label for="id_school">School</label><div data-school-copy></div></div>
-                <div class="col-md-6"><label for="id_employee_id">DepEd employee ID</label>{{ form.employee_id }}{{ form.employee_id.errors }}</div>
-                <div class="col-12"><label for="id_specialization">Specialization <span>Optional</span></label>{{ form.specialization }}{{ form.specialization.errors }}</div>
-            </div>
-        </section>
-
-        <section class="form-section role-details" data-role-section="principal">
-            <h2>Principal Information</h2>
-            <div class="row g-3">
-                <div class="col-md-6"><label for="id_school">School</label><div data-school-copy></div></div>
-                <div class="col-md-6"><label for="id_employee_id">DepEd employee ID</label><div data-employee-copy></div></div>
-                <div class="col-12"><label for="id_designation">Designation <span>Optional</span></label>{{ form.designation }}{{ form.designation.errors }}</div>
             </div>
         </section>
 

@@ -9,10 +9,19 @@ from .models import User
 
 
 def login_view(request):
+    classroom_roles = {
+        User.Role.TEACHER,
+        User.Role.STUDENT,
+        User.Role.PARENT,
+    }
     if request.user.is_authenticated:
         return _role_redirect(request.user)
 
-    form = AccountLoginForm(request=request, data=request.POST or None)
+    form = AccountLoginForm(
+        request=request,
+        data=request.POST or None,
+        allowed_roles=classroom_roles,
+    )
     if request.method == "POST" and form.is_valid():
         user = form.get_user()
         login(request, user)
@@ -37,9 +46,7 @@ def signup_view(request):
 
 @login_required(login_url="accounts:login")
 def account_home(request):
-    if request.user.role == User.Role.SUPERVISOR:
-        return redirect("supervisor:dashboard")
-    return render(request, "accounts/account_home.html")
+    return _role_redirect(request.user)
 
 
 @require_POST
@@ -52,4 +59,15 @@ def logout_view(request):
 def _role_redirect(user):
     if user.role == User.Role.SUPERVISOR:
         return redirect("supervisor:dashboard")
-    return redirect("accounts:home")
+
+    if user.role == User.Role.PRINCIPAL:
+        return redirect("supervisor:principal_dashboard")
+
+    if user.role in {
+        User.Role.TEACHER,
+        User.Role.STUDENT,
+        User.Role.PARENT,
+    }:
+        return redirect("classroom:dashboard")
+
+    return redirect("accounts:login")

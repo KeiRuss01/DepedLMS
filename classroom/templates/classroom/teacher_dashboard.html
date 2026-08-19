@@ -1,0 +1,108 @@
+{% extends "classroom/master.html" %}
+
+{% block title %}Teacher Dashboard | District 1 Classroom{% endblock %}
+
+{% block content %}
+
+<section class="class-shelf-section" id="class-shelf">
+    <div class="section-heading">
+        <div>
+            <h1 class="section-title">Recent Classes</h1>
+            <p class="section-description">Open one of your active classes.</p>
+        </div>
+
+        <a href="{% url 'classroom:classes' %}" class="view-all-link">
+            View all classes
+        </a>
+    </div>
+
+    <div class="class-shelf">
+        {% for classroom in classrooms %}
+        <a href="{% url 'classroom:class_page' classroom.class_id %}"
+           class="class-chip">
+            <span class="class-chip-icon science">
+                <i class="bi bi-book"></i>
+            </span>
+
+            <span>
+                <strong>{{ classroom.class_name }}</strong>
+                <small>
+                    {{ classroom.grade_level }} · {{ classroom.section }}
+                </small>
+            </span>
+        </a>
+        {% empty %}
+        <div class="empty-class-shelf">
+            <p class="mb-2">You have not created a class yet.</p>
+            <a href="{% url 'classroom:create_class' %}">
+                Create your first class
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="dashboard-heading">
+    <div>
+        <h2>
+            Good day, {{ request.user.full_name|default:"Teacher" }}!
+        </h2>
+        <p>Here is what currently needs your attention.</p>
+    </div>
+
+    <a href="{% url 'classroom:create_class' %}"
+       class="btn btn-primary classroom-primary-button">
+        <i class="bi bi-plus-lg me-2"></i>Create Class
+    </a>
+</section>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <section class="classroom-card h-100">
+            <div class="card-heading">
+                <h3>Today</h3>
+            </div>
+
+            <div class="dashboard-empty-card">
+                <i class="bi bi-calendar2-check"></i>
+                <h4>No scheduled items</h4>
+                <p>Your class schedule will appear here when it is available.</p>
+            </div>
+        </section>
+    </div>
+
+    <div class="col-lg-5">
+        <section class="classroom-card h-100">
+            <div class="card-heading">
+                <h3>Needs Attention</h3>
+                <a href="{% url 'classroom:classes' %}">View classes</a>
+            </div>
+
+            <div class="attention-list">
+                {% for enrollment in join_requests %}
+                <a href="{% url 'classroom:class_detail' enrollment.classroom.class_id %}"
+                   class="attention-item">
+                    <span class="attention-icon">
+                        <i class="bi bi-person-plus"></i>
+                    </span>
+
+                    <span>
+                        <strong>{{ enrollment.student }}</strong>
+                        <small>
+                            Requested to join {{ enrollment.classroom.class_name }}
+                        </small>
+                    </span>
+                </a>
+                {% empty %}
+                <div class="dashboard-empty-card compact">
+                    <i class="bi bi-check2-circle"></i>
+                    <h4>Nothing needs attention</h4>
+                    <p>New Student join requests will appear here.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</div>
+
+{% endblock %}

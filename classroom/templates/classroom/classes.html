@@ -1,0 +1,290 @@
+{% extends "classroom/master.html" %}
+
+{% block title %}Classes | District 1 Classroom{% endblock %}
+
+{% block content %}
+
+<section class="dashboard-heading classes-page-heading">
+    <div>
+        <h1>Classes</h1>
+        {% if request.user.role == "teacher" %}
+            <p>Create and manage the classes assigned to you.</p>
+        {% elif request.user.role == "student" %}
+            <p>Open your enrolled classes or join using a class code.</p>
+        {% else %}
+            <p>View the classes of your linked learner.</p>
+        {% endif %}
+    </div>
+
+    {% if request.user.role == "teacher" %}
+        <a href="{% url 'classroom:create_class' %}"
+           class="btn btn-primary classroom-primary-button">
+            <i class="bi bi-plus-lg me-2"></i>Create Class
+        </a>
+    {% elif request.user.role == "student" %}
+        <a href="{% url 'classroom:join_class' %}"
+           class="btn btn-primary classroom-primary-button">
+            <i class="bi bi-door-open me-2"></i>Join Class
+        </a>
+    {% endif %}
+</section>
+
+{% if request.user.role == "teacher" %}
+
+    {% if join_requests %}
+    <section class="classroom-card mb-4">
+        <div class="card-heading">
+            <h2 class="h6 mb-0">Join Requests</h2>
+        </div>
+
+        {% for enrollment in join_requests %}
+        <div class="member-row">
+            <div>
+                <strong>{{ enrollment.student }}</strong>
+                <small>
+                    {{ enrollment.student.user.email }} ·
+                    {{ enrollment.classroom.class_name }}
+                </small>
+            </div>
+
+            <a href="{% url 'classroom:class_detail' enrollment.classroom.class_id %}"
+               class="btn btn-sm btn-outline-primary">
+                Review
+            </a>
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    <section class="classes-section">
+        <div class="classes-section-heading">
+            <h2>Active Classes</h2>
+            <span>{{ active_classes|length }}</span>
+        </div>
+
+        <div class="classes-grid">
+            {% for classroom in active_classes %}
+            <article class="class-list-card">
+                <div class="class-list-card-top">
+                    <span class="class-card-icon">
+                        <i class="bi bi-book"></i>
+                    </span>
+                    <span class="badge text-bg-light border">
+                        {{ classroom.get_quarter_display }}
+                    </span>
+                </div>
+
+                <div class="class-list-card-body">
+                    <small>{{ classroom.subject }}</small>
+                    <h3>{{ classroom.class_name }}</h3>
+                    <p>
+                        {{ classroom.grade_level }} · {{ classroom.section }}<br>
+                        {{ classroom.school_year }}
+                    </p>
+                </div>
+
+                <div class="class-list-card-footer">
+                    <span>Code: <strong>{{ classroom.class_code }}</strong></span>
+                    <a href="{% url 'classroom:class_page' classroom.class_id %}">
+                        Open <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+            {% empty %}
+            <div class="empty-state classes-empty-state">
+                <i class="bi bi-journal-plus"></i>
+                <h3>No active classes</h3>
+                <p>Create your first class to get started.</p>
+                <a href="{% url 'classroom:create_class' %}"
+                   class="btn btn-primary btn-sm">Create Class</a>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    {% if archived_classes %}
+    <section class="classes-section mt-5">
+        <div class="classes-section-heading">
+            <h2>Archived Classes</h2>
+            <span>{{ archived_classes|length }}</span>
+        </div>
+
+        <div class="classes-grid">
+            {% for classroom in archived_classes %}
+            <article class="class-list-card archived">
+                <div class="class-list-card-body">
+                    <small>{{ classroom.subject }}</small>
+                    <h3>{{ classroom.class_name }}</h3>
+                    <p>{{ classroom.grade_level }} · {{ classroom.section }}</p>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+{% elif request.user.role == "student" %}
+
+    {% if invitations %}
+    <section class="classroom-card invitation-card mb-4">
+        <div class="card-heading">
+            <h2 class="h6 mb-0">Class Invitations</h2>
+        </div>
+
+        {% for invitation in invitations %}
+        <div class="member-row">
+            <div>
+                <strong>{{ invitation.classroom.class_name }}</strong>
+                <small>Invited by {{ invitation.classroom.teacher }}</small>
+            </div>
+
+            <div class="d-flex gap-2">
+                <form method="post"
+                      action="{% url 'classroom:respond_to_invitation' invitation.enrollment_id 'decline' %}">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-light border" type="submit">
+                        Decline
+                    </button>
+                </form>
+
+                <form method="post"
+                      action="{% url 'classroom:respond_to_invitation' invitation.enrollment_id 'accept' %}">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-primary" type="submit">
+                        Accept
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    {% if pending_requests %}
+    <section class="classroom-card mb-4">
+        <div class="card-heading">
+            <h2 class="h6 mb-0">Pending Join Requests</h2>
+        </div>
+
+        {% for enrollment in pending_requests %}
+        <div class="member-row">
+            <div>
+                <strong>{{ enrollment.classroom.class_name }}</strong>
+                <small>{{ enrollment.classroom.teacher }}</small>
+            </div>
+            <span class="badge text-bg-warning">Waiting for Teacher</span>
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    <section class="classes-section">
+        <div class="classes-section-heading">
+            <h2>My Classes</h2>
+            <span>{{ enrollments|length }}</span>
+        </div>
+
+        <div class="classes-grid">
+            {% for enrollment in enrollments %}
+            <article class="class-list-card">
+                <div class="class-list-card-top">
+                    <span class="class-card-icon">
+                        <i class="bi bi-book"></i>
+                    </span>
+                    <span class="badge text-bg-success">Enrolled</span>
+                </div>
+
+                <div class="class-list-card-body">
+                    <small>{{ enrollment.classroom.subject }}</small>
+                    <h3>{{ enrollment.classroom.class_name }}</h3>
+                    <p>
+                        {{ enrollment.classroom.grade_level }} ·
+                        {{ enrollment.classroom.section }}<br>
+                        Teacher: {{ enrollment.classroom.teacher }}
+                    </p>
+                </div>
+
+                <div class="class-list-card-footer">
+                    <span>{{ enrollment.classroom.school_year }}</span>
+                    <a href="{% url 'classroom:class_page' enrollment.classroom.class_id %}">
+                        Open <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </article>
+            {% empty %}
+            <div class="empty-state classes-empty-state">
+                <i class="bi bi-door-open"></i>
+                <h3>No enrolled classes</h3>
+                <p>Join a class using the code provided by your Teacher.</p>
+                <a href="{% url 'classroom:join_class' %}"
+                   class="btn btn-primary btn-sm">Join Class</a>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+{% else %}
+
+    {% if linked_students %}
+    <div class="learner-selector mb-4">
+        <span>Viewing learner:</span>
+        {% for link in linked_students %}
+        <a href="{% url 'classroom:classes' %}?student={{ link.student.student_id }}"
+           class="learner-selector-link {% if linked_student.student_id == link.student.student_id %}active{% endif %}">
+            {{ link.student.firstname }} {{ link.student.lastname }}
+        </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if linked_student %}
+        <section class="classes-section">
+            <div class="classes-section-heading">
+                <div>
+                    <h2>{{ linked_student }}'s Classes</h2>
+                    <small class="text-muted">Read-only view</small>
+                </div>
+                <span>{{ enrollments|length }}</span>
+            </div>
+
+            <div class="classes-grid">
+                {% for enrollment in enrollments %}
+                <article class="class-list-card">
+                    <div class="class-list-card-top">
+                        <span class="class-card-icon">
+                            <i class="bi bi-book"></i>
+                        </span>
+                    </div>
+
+                    <div class="class-list-card-body">
+                        <small>{{ enrollment.classroom.subject }}</small>
+                        <h3>{{ enrollment.classroom.class_name }}</h3>
+                        <p>
+                            {{ enrollment.classroom.grade_level }} ·
+                            {{ enrollment.classroom.section }}<br>
+                            Teacher: {{ enrollment.classroom.teacher }}
+                        </p>
+                    </div>
+                </article>
+                {% empty %}
+                <div class="empty-state classes-empty-state">
+                    <i class="bi bi-journals"></i>
+                    <h3>No enrolled classes</h3>
+                    <p>The linked learner has no approved classes yet.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+    {% else %}
+        <div class="empty-state classes-empty-state">
+            <i class="bi bi-person-exclamation"></i>
+            <h3>No linked learner</h3>
+            <p>Your Parent profile is not connected to a Student yet.</p>
+            <a href="{% url 'classroom:parent_children' %}"
+               class="btn btn-primary btn-sm">Connect a Learner</a>
+        </div>
+    {% endif %}
+
+{% endif %}
+
+{% endblock %}

@@ -161,7 +161,12 @@ class User(AbstractBaseUser, PermissionsMixin):
         )
         if not profile:
             return self.email
-        parts = [profile.firstname, profile.middlename, profile.lastname, profile.suffix]
+        parts = [
+            getattr(profile, "firstname", ""),
+            getattr(profile, "middlename", ""),
+            getattr(profile, "lastname", ""),
+            getattr(profile, "suffix", ""),
+        ]
         return " ".join(p for p in parts if p)
 
 
@@ -367,6 +372,65 @@ class Student(models.Model):
 
     def __str__(self):
         return f"{self.firstname} {self.lastname} ({self.lrn})"
+
+
+# ---------------------------------------------------------------------------
+# Parent and Student connection
+# A Parent sends a request using the learner's LRN. The Student decides
+# whether to approve or reject the connection.
+# ---------------------------------------------------------------------------
+class ParentStudentLink(models.Model):
+    class Relationship(models.TextChoices):
+        MOTHER = "mother", "Mother"
+        FATHER = "father", "Father"
+        GUARDIAN = "guardian", "Guardian"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Waiting for Student"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+        REVOKED = "revoked", "Revoked"
+
+    link_id = models.AutoField(primary_key=True)
+    parent = models.ForeignKey(
+        Parent,
+        on_delete=models.CASCADE,
+        related_name="student_links",
+        db_column="parent_id",
+    )
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name="parent_links",
+        db_column="student_id",
+    )
+    relationship = models.CharField(
+        max_length=20,
+        choices=Relationship.choices,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    requested_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "parent_student_link"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["parent", "student"],
+                name="unique_parent_student_link",
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.parent} - {self.student} - "
+            f"{self.get_status_display()}"
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,96 @@
+{% extends "classroom/master.html" %}
+
+{% block title %}Parent Dashboard | District 1 Classroom{% endblock %}
+
+{% block content %}
+
+<section class="parent-child-bar">
+    <div>
+        <small>Linked learner</small>
+        <strong>
+            {% if linked_student %}
+                {{ linked_student }}
+            {% else %}
+                No linked learner
+            {% endif %}
+        </strong>
+    </div>
+
+    <a href="{% url 'classroom:parent_children' %}"
+       class="btn btn-light border">
+        <i class="bi bi-people me-2"></i>Manage Learners
+    </a>
+</section>
+
+<section class="dashboard-heading">
+    <div>
+        <h2>Hello, {{ request.user.full_name|default:"Parent" }}!</h2>
+        <p>Important learner updates will appear here.</p>
+    </div>
+</section>
+
+{% if linked_student %}
+<div class="row g-4 mb-4">
+    <div class="col-lg-7">
+        <section class="classroom-card h-100">
+            <div class="card-heading">
+                <h3>This Week</h3>
+            </div>
+
+            <div class="dashboard-empty-card">
+                <i class="bi bi-calendar-week"></i>
+                <h4>No weekly summary</h4>
+                <p>The learner's weekly summary will appear here.</p>
+            </div>
+        </section>
+    </div>
+
+    <div class="col-lg-5">
+        <section class="classroom-card h-100">
+            <div class="card-heading">
+                <h3>Needs Attention</h3>
+            </div>
+
+            <div class="dashboard-empty-card compact">
+                <i class="bi bi-check2-circle"></i>
+                <h4>No current alerts</h4>
+                <p>Missing work and attendance alerts will appear here.</p>
+            </div>
+        </section>
+    </div>
+</div>
+
+<section class="classroom-card mb-4">
+    <div class="card-heading">
+        <h3>Latest School Update</h3>
+    </div>
+
+    <div class="dashboard-empty-card compact">
+        <i class="bi bi-megaphone"></i>
+        <h4>No school updates</h4>
+        <p>New school and Teacher announcements will appear here.</p>
+    </div>
+</section>
+{% else %}
+<div class="empty-state classes-empty-state">
+    <i class="bi bi-person-exclamation"></i>
+    <h3>No linked learner</h3>
+    <p>Your Parent account must be connected to a Student first.</p>
+</div>
+{% endif %}
+
+<div class="parent-links">
+    <a href="#">
+        <i class="bi bi-clipboard-data"></i>View Grades
+    </a>
+
+    <a href="#">
+        <i class="bi bi-person-check"></i>Attendance
+    </a>
+
+    <a href="#">
+        <i class="bi bi-envelope"></i>Message Teacher
+    </a>
+</div>
+
+{% endblock %}

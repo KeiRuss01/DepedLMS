@@ -1,0 +1,244 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <title>
+        {% block title %}District 1 Classroom{% endblock %}
+    </title>
+
+    <!-- Local Bootstrap package -->
+    <link rel="stylesheet"
+          href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
+
+    <link rel="stylesheet"
+          href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}">
+
+    <!-- Classroom design -->
+    <link rel="stylesheet"
+          href="{% static 'classroom/css/classroom.css' %}">
+
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body class="classroom-body">
+
+    <!-- Desktop and tablet header -->
+    <header class="classroom-header">
+        <div class="container-fluid classroom-container">
+            <div class="header-content">
+
+                <a class="classroom-brand"
+                   href="{% url 'classroom:dashboard' %}">
+                    <span class="brand-icon">D1</span>
+
+                    <span class="brand-text">
+                        <strong>District 1</strong>
+                        <small>Classroom</small>
+                    </span>
+                </a>
+
+                <!-- Desktop navigation -->
+                {% with current_page=request.resolver_match.url_name %}
+                <nav class="learning-dock"
+                     aria-label="Classroom navigation">
+
+                    <!-- Home is active only on the dashboard -->
+                    <a class="dock-link {% if current_page == 'dashboard' %}active{% endif %}"
+                       href="{% url 'classroom:dashboard' %}">
+
+                        <i class="bi bi-house-door"></i>
+                        <span>Home</span>
+                    </a>
+
+                    <!-- Classes is active on all class-related pages -->
+                    <a class="dock-link {% if current_page == 'classes' or current_page == 'class_page' or current_page == 'class_detail' or current_page == 'create_class' or current_page == 'join_class' %}active{% endif %}"
+                       href="{% url 'classroom:classes' %}">
+
+                        <i class="bi bi-grid"></i>
+                        <span>Classes</span>
+                    </a>
+
+                    <a class="dock-link" href="#">
+                        <i class="bi bi-clipboard-check"></i>
+                        <span>Tasks</span>
+                    </a>
+
+                    <a class="dock-link" href="#">
+                        <i class="bi bi-calendar3"></i>
+                        <span>Calendar</span>
+                    </a>
+
+                </nav>
+                {% endwith %}
+
+                <div class="header-actions">
+                    <a class="header-icon"
+                       href="#"
+                       aria-label="Messages">
+                        <i class="bi bi-chat-dots"></i>
+                    </a>
+
+                    <a class="header-icon"
+                       href="#"
+                       aria-label="Notifications">
+                        <i class="bi bi-bell"></i>
+                    </a>
+
+                    <!-- User menu -->
+                    <div class="dropdown">
+                        <button class="user-summary user-menu-button"
+                                type="button"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false">
+
+                            <span class="user-avatar">
+                                {{ request.user.full_name|default:request.user.email|slice:":1"|upper }}
+                            </span>
+
+                            <span class="user-information">
+                                <strong>
+                                    {{ request.user.full_name|default:request.user.email }}
+                                </strong>
+
+                                <small>
+                                    {{ request.user.get_role_display }}
+                                </small>
+                            </span>
+
+                            <i class="bi bi-chevron-down user-menu-arrow"></i>
+                        </button>
+
+                        <ul class="dropdown-menu dropdown-menu-end user-dropdown">
+                            <li class="user-dropdown-heading">
+                                <strong>
+                                    {{ request.user.full_name|default:request.user.email }}
+                                </strong>
+
+                                <small>
+                                    {{ request.user.email }}
+                                </small>
+                            </li>
+
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-person me-2"></i>
+                                    My Profile
+                                </a>
+                            </li>
+
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-gear me-2"></i>
+                                    Settings
+                                </a>
+                            </li>
+
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+
+                            <li>
+                                <form method="post"
+                                      action="{% url 'accounts:logout' %}">
+
+                                    {% csrf_token %}
+
+                                    <button class="dropdown-item text-danger"
+                                            type="submit">
+                                        <i class="bi bi-box-arrow-right me-2"></i>
+                                        Logout
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </header>
+
+    <!-- Page content -->
+    <main class="classroom-main">
+        <div class="container-fluid classroom-container">
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show"
+                         role="alert">
+
+                        {{ message }}
+
+                        <button type="button"
+                                class="btn-close"
+                                data-bs-dismiss="alert"
+                                aria-label="Close">
+                        </button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Mobile and tablet tab navigation -->
+    {% with current_page=request.resolver_match.url_name %}
+    <nav class="mobile-tab-navigation"
+         aria-label="Mobile classroom navigation">
+
+        <!-- Home -->
+        <a class="mobile-tab {% if current_page == 'dashboard' %}active{% endif %}"
+           href="{% url 'classroom:dashboard' %}">
+
+            {% if current_page == "dashboard" %}
+                <i class="bi bi-house-door-fill"></i>
+            {% else %}
+                <i class="bi bi-house-door"></i>
+            {% endif %}
+
+            <span>Home</span>
+        </a>
+
+        <!-- Classes -->
+        <a class="mobile-tab {% if current_page == 'classes' or current_page == 'class_page' or current_page == 'class_detail' or current_page == 'create_class' or current_page == 'join_class' %}active{% endif %}"
+           href="{% url 'classroom:classes' %}">
+
+            {% if current_page == "classes" or current_page == "class_page" or current_page == "class_detail" or current_page == "create_class" or current_page == "join_class" %}
+                <i class="bi bi-grid-fill"></i>
+            {% else %}
+                <i class="bi bi-grid"></i>
+            {% endif %}
+
+            <span>Classes</span>
+        </a>
+
+        <!-- Tasks -->
+        <a class="mobile-tab" href="#">
+            <i class="bi bi-clipboard-check"></i>
+            <span>Tasks</span>
+        </a>
+
+        <!-- Calendar -->
+        <a class="mobile-tab" href="#">
+            <i class="bi bi-calendar3"></i>
+            <span>Calendar</span>
+        </a>
+
+    </nav>
+    {% endwith %}
+
+    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

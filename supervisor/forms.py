@@ -1,14 +1,12 @@
 from django import forms
 from django.contrib.auth import authenticate
+from django.db import transaction
 
-from accounts.models import School, User
+from accounts.models import Principal, School, Teacher, User
 
 
-class SupervisorLoginForm(forms.Form):
-    """Plain email/password login form. Authentication itself is delegated
-    to Django's `authenticate()` so password hashing/checking stays inside
-    Django's auth machinery -- this form just adds the "must be a
-    supervisor account" rule on top of it."""
+class AdministrationLoginForm(forms.Form):
+    """Email/password login for District Supervisors and Principals."""
 
     email = forms.EmailField(
         widget=forms.EmailInput(
@@ -45,9 +43,13 @@ class SupervisorLoginForm(forms.Form):
                 "Incorrect email or password. Please try again."
             )
 
-        if user.role != User.Role.SUPERVISOR:
+        administration_roles = {
+            User.Role.SUPERVISOR,
+            User.Role.PRINCIPAL,
+        }
+        if user.role not in administration_roles:
             raise forms.ValidationError(
-                "This portal is for the District Supervisor account only."
+                "This account belongs to the Classroom Portal."
             )
 
         if user.status != User.Status.ACTIVE:
@@ -96,3 +98,155 @@ class SchoolProfileForm(forms.ModelForm):
         if existing.exists():
             raise forms.ValidationError("A school with this name already exists.")
         return school_name
+
+
+class PrincipalAccountForm(forms.Form):
+    email = forms.EmailField(
+        max_length=100,
+        widget=forms.EmailInput(attrs={"class": "form-control", "placeholder": "principal@school.edu.ph"}),
+    )
+    firstname = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "First name"}),
+    )
+    middlename = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Optional"}),
+    )
+    lastname = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Last name"}),
+    )
+    suffix = forms.CharField(
+        max_length=20,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Optional"}),
+    )
+    school = forms.ModelChoiceField(
+        queryset=School.objects.none(),
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+    password1 = forms.CharField(
+        label="Temporary password",
+        widget=forms.PasswordInput(attrs={"class": "form-control", "placeholder": "At least 8 characters"}),
+    )
+    password2 = forms.CharField(
+        label="Confirm temporary password",
+        widget=forms.PasswordInput(attrs={"class": "form-control", "placeholder": "Repeat password"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["school"].queryset = School.objects.order_by("school_name")
+
+    def clean_email(self):
+        email = User.objects.normalize_email(self.cleaned_data["email"])
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError("An account with this email already exists.")
+        return email
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get("password1")
+        password2 = cleaned_data.get("password2")
+        if password1 and len(password1) < 8:
+            self.add_error("password1", "Use at least 8 characters.")
+        if password1 and password2 and password1 != password2:
+            self.add_error("password2", "The passwords do not match.")
+        return cleaned_data
+
+    @transaction.atomic
+    def save(self):
+        data = self.cleaned_data
+        user = User.objects.create_user(
+            email=data["email"],
+            password=data["password1"],
+            role=User.Role.PRINCIPAL,
+            status=User.Status.ACTIVE,
+        )
+        principal = Principal.objects.create(
+            user=user,
+            school=data["school"],
+            employee_id="",
+            firstname=data["firstname"].strip(),
+            middlename=data.get("middlename", "").strip() or None,
+            lastname=data["lastname"].strip(),
+            suffix=data.get("suffix", "").strip() or None,
+            designation="School Principal",
+        )
+        return principal
+
+
+class TeacherAccountForm(forms.Form):
+    email = forms.EmailField(
+        max_length=100,
+        widget=forms.EmailInput(attrs={"class": "form-control", "placeholder": "teacher@school.edu.ph"}),
+    )
+    firstname = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "First name"}),
+    )
+    middlename = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Optional"}),
+    )
+    lastname = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Last name"}),
+    )
+    suffix = forms.CharField(
+        max_length=20,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Optional"}),
+    )
+    password1 = forms.CharField(
+        label="Temporary password",
+        widget=forms.PasswordInput(attrs={"class": "form-control", "placeholder": "At least 8 characters"}),
+    )
+    password2 = forms.CharField(
+        label="Confirm temporary password",
+        widget=forms.PasswordInput(attrs={"class": "form-control", "placeholder": "Repeat password"}),
+    )
+
+    def __init__(self, *args, school, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.school = school
+
+    def clean_email(self):
+        email = User.objects.normalize_email(self.cleaned_data["email"])
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError("An account with this email already exists.")
+        return email
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get("password1")
+        password2 = cleaned_data.get("password2")
+        if password1 and len(password1) < 8:
+            self.add_error("password1", "Use at least 8 characters.")
+        if password1 and password2 and password1 != password2:
+            self.add_error("password2", "The passwords do not match.")
+        return cleaned_data
+
+    @transaction.atomic
+    def save(self):
+        data = self.cleaned_data
+        user = User.objects.create_user(
+            email=data["email"],
+            password=data["password1"],
+            role=User.Role.TEACHER,
+            status=User.Status.ACTIVE,
+        )
+        teacher = Teacher.objects.create(
+            user=user,
+            school=self.school,
+            employee_id="",
+            firstname=data["firstname"].strip(),
+            middlename=data.get("middlename", "").strip() or None,
+            lastname=data["lastname"].strip(),
+            suffix=data.get("suffix", "").strip() or None,
+            specialization=None,
+        )
+        return teacher

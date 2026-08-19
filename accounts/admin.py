@@ -1,7 +1,16 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from .models import Parent, Principal, School, Student, Supervisor, Teacher, User
+from .models import (
+    Parent,
+    ParentStudentLink,
+    Principal,
+    School,
+    Student,
+    Supervisor,
+    Teacher,
+    User,
+)
 
 
 @admin.register(User)
@@ -71,6 +80,19 @@ class StudentAdmin(admin.ModelAdmin):
 class ParentAdmin(admin.ModelAdmin):
     list_display = ("parent_id", "firstname", "lastname", "relationship")
     search_fields = ("firstname", "lastname")
+
+
+@admin.register(ParentStudentLink)
+class ParentStudentLinkAdmin(admin.ModelAdmin):
+    list_display = ("link_id", "parent", "student", "relationship", "status")
+    list_filter = ("relationship", "status")
+    search_fields = (
+        "parent__firstname",
+        "parent__lastname",
+        "student__firstname",
+        "student__lastname",
+        "student__lrn",
+    )
 
 
 @admin.register(Supervisor)

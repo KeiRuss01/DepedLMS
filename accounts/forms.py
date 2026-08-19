@@ -9,9 +9,10 @@ class AccountLoginForm(forms.Form):
     email = forms.EmailField()
     password = forms.CharField(widget=forms.PasswordInput)
 
-    def __init__(self, request=None, *args, **kwargs):
+    def __init__(self, request=None, *args, allowed_roles=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.request = request
+        self.allowed_roles = set(allowed_roles or [])
         self.user_cache = None
 
     def clean(self):
@@ -30,6 +31,11 @@ class AccountLoginForm(forms.Form):
             if not self.user_cache.is_active:
                 raise forms.ValidationError("This account is not active.")
 
+            if self.allowed_roles and self.user_cache.role not in self.allowed_roles:
+                raise forms.ValidationError(
+                    "Administrative accounts must use the Administration Portal."
+                )
+
         return cleaned_data
 
     def get_user(self):
@@ -39,8 +45,6 @@ class AccountLoginForm(forms.Form):
 class AccountSignupForm(forms.Form):
     PUBLIC_ROLES = (
         (User.Role.STUDENT, "Student"),
-        (User.Role.TEACHER, "Teacher"),
-        (User.Role.PRINCIPAL, "Principal"),
         (User.Role.PARENT, "Parent"),
     )
 

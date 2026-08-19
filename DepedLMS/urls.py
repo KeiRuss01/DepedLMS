@@ -23,11 +23,11 @@ from django.urls import include, path
 urlpatterns = [
     path("admin/", admin.site.urls),
 
-    path("oauth/", include("allauth.urls")),
     path("accounts/", include("accounts.urls")),
-    path("supervisor/", include("supervisor.urls")),
+    path("administration/", include("supervisor.urls")),
 
     path("", include("landing.urls")),
+    path("classroom/", include("classroom.urls")),
 ]
 
 if settings.DEBUG:

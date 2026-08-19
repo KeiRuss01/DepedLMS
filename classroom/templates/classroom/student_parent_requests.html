@@ -1,0 +1,85 @@
+{% extends "classroom/master.html" %}
+
+{% block title %}Parent Requests | District 1 Classroom{% endblock %}
+
+{% block content %}
+
+<div class="form-page">
+    <a href="{% url 'classroom:dashboard' %}" class="back-link">
+        <i class="bi bi-arrow-left"></i>Back to dashboard
+    </a>
+
+    <section class="dashboard-heading classes-page-heading">
+        <div>
+            <h1>Parent Connections</h1>
+            <p>You decide which Parent accounts may view your school information.</p>
+        </div>
+    </section>
+
+    <section class="classroom-card mb-4">
+        <div class="card-heading">
+            <h2 class="h6 mb-0">Requests</h2>
+        </div>
+
+        {% for link in pending_links %}
+        <div class="family-link-row">
+            <span class="person-avatar">{{ link.parent.firstname|first }}</span>
+            <div class="family-link-information">
+                <strong>{{ link.parent }}</strong>
+                <small>
+                    {{ link.get_relationship_display }} · {{ link.parent.user.email }}
+                </small>
+            </div>
+
+            <div class="d-flex gap-2">
+                <form method="post"
+                      action="{% url 'classroom:respond_parent_link' link.link_id 'reject' %}">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-light border" type="submit">
+                        Reject
+                    </button>
+                </form>
+
+                <form method="post"
+                      action="{% url 'classroom:respond_parent_link' link.link_id 'accept' %}">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-primary" type="submit">
+                        Accept
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% empty %}
+        <div class="dashboard-empty-card compact">
+            <i class="bi bi-person-check"></i>
+            <h4>No pending requests</h4>
+            <p>New Parent requests will appear here.</p>
+        </div>
+        {% endfor %}
+    </section>
+
+    <section class="classroom-card">
+        <div class="card-heading">
+            <h2 class="h6 mb-0">Connected Parents</h2>
+        </div>
+
+        {% for link in approved_links %}
+        <div class="family-link-row">
+            <span class="person-avatar">{{ link.parent.firstname|first }}</span>
+            <div class="family-link-information">
+                <strong>{{ link.parent }}</strong>
+                <small>{{ link.get_relationship_display }} · {{ link.parent.user.email }}</small>
+            </div>
+            <span class="badge text-bg-success">Connected</span>
+        </div>
+        {% empty %}
+        <div class="dashboard-empty-card compact">
+            <i class="bi bi-people"></i>
+            <h4>No connected Parents</h4>
+            <p>Accepted Parent connections will appear here.</p>
+        </div>
+        {% endfor %}
+    </section>
+</div>
+
+{% endblock %}

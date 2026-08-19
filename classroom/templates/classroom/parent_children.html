@@ -1,0 +1,97 @@
+{% extends "classroom/master.html" %}
+
+{% block title %}My Learners | District 1 Classroom{% endblock %}
+
+{% block content %}
+
+<div class="form-page">
+    <a href="{% url 'classroom:dashboard' %}" class="back-link">
+        <i class="bi bi-arrow-left"></i>Back to dashboard
+    </a>
+
+    <section class="dashboard-heading classes-page-heading">
+        <div>
+            <h1>My Learners</h1>
+            <p>Connect to a learner using the LRN provided by the Student.</p>
+        </div>
+    </section>
+
+    <section class="classroom-card form-card mb-4">
+        <div class="card-heading">
+            <h2 class="h6 mb-0">Request a Connection</h2>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <div class="row g-3">
+                <div class="col-md-7">
+                    <label for="{{ form.lrn.id_for_label }}" class="form-label">
+                        {{ form.lrn.label }}
+                    </label>
+                    {{ form.lrn }}
+                    {{ form.lrn.errors }}
+                </div>
+
+                <div class="col-md-5">
+                    <label for="{{ form.relationship.id_for_label }}" class="form-label">
+                        Relationship
+                    </label>
+                    {{ form.relationship }}
+                    {{ form.relationship.errors }}
+                </div>
+            </div>
+
+            <button class="btn btn-primary mt-3" type="submit">
+                <i class="bi bi-person-plus me-2"></i>Send Request
+            </button>
+        </form>
+    </section>
+
+    {% if pending_links %}
+    <section class="classroom-card mb-4">
+        <div class="card-heading">
+            <h2 class="h6 mb-0">Waiting for Student Approval</h2>
+        </div>
+
+        {% for link in pending_links %}
+        <div class="family-link-row">
+            <span class="person-avatar">{{ link.student.firstname|first }}</span>
+            <div class="family-link-information">
+                <strong>{{ link.student }}</strong>
+                <small>{{ link.student.school }} · {{ link.get_relationship_display }}</small>
+            </div>
+            <span class="badge text-bg-warning">Pending</span>
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    <section class="classroom-card">
+        <div class="card-heading">
+            <h2 class="h6 mb-0">Connected Learners</h2>
+        </div>
+
+        {% for link in approved_links %}
+        <div class="family-link-row">
+            <span class="person-avatar">{{ link.student.firstname|first }}</span>
+            <div class="family-link-information">
+                <strong>{{ link.student }}</strong>
+                <small>{{ link.student.school }} · {{ link.get_relationship_display }}</small>
+            </div>
+            <a href="{% url 'classroom:classes' %}?student={{ link.student.student_id }}"
+               class="btn btn-sm btn-outline-primary">
+                View Classes
+            </a>
+        </div>
+        {% empty %}
+        <div class="dashboard-empty-card compact">
+            <i class="bi bi-people"></i>
+            <h4>No connected learners</h4>
+            <p>Approved learner connections will appear here.</p>
+        </div>
+        {% endfor %}
+    </section>
+</div>
+
+{% endblock %}

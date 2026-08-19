@@ -1,0 +1,66 @@
+{% extends "supervisor/master2.html" %}
+{% load static %}
+
+{% block title %}Principals{% endblock %}
+{% block nav_principals %}active{% endblock %}
+{% block extra_css %}<link href="{% static 'supervisor/css/principals.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-4">
+    <div>
+        <h1 class="sv-page-title h4">Principals</h1>
+        <p class="sv-page-subtitle mb-0">Create and view Principal accounts assigned to registered schools.</p>
+    </div>
+    <a class="btn btn-primary" href="{% url 'supervisor:principal_create' %}">
+        <i class="bi bi-person-plus me-2"></i>Add Principal
+    </a>
+</div>
+
+{% if principals %}
+<div class="sv-card p-0 overflow-hidden">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0 principal-table">
+            <thead>
+                <tr>
+                    <th>Principal</th>
+                    <th>Assigned School</th>
+                    <th>Account</th>
+                    <th>Profile</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for principal in principals %}
+                <tr>
+                    <td>
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="principal-avatar">{{ principal.firstname|slice:":1" }}{{ principal.lastname|slice:":1" }}</span>
+                            <span>
+                                <strong class="d-block">{{ principal.firstname }} {{ principal.lastname }}</strong>
+                                <small>{{ principal.user.email }}</small>
+                            </span>
+                        </div>
+                    </td>
+                    <td>{{ principal.school.school_name }}</td>
+                    <td><span class="status-badge status-{{ principal.user.status }}">{{ principal.user.get_status_display }}</span></td>
+                    <td>
+                        {% if principal.employee_id %}
+                            <span class="text-success"><i class="bi bi-check-circle me-1"></i>Completed</span>
+                        {% else %}
+                            <span class="text-muted"><i class="bi bi-clock me-1"></i>Basic account</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="sv-card principal-empty text-center">
+    <i class="bi bi-person-badge"></i>
+    <h2>No Principal accounts yet</h2>
+    <p>Create a basic account so a Principal can sign in to the Administration Portal.</p>
+    <a class="btn btn-primary" href="{% url 'supervisor:principal_create' %}">Add Principal</a>
+</div>
+{% endif %}
+{% endblock %}

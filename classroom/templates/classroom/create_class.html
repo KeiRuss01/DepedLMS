@@ -1,0 +1,121 @@
+{% extends "classroom/master.html" %}
+
+{% block title %}Create Class | District 1 Classroom{% endblock %}
+
+{% block content %}
+
+<div class="form-page">
+    <a href="{% url 'classroom:classes' %}"
+       class="back-link">
+        <i class="bi bi-arrow-left"></i>
+        Back to dashboard
+    </a>
+
+    <div class="classroom-card form-card">
+        <div class="mb-4">
+            <h1 class="h4 fw-bold mb-2">Create a Class</h1>
+
+            <p class="text-muted mb-0">
+                You will automatically become the Teacher of this class.
+            </p>
+        </div>
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <div class="mb-3">
+                <label class="form-label"
+                       for="{{ form.class_name.id_for_label }}">
+                    Class name
+                </label>
+
+                {{ form.class_name }}
+                {{ form.class_name.errors }}
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label"
+                           for="{{ form.subject.id_for_label }}">
+                        Subject
+                    </label>
+
+                    {{ form.subject }}
+                    {{ form.subject.errors }}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label"
+                           for="{{ form.grade_level.id_for_label }}">
+                        Grade level
+                    </label>
+
+                    {{ form.grade_level }}
+                    {{ form.grade_level.errors }}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label"
+                           for="{{ form.section.id_for_label }}">
+                        Section
+                    </label>
+
+                    {{ form.section }}
+                    {{ form.section.errors }}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label"
+                           for="{{ form.school_year.id_for_label }}">
+                        School year
+                    </label>
+
+                    {{ form.school_year }}
+                    {{ form.school_year.errors }}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label"
+                           for="{{ form.quarter.id_for_label }}">
+                        Quarter
+                    </label>
+
+                    {{ form.quarter }}
+                    {{ form.quarter.errors }}
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <label class="form-label"
+                       for="{{ form.description.id_for_label }}">
+                    Description
+                </label>
+
+                {{ form.description }}
+                {{ form.description.errors }}
+            </div>
+
+            <div class="d-flex flex-column-reverse flex-sm-row
+                        justify-content-end gap-2 mt-4">
+
+                <a href="{% url 'classroom:classes' %}"
+                   class="btn btn-light border">
+                    Cancel
+                </a>
+
+                <button class="btn btn-primary" type="submit">
+                    <i class="bi bi-plus-lg me-2"></i>
+                    Create Class
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

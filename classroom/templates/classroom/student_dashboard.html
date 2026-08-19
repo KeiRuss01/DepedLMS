@@ -1,0 +1,161 @@
+{% extends "classroom/master.html" %}
+
+{% block title %}Student Dashboard | District 1 Classroom{% endblock %}
+
+{% block content %}
+
+<section class="class-shelf-section" id="class-shelf">
+    <div class="section-heading">
+        <div>
+            <h1 class="section-title">Recent Classes</h1>
+            <p class="section-description">Open one of your enrolled classes.</p>
+        </div>
+
+        <a href="{% url 'classroom:classes' %}" class="view-all-link">
+            View all classes
+        </a>
+    </div>
+
+    <div class="class-shelf">
+        {% for enrollment in enrollments %}
+        <a href="{% url 'classroom:class_page' enrollment.classroom.class_id %}"
+           class="class-chip">
+            <span class="class-chip-icon science">
+                <i class="bi bi-book"></i>
+            </span>
+
+            <span>
+                <strong>{{ enrollment.classroom.class_name }}</strong>
+                <small>
+                    {{ enrollment.classroom.grade_level }} ·
+                    {{ enrollment.classroom.section }}
+                </small>
+            </span>
+        </a>
+        {% empty %}
+        <div class="empty-class-shelf">
+            <p class="mb-2">You are not enrolled in a class yet.</p>
+            <a href="{% url 'classroom:join_class' %}">
+                Join using a class code
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+{% if invitations %}
+<section class="classroom-card invitation-card mt-4 mb-4">
+    <div class="card-heading">
+        <h2 class="h6 mb-0">Class Invitations</h2>
+        <a href="{% url 'classroom:classes' %}">View all</a>
+    </div>
+
+    {% for invitation in invitations %}
+    <div class="member-row">
+        <div>
+            <strong>{{ invitation.classroom.class_name }}</strong>
+            <small>Invited by {{ invitation.classroom.teacher }}</small>
+        </div>
+
+        <div class="d-flex gap-2">
+            <form method="post"
+                  action="{% url 'classroom:respond_to_invitation' invitation.enrollment_id 'decline' %}">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-light border" type="submit">
+                    Decline
+                </button>
+            </form>
+
+            <form method="post"
+                  action="{% url 'classroom:respond_to_invitation' invitation.enrollment_id 'accept' %}">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-primary" type="submit">
+                    Accept
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
+
+{% if parent_requests %}
+<section class="classroom-card invitation-card mt-4 mb-4">
+    <div class="card-heading">
+        <h2 class="h6 mb-0">Parent Connection Requests</h2>
+        <a href="{% url 'classroom:student_parent_requests' %}">Review all</a>
+    </div>
+
+    {% for link in parent_requests %}
+    <div class="member-row">
+        <div>
+            <strong>{{ link.parent }}</strong>
+            <small>{{ link.get_relationship_display }} wants to connect</small>
+        </div>
+
+        <a href="{% url 'classroom:student_parent_requests' %}"
+           class="btn btn-sm btn-outline-primary">
+            Review
+        </a>
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
+
+<section class="dashboard-heading">
+    <div>
+        <h2>Hello, {{ request.user.full_name|default:"Student" }}!</h2>
+        <p>Your learning updates will appear here.</p>
+    </div>
+
+    <a href="{% url 'classroom:join_class' %}"
+       class="btn btn-primary classroom-primary-button">
+        <i class="bi bi-plus-lg me-2"></i>Join Class
+    </a>
+</section>
+
+<section class="classroom-card continue-learning-card mb-4">
+    <div class="continue-icon science">
+        <i class="bi bi-book"></i>
+    </div>
+
+    <div class="continue-information">
+        <small>Continue Learning</small>
+        <h3>No lesson available</h3>
+        <p class="mb-0">
+            Your latest lesson will appear here when a Teacher publishes one.
+        </p>
+    </div>
+</section>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <section class="classroom-card h-100">
+            <div class="card-heading">
+                <h3>Due Soon</h3>
+            </div>
+
+            <div class="dashboard-empty-card">
+                <i class="bi bi-clipboard-check"></i>
+                <h4>No upcoming tasks</h4>
+                <p>Published activities and deadlines will appear here.</p>
+            </div>
+        </section>
+    </div>
+
+    <div class="col-lg-4">
+        <section class="classroom-card h-100">
+            <div class="card-heading">
+                <h3>Latest Announcement</h3>
+            </div>
+
+            <div class="dashboard-empty-card compact">
+                <i class="bi bi-megaphone"></i>
+                <h4>No announcements</h4>
+                <p>New class announcements will appear here.</p>
+            </div>
+        </section>
+    </div>
+</div>
+
+{% endblock %}

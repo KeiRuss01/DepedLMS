@@ -321,3 +321,14 @@ a { text-decoration: none; }
     html { scroll-behavior: auto; }
     *, *::before, *::after { transition: none !important; }
 }
+
+.login-portal-menu {
+    min-width: 285px;
+    padding: .55rem;
+}
+
+.login-portal-menu .dropdown-item {
+    padding: .75rem;
+    white-space: normal;
+    border-radius: .55rem;
+}

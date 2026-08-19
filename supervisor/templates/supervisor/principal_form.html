@@ -1,0 +1,85 @@
+{% extends "supervisor/master2.html" %}
+{% load static %}
+
+{% block title %}Add Principal{% endblock %}
+{% block nav_principals %}active{% endblock %}
+{% block extra_css %}<link href="{% static 'supervisor/css/principals.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a class="sv-back-link" href="{% url 'supervisor:principals' %}"><i class="bi bi-arrow-left"></i> Back to Principals</a>
+    <h1 class="sv-page-title h4 mt-3">Add Principal</h1>
+    <p class="sv-page-subtitle">Create the basic login account and assign the Principal to a school.</p>
+</div>
+
+{% if not has_schools %}
+<div class="alert alert-warning">
+    <strong>Create a school first.</strong> A Principal account must be assigned to a registered school.
+    <a href="{% url 'supervisor:school_create' %}" class="alert-link">Add School</a>
+</div>
+{% endif %}
+
+<form method="post" class="sv-card principal-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+    <section class="principal-form-section">
+        <h2>Account Information</h2>
+        <div class="row g-3">
+            <div class="col-12">
+                <label for="{{ form.email.id_for_label }}">Email address <span class="text-danger">*</span></label>
+                {{ form.email }}{{ form.email.errors }}
+                <small class="form-text">The Principal will use this email to log in.</small>
+            </div>
+            <div class="col-md-6">
+                <label for="{{ form.password1.id_for_label }}">Temporary password <span class="text-danger">*</span></label>
+                {{ form.password1 }}{{ form.password1.errors }}
+            </div>
+            <div class="col-md-6">
+                <label for="{{ form.password2.id_for_label }}">Confirm password <span class="text-danger">*</span></label>
+                {{ form.password2 }}{{ form.password2.errors }}
+            </div>
+        </div>
+    </section>
+
+    <section class="principal-form-section">
+        <h2>Principal Name</h2>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label for="{{ form.firstname.id_for_label }}">First name <span class="text-danger">*</span></label>
+                {{ form.firstname }}{{ form.firstname.errors }}
+            </div>
+            <div class="col-md-6">
+                <label for="{{ form.lastname.id_for_label }}">Last name <span class="text-danger">*</span></label>
+                {{ form.lastname }}{{ form.lastname.errors }}
+            </div>
+            <div class="col-md-8">
+                <label for="{{ form.middlename.id_for_label }}">Middle name <span>Optional</span></label>
+                {{ form.middlename }}{{ form.middlename.errors }}
+            </div>
+            <div class="col-md-4">
+                <label for="{{ form.suffix.id_for_label }}">Suffix <span>Optional</span></label>
+                {{ form.suffix }}{{ form.suffix.errors }}
+            </div>
+        </div>
+    </section>
+
+    <section class="principal-form-section">
+        <h2>School Assignment</h2>
+        <label for="{{ form.school.id_for_label }}">Assigned school <span class="text-danger">*</span></label>
+        {{ form.school }}{{ form.school.errors }}
+    </section>
+
+    <div class="profile-later-note">
+        <i class="bi bi-info-circle"></i>
+        <span>The Principal will complete their employee ID and other professional information after login.</span>
+    </div>
+
+    <div class="d-flex flex-column-reverse flex-sm-row justify-content-end gap-2 mt-4">
+        <a class="btn btn-light border" href="{% url 'supervisor:principals' %}">Cancel</a>
+        <button class="btn btn-primary" type="submit" {% if not has_schools %}disabled{% endif %}>
+            <i class="bi bi-person-check me-2"></i>Create Principal Account
+        </button>
+    </div>
+</form>
+{% endblock %}
