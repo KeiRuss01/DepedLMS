@@ -6,14 +6,24 @@
 {% block content %}
 <h1 class="sv-page-title h4">Principal Dashboard</h1>
 <p class="sv-page-subtitle">
-    Welcome, {{ request.user.full_name|default:request.user.email }}.
+    Welcome, {{ request.user.full_name|default:request.user.email }}. You are assigned to
+    <strong>{{ school.school_name }}</strong>.
 </p>
 
+<div class="sv-stats-grid sv-stats-grid-four mb-4">
+    <div class="sv-stat-card stat-blue"><i class="bi bi-person-workspace"></i><span><small>Teachers</small><strong>{{ teacher_count }}</strong></span></div>
+    <div class="sv-stat-card stat-green"><i class="bi bi-mortarboard"></i><span><small>Students</small><strong>{{ student_count }}</strong></span></div>
+    <div class="sv-stat-card stat-purple"><i class="bi bi-journal-bookmark"></i><span><small>Classes</small><strong>{{ class_count }}</strong></span></div>
+    <div class="sv-stat-card stat-orange"><i class="bi bi-people"></i><span><small>Approved Enrollments</small><strong>{{ enrollment_count }}</strong></span></div>
+</div>
+
 <div class="sv-card">
-    <h2 class="h6 fw-bold">Administration access is ready</h2>
-    <p class="mb-0 text-muted">
-        Your School Profile, Teachers, Students, Classes, and Reports pages
-        can be connected here in the next module.
-    </p>
+    <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
+        <div>
+            <h2 class="h6 fw-bold mb-1">{{ school.school_name }} overview</h2>
+            <p class="mb-0 text-muted small">View your assigned school, personnel, Students, and Teacher-created classes.</p>
+        </div>
+        <a class="btn btn-primary" href="{% url 'supervisor:school_detail' school.school_id %}">Open School Overview</a>
+    </div>
 </div>
 {% endblock %}

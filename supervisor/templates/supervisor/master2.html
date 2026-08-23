@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
     <link href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}" rel="stylesheet">
-    <link href="{% static 'supervisor/css/dashboard.css' %}" rel="stylesheet">
+    <link href="{% static 'supervisor/css/dashboard.css' %}?v=3" rel="stylesheet">
     {% block extra_css %}{% endblock %}
 </head>
 <body class="sv-body">
@@ -75,10 +75,18 @@
         <a class="sv-nav-link disabled" href="#"><i class="bi bi-mortarboard"></i> Students</a>
         <a class="sv-nav-link disabled" href="#"><i class="bi bi-people"></i> Parents</a>
         {% else %}
+        {% if request.user.principal_profile %}
+        <a class="sv-nav-link {% block nav_school_overview %}{% endblock %}"
+           href="{% url 'supervisor:school_detail' request.user.principal_profile.school_id %}">
+            <i class="bi bi-bar-chart-line"></i> School Overview
+        </a>
+        {% else %}
+        <a class="sv-nav-link disabled" href="#"><i class="bi bi-bar-chart-line"></i> School Overview</a>
+        {% endif %}
         <a class="sv-nav-link {% block nav_school_profile %}{% endblock %}" href="{% url 'supervisor:principal_school_profile' %}"><i class="bi bi-building"></i> School Profile</a>
         <a class="sv-nav-link {% block nav_teachers %}{% endblock %}" href="{% url 'supervisor:teachers' %}"><i class="bi bi-person-workspace"></i> Teachers</a>
-        <a class="sv-nav-link disabled" href="#"><i class="bi bi-mortarboard"></i> Students</a>
-        <a class="sv-nav-link disabled" href="#"><i class="bi bi-journal-bookmark"></i> Classes</a>
+        <a class="sv-nav-link {% block nav_students %}{% endblock %}" href="{% url 'supervisor:students' %}"><i class="bi bi-mortarboard"></i> Students</a>
+        <a class="sv-nav-link {% block nav_classes %}{% endblock %}" href="{% url 'supervisor:classes' %}"><i class="bi bi-journal-bookmark"></i> Classes</a>
         {% endif %}
 
         <div class="sv-nav-section">System</div>

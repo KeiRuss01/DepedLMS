@@ -1,0 +1,37 @@
+{% extends "supervisor/master2.html" %}
+{% load static %}
+
+{% block title %}Students{% endblock %}
+{% block nav_students %}active{% endblock %}
+{% block extra_css %}<link href="{% static 'supervisor/css/principals.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-4">
+    <div>
+        <h1 class="sv-page-title h4">Students</h1>
+        <p class="sv-page-subtitle mb-0">Students registered under {{ school.school_name }}.</p>
+    </div>
+    <a class="btn btn-outline-primary" href="{% url 'supervisor:school_detail' school.school_id %}">School Overview</a>
+</div>
+
+<div class="sv-card p-0 overflow-hidden">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0 principal-table">
+            <thead><tr><th>Student</th><th>LRN</th><th>Gender</th><th>Account</th><th>Profile</th></tr></thead>
+            <tbody>
+                {% for student in students %}
+                <tr>
+                    <td><strong>{{ student.firstname }} {{ student.lastname }}</strong><small class="d-block">{{ student.user.email }}</small></td>
+                    <td>{{ student.lrn }}</td>
+                    <td>{{ student.get_gender_display }}</td>
+                    <td>{{ student.user.get_status_display }}</td>
+                    <td>{{ student.get_acc_status_display }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-5">No Students are registered in this school.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

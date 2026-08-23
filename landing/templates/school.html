@@ -1,7 +1,7 @@
 {% extends 'master.html' %}
 {% load static %}
 {% block title %}Schools | Hybrid Learning Management System{% endblock %}
-{% block extra_css %}<link href="{% static 'css/schools.css' %}" rel="stylesheet">{% endblock %}
+{% block extra_css %}<link href="{% static 'css/schools.css' %}?v=2" rel="stylesheet">{% endblock %}
 
 {% block content %}
 <section class="page-hero">
@@ -42,6 +42,9 @@
                                 {% if school.division %}<span>{{ school.division }}</span>{% endif %}
                             </div>
                         {% endif %}
+                        <a class="public-school-link" href="{% url 'school_detail' school.school_id %}">
+                            View school information <i class="bi bi-arrow-right"></i>
+                        </a>
                     </div>
                 </article>
             </div>

@@ -1,0 +1,35 @@
+{% extends "supervisor/master2.html" %}
+{% load static %}
+
+{% block title %}Classes{% endblock %}
+{% block nav_classes %}active{% endblock %}
+{% block extra_css %}<link href="{% static 'supervisor/css/schools.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-4">
+    <div>
+        <h1 class="sv-page-title h4">Classes</h1>
+        <p class="sv-page-subtitle mb-0">Classes created by Teachers of {{ school.school_name }}.</p>
+    </div>
+    <a class="btn btn-outline-primary" href="{% url 'supervisor:school_detail' school.school_id %}">School Overview</a>
+</div>
+
+<div class="row g-4">
+    {% for classroom in classes %}
+    <div class="col-md-6 col-xl-4">
+        <article class="sv-card school-class-card h-100">
+            <small>{{ classroom.subject }}</small>
+            <h2>{{ classroom.class_name }}</h2>
+            <p>{{ classroom.grade_level }} - {{ classroom.section }}</p>
+            <p>Teacher: <strong>{{ classroom.teacher }}</strong></p>
+            <div class="d-flex justify-content-between mt-3 pt-3 border-top">
+                <span>{{ classroom.get_quarter_display }}</span>
+                <span>{{ classroom.enrollments.all|length }} enrolled/requested</span>
+            </div>
+        </article>
+    </div>
+    {% empty %}
+    <div class="col-12"><div class="sv-card sv-simple-empty"><i class="bi bi-journal-x"></i><p>No classes have been created.</p></div></div>
+    {% endfor %}
+</div>
+{% endblock %}

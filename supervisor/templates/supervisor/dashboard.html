@@ -6,12 +6,25 @@
 {% block content %}
 <h1 class="sv-page-title h4">Dashboard</h1>
 <p class="sv-page-subtitle">
-    Welcome back, {{ request.user.full_name|default:request.user.email }}. This is a placeholder
-    dashboard — wire up real widgets (school counts, pending student approvals, teacher/parent
-    activity, etc.) here whenever you're ready.
+    Welcome back, {{ request.user.full_name|default:request.user.email }}. View the overall
+    information for all registered schools in District 1.
 </p>
 
+<div class="sv-stats-grid mb-4">
+    <div class="sv-stat-card"><i class="bi bi-building"></i><span><strong>{{ school_count }}</strong><small>Schools</small></span></div>
+    <div class="sv-stat-card"><i class="bi bi-person-badge"></i><span><strong>{{ principal_count }}</strong><small>Principals</small></span></div>
+    <div class="sv-stat-card"><i class="bi bi-person-workspace"></i><span><strong>{{ teacher_count }}</strong><small>Teachers</small></span></div>
+    <div class="sv-stat-card"><i class="bi bi-mortarboard"></i><span><strong>{{ student_count }}</strong><small>Students</small></span></div>
+    <div class="sv-stat-card"><i class="bi bi-journal-bookmark"></i><span><strong>{{ class_count }}</strong><small>Classes</small></span></div>
+</div>
+
 <div class="sv-card">
-    <p class="mb-0 text-muted">No widgets yet. This area is intentionally left empty.</p>
+    <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
+        <div>
+            <h2 class="h6 fw-bold mb-1">School monitoring</h2>
+            <p class="mb-0 text-muted small">Open a school to view its Principal, Teachers, Students, and classes.</p>
+        </div>
+        <a class="btn btn-primary" href="{% url 'supervisor:schools' %}">View Schools</a>
+    </div>
 </div>
 {% endblock %}

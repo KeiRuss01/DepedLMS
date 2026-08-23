@@ -26,6 +26,7 @@
                     <th>School</th>
                     <th>Account</th>
                     <th>Profile</th>
+                    <th class="text-end">Classes</th>
                 </tr>
             </thead>
             <tbody>
@@ -49,12 +50,51 @@
                             <span class="text-muted"><i class="bi bi-clock me-1"></i>Basic account</span>
                         {% endif %}
                     </td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-primary" type="button"
+                                data-bs-toggle="modal" data-bs-target="#teacherClasses{{ teacher.teacher_id }}">
+                            View Classes
+                        </button>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 </div>
+
+{% for teacher in teachers %}
+<div class="modal fade" id="teacherClasses{{ teacher.teacher_id }}" tabindex="-1"
+     aria-labelledby="teacherClassesLabel{{ teacher.teacher_id }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title fs-5" id="teacherClassesLabel{{ teacher.teacher_id }}">{{ teacher }}'s Classes</h2>
+                    <small class="text-muted">{{ teacher.user.email }}</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="list-group list-group-flush">
+                    {% for classroom in teacher.created_classes.all %}
+                    <div class="list-group-item px-0 py-3">
+                        <strong class="d-block">{{ classroom.class_name }}</strong>
+                        <small class="text-muted">{{ classroom.subject }} | {{ classroom.grade_level }} - {{ classroom.section }}</small>
+                        <small class="d-block text-muted">{{ classroom.get_quarter_display }} | School year {{ classroom.school_year }}</small>
+                    </div>
+                    {% empty %}
+                    <p class="text-center text-muted py-4 mb-0">This Teacher has not created a class yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
 {% else %}
 <div class="sv-card principal-empty text-center">
     <i class="bi bi-person-workspace"></i>

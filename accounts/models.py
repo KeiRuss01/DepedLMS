@@ -238,6 +238,12 @@ class Principal(models.Model):
         db_table = "principal"
         verbose_name = "Principal"
         verbose_name_plural = "Principals"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["school"],
+                name="unique_principal_per_school",
+            )
+        ]
 
     def __str__(self):
         return f"{self.firstname} {self.lastname}"

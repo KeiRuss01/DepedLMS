@@ -138,7 +138,10 @@ class PrincipalAccountForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["school"].queryset = School.objects.order_by("school_name")
+        # A school can only have one assigned Principal account.
+        self.fields["school"].queryset = School.objects.filter(
+            principals__isnull=True,
+        ).order_by("school_name")
 
     def clean_email(self):
         email = User.objects.normalize_email(self.cleaned_data["email"])

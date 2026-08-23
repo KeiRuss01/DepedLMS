@@ -1,0 +1,77 @@
+{% extends 'master.html' %}
+{% load static %}
+
+{% block title %}{{ school.school_name }} | Hybrid Learning Management System{% endblock %}
+{% block extra_css %}<link href="{% static 'css/schools.css' %}?v=2" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<section class="page-hero school-profile-hero">
+    <div class="container site-container">
+        <a class="public-school-back" href="{% url 'school' %}"><i class="bi bi-arrow-left"></i> School Directory</a>
+        <div class="public-school-heading">
+            <div class="public-school-heading-logo">
+                {% if school.logo %}<img src="{{ school.logo.url }}" alt="{{ school.school_name }} logo">
+                {% else %}<i class="bi bi-building"></i>{% endif %}
+            </div>
+            <div>
+                <span class="eyebrow">Registered School</span>
+                <h1>{{ school.school_name }}</h1>
+                <p>{% if school.address %}{{ school.address }}{% else %}District 1 school profile{% endif %}</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="content-section school-directory-section">
+    <div class="container site-container">
+        <div class="row g-4 mb-5">
+            <div class="col-lg-5">
+                <article class="public-information-card h-100">
+                    <h2>School Information</h2>
+                    <dl>
+                        <div><dt>DepEd School ID</dt><dd>{{ school.school_id_number|default:"Not provided" }}</dd></div>
+                        <div><dt>Region</dt><dd>{{ school.region|default:"Not provided" }}</dd></div>
+                        <div><dt>Division</dt><dd>{{ school.division|default:"Not provided" }}</dd></div>
+                        <div><dt>District</dt><dd>{{ school.district|default:"Not provided" }}</dd></div>
+                        <div><dt>Address</dt><dd>{{ school.address|default:"Not provided" }}</dd></div>
+                    </dl>
+                </article>
+            </div>
+            <div class="col-lg-7">
+                <article class="public-information-card h-100">
+                    <span class="eyebrow">School Leadership</span>
+                    <h2>Organization</h2>
+                    <p class="organization-description">The school organization shown here includes the assigned Principal and registered Teachers.</p>
+
+                    <div class="organization-principal">
+                        {% for principal in principals %}
+                        <span class="organization-avatar">{{ principal.firstname|slice:":1" }}{{ principal.lastname|slice:":1" }}</span>
+                        <strong>{{ principal }}</strong>
+                        <small>{{ principal.designation|default:"School Principal" }}</small>
+                        {% empty %}
+                        <span class="organization-avatar"><i class="bi bi-person"></i></span>
+                        <strong>No Principal assigned</strong>
+                    {% endfor %}
+                    </div>
+
+                    {% if teachers %}
+                    <div class="organization-line"></div>
+                    <div class="organization-branch"></div>
+                    {% endif %}
+                    <div class="organization-teachers">
+                        {% for teacher in teachers %}
+                        <div class="organization-teacher">
+                            <span class="organization-avatar small">{{ teacher.firstname|slice:":1" }}{{ teacher.lastname|slice:":1" }}</span>
+                            <strong>{{ teacher }}</strong>
+                            <small>{{ teacher.specialization|default:"Teacher" }}</small>
+                        </div>
+                        {% empty %}
+                        <p class="text-muted mb-0">No Teachers are registered yet.</p>
+                        {% endfor %}
+                    </div>
+                </article>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

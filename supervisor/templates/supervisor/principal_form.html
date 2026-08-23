@@ -14,7 +14,7 @@
 
 {% if not has_schools %}
 <div class="alert alert-warning">
-    <strong>Create a school first.</strong> A Principal account must be assigned to a registered school.
+    <strong>No school is available.</strong> Create a school first, or check whether every registered school already has a Principal.
     <a href="{% url 'supervisor:school_create' %}" class="alert-link">Add School</a>
 </div>
 {% endif %}

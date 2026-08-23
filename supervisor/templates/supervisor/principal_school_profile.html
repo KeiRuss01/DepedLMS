@@ -6,9 +6,14 @@
 {% block extra_css %}<link href="{% static 'supervisor/css/schools.css' %}" rel="stylesheet">{% endblock %}
 
 {% block content %}
-<div class="mb-4">
-    <h1 class="sv-page-title h4">School Profile</h1>
-    <p class="sv-page-subtitle">Complete and maintain the information for your assigned school.</p>
+<div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-4">
+    <div>
+        <h1 class="sv-page-title h4">School Profile</h1>
+        <p class="sv-page-subtitle mb-0">Complete and maintain the information for your assigned school.</p>
+    </div>
+    <a class="btn btn-outline-primary" href="{% url 'supervisor:school_detail' school.school_id %}">
+        <i class="bi bi-eye me-2"></i>View School Overview
+    </a>
 </div>
 
 <form method="post" enctype="multipart/form-data" class="sv-card sv-school-form" novalidate>

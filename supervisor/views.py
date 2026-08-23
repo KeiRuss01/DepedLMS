@@ -4,7 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 
-from accounts.models import Principal, School, Teacher, User
+from accounts.models import Principal, School, Student, Teacher, User
+from classroom.models import Classroom, ClassEnrollment
 
 from .forms import (
     AdministrationLoginForm,
@@ -51,7 +52,14 @@ def dashboard_view(request):
         messages.error(request, "You don't have access to the supervisor portal.")
         return redirect("supervisor:login")
 
-    return render(request, "supervisor/dashboard.html")
+    context = {
+        "school_count": School.objects.count(),
+        "principal_count": Principal.objects.count(),
+        "teacher_count": Teacher.objects.count(),
+        "student_count": Student.objects.count(),
+        "class_count": Classroom.objects.count(),
+    }
+    return render(request, "supervisor/dashboard.html", context)
 
 
 
@@ -61,7 +69,23 @@ def principal_dashboard_view(request):
         messages.error(request, "You don't have access to the Principal portal.")
         return _administration_redirect(request.user)
 
-    return render(request, "supervisor/principal_dashboard.html")
+    principal = getattr(request.user, "principal_profile", None)
+    if principal is None:
+        messages.error(request, "Your Principal profile is not connected to a school.")
+        return redirect("supervisor:login")
+
+    school = principal.school
+    context = {
+        "school": school,
+        "teacher_count": Teacher.objects.filter(school=school).count(),
+        "student_count": Student.objects.filter(school=school).count(),
+        "class_count": Classroom.objects.filter(teacher__school=school).count(),
+        "enrollment_count": ClassEnrollment.objects.filter(
+            classroom__teacher__school=school,
+            status=ClassEnrollment.Status.APPROVED,
+        ).count(),
+    }
+    return render(request, "supervisor/principal_dashboard.html", context)
 
 @login_required(login_url="supervisor:login")
 def principal_school_profile_view(request):
@@ -105,7 +129,7 @@ def teacher_list_view(request):
     teachers = Teacher.objects.filter(school=principal.school).select_related(
         "user",
         "school",
-    ).order_by("lastname", "firstname")
+    ).prefetch_related("created_classes").order_by("lastname", "firstname")
     return render(
         request,
         "supervisor/teachers.html",
@@ -167,6 +191,7 @@ def principal_create_view(request):
         return _administration_redirect(request.user)
 
     form = PrincipalAccountForm(request.POST or None)
+    has_available_schools = School.objects.filter(principals__isnull=True).exists()
     if request.method == "POST" and form.is_valid():
         principal = form.save()
         messages.success(
@@ -180,7 +205,7 @@ def principal_create_view(request):
         "supervisor/principal_form.html",
         {
             "form": form,
-            "has_schools": School.objects.exists(),
+            "has_schools": has_available_schools,
         },
     )
 
@@ -192,8 +217,92 @@ def school_list_view(request):
         messages.error(request, "You don't have access to the supervisor portal.")
         return redirect("supervisor:login")
 
-    schools = School.objects.order_by("school_name")
+    schools = School.objects.select_related().prefetch_related("principals").order_by(
+        "school_name"
+    )
     return render(request, "supervisor/schools.html", {"schools": schools})
+
+
+@login_required(login_url="supervisor:login")
+def school_detail_view(request, school_id):
+    if not (_is_supervisor(request.user) or _is_principal(request.user)):
+        messages.error(request, "You don't have access to this school.")
+        return _administration_redirect(request.user)
+
+    school = get_object_or_404(School, pk=school_id)
+
+    # A Principal can only open the school assigned to their profile.
+    if _is_principal(request.user):
+        principal_profile = getattr(request.user, "principal_profile", None)
+        if principal_profile is None or principal_profile.school_id != school.school_id:
+            messages.error(request, "You can only view your assigned school.")
+            return redirect("supervisor:principal_dashboard")
+
+    principals = Principal.objects.filter(school=school).select_related("user")
+    teachers = Teacher.objects.filter(school=school).select_related("user").prefetch_related(
+        "created_classes"
+    ).order_by("lastname", "firstname")
+    students = Student.objects.filter(school=school).select_related("user").order_by(
+        "lastname", "firstname"
+    )
+    classes = Classroom.objects.filter(teacher__school=school).select_related(
+        "teacher", "teacher__user"
+    ).order_by("teacher__lastname", "subject", "section")
+
+    context = {
+        "school": school,
+        "principals": principals,
+        "teachers": teachers,
+        "students": students,
+        "classes": classes,
+        "principal_count": principals.count(),
+        "teacher_count": teachers.count(),
+        "student_count": students.count(),
+        "class_count": classes.count(),
+    }
+    return render(request, "supervisor/school_detail.html", context)
+
+
+@login_required(login_url="supervisor:login")
+def student_list_view(request):
+    if not _is_principal(request.user):
+        messages.error(request, "Only a Principal can view this Student list.")
+        return _administration_redirect(request.user)
+
+    principal = getattr(request.user, "principal_profile", None)
+    if principal is None:
+        messages.error(request, "Your Principal profile is not connected to a school.")
+        return redirect("supervisor:principal_dashboard")
+
+    students = Student.objects.filter(school=principal.school).select_related(
+        "user", "school"
+    ).order_by("lastname", "firstname")
+    return render(
+        request,
+        "supervisor/students.html",
+        {"students": students, "school": principal.school},
+    )
+
+
+@login_required(login_url="supervisor:login")
+def class_list_view(request):
+    if not _is_principal(request.user):
+        messages.error(request, "Only a Principal can view this Class list.")
+        return _administration_redirect(request.user)
+
+    principal = getattr(request.user, "principal_profile", None)
+    if principal is None:
+        messages.error(request, "Your Principal profile is not connected to a school.")
+        return redirect("supervisor:principal_dashboard")
+
+    classes = Classroom.objects.filter(
+        teacher__school=principal.school,
+    ).select_related("teacher", "teacher__user").prefetch_related("enrollments")
+    return render(
+        request,
+        "supervisor/classes.html",
+        {"classes": classes, "school": principal.school},
+    )
 
 
 @login_required(login_url="supervisor:login")
