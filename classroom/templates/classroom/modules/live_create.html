@@ -5,8 +5,9 @@
 {% block module_content %}
 <h1 class="h3">Prepare a module</h1>
 <p class="text-muted">
-    Keep the questions in the PDF. Generate numbered answer fields
-    without retyping every question.
+    Upload the learning module and choose how Students will answer.
+    For a numbered answer sheet, the system scans the PDF and suggests
+    question fields for the Teacher to review.
 </p>
 
 <form method="post" enctype="multipart/form-data" class="card">
@@ -32,11 +33,6 @@
             </div>
             {% endfor %}
         </div>
-
-        <p class="small text-muted mt-3">
-            Number of items and default answer type apply only to
-            numbered answer sheets.
-        </p>
 
         <button class="btn btn-primary" type="submit">
             Create draft

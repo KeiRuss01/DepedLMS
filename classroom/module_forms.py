@@ -18,19 +18,6 @@ def apply_bootstrap(form):
 
 
 class ModuleCreateForm(forms.ModelForm):
-    number_of_items = forms.IntegerField(
-        min_value=1,
-        max_value=50,
-        initial=5,
-        help_text="Used only for a numbered answer sheet.",
-    )
-
-    default_answer_type = forms.ChoiceField(
-        choices=ModuleItem.AnswerType.choices,
-        initial=ModuleItem.AnswerType.SHORT,
-        help_text="You can change individual items before publishing.",
-    )
-
     class Meta:
         model = Module
 

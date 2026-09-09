@@ -34,6 +34,7 @@ from .module_forms import (
     StudentModuleForm,
     ModuleGradeForm,
 )
+from .module_scanner import scan_pdf_questions
 
 
 @login_required(login_url="accounts:login")
@@ -714,17 +715,12 @@ def class_page_view(request, classroom_id):
         "grades",
     ]
 
-    if active_tab == "modules":
-        return redirect(
-            "classroom:module_list",
-            classroom_id=classroom_id,
-        )
-
     if active_tab not in allowed_tabs:
         active_tab = "stream"
 
     is_teacher = False
     is_student = False
+    student = None
 
     if request.user.role == User.Role.TEACHER:
         teacher = getattr(request.user, "teacher_profile", None)
@@ -777,6 +773,41 @@ def class_page_view(request, classroom_id):
         "student__user",
     )
 
+    module_rows = []
+    selected_term = request.GET.get("term", "")
+    search = request.GET.get("q", "").strip()[:150]
+
+    if active_tab == "modules":
+        modules = classroom.modules.all()
+
+        if not is_teacher:
+            modules = modules.filter(status=Module.Status.PUBLISHED)
+
+        if selected_term in ["1", "2", "3"]:
+            modules = modules.filter(term=selected_term)
+
+        if search:
+            modules = modules.filter(title__icontains=search)
+
+        submissions = {}
+
+        if student:
+            submissions = {
+                submission.module_id: submission
+                for submission in ModuleSubmission.objects.filter(
+                    student=student,
+                    module__classroom=classroom,
+                )
+            }
+
+        module_rows = [
+            {
+                "module": module,
+                "submission": submissions.get(module.pk),
+            }
+            for module in modules
+        ]
+
     return render(
         request,
         "classroom/class_page.html",
@@ -786,6 +817,9 @@ def class_page_view(request, classroom_id):
             "is_teacher": is_teacher,
             "is_student": is_student,
             "enrolled_students": enrolled_students,
+            "rows": module_rows,
+            "selected_term": selected_term,
+            "search": search,
         },
     )
 
@@ -1075,22 +1109,47 @@ def module_create_view(request, classroom_id):
             module.status = Module.Status.DRAFT
             module.save()
 
-            if module.answer_mode == Module.AnswerMode.STRUCTURED:
-                count = form.cleaned_data["number_of_items"]
-                answer_type = form.cleaned_data["default_answer_type"]
+            detected_questions = []
 
-                for position in range(1, count + 1):
+            if module.answer_mode == Module.AnswerMode.STRUCTURED:
+                detected_questions = scan_pdf_questions(module.pdf)
+
+                for position, question in enumerate(
+                    detected_questions,
+                    start=1,
+                ):
                     ModuleItem.objects.create(
                         module=module,
                         position=position,
-                        label=f"Item {position}",
-                        answer_type=answer_type,
+                        label=question["label"],
+                        answer_type=question["answer_type"],
+                    )
+
+                if not detected_questions:
+                    ModuleItem.objects.create(
+                        module=module,
+                        position=1,
+                        label=(
+                            "Question 1 - edit this field before publishing"
+                        ),
+                        answer_type=ModuleItem.AnswerType.SHORT,
                     )
 
         messages.success(
             request,
             "Draft created. Review the answer fields before publishing.",
         )
+
+        if (
+            module.answer_mode == Module.AnswerMode.STRUCTURED
+            and not detected_questions
+        ):
+            messages.warning(
+                request,
+                "No numbered questions were detected. The PDF may be "
+                "scanned or use a different layout. Edit the answer "
+                "field manually before publishing.",
+            )
 
         return redirect(
             "classroom:module_manage",

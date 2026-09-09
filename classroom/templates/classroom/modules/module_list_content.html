@@ -1,0 +1,112 @@
+<div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
+    <div>
+        <h2 class="h3">Learning modules</h2>
+        <p class="text-muted mb-0">
+            Read the module and answer inside your classroom.
+        </p>
+    </div>
+
+    {% if is_teacher %}
+    <a href="{% url 'classroom:module_create' classroom.pk %}"
+       class="btn btn-primary align-self-start">
+        <i class="bi bi-plus-lg me-2"></i>Add module
+    </a>
+    {% endif %}
+</div>
+
+<form method="get" class="row g-2 mb-4">
+    <input type="hidden" name="tab" value="modules">
+
+    <div class="col-sm-4">
+        <label for="term" class="visually-hidden">Term</label>
+        <select name="term" id="term" class="form-select">
+            <option value="">All terms</option>
+            <option value="1" {% if selected_term == "1" %}selected{% endif %}>Term 1</option>
+            <option value="2" {% if selected_term == "2" %}selected{% endif %}>Term 2</option>
+            <option value="3" {% if selected_term == "3" %}selected{% endif %}>Term 3</option>
+        </select>
+    </div>
+
+    <div class="col-sm">
+        <label for="search" class="visually-hidden">Search modules</label>
+        <input type="search" name="q" id="search"
+               class="form-control" value="{{ search }}"
+               placeholder="Search modules">
+    </div>
+
+    <div class="col-sm-auto">
+        <button class="btn btn-outline-primary" type="submit">Filter</button>
+    </div>
+</form>
+
+<div class="row g-3">
+    {% for row in rows %}
+    <div class="col-md-6">
+        <article class="card h-100">
+            <div class="card-body">
+                <small class="text-primary">
+                    {{ row.module.get_term_display }}
+                </small>
+
+                <h3 class="h5 mt-2">{{ row.module.title }}</h3>
+
+                <p class="text-muted">
+                    {{ row.module.get_answer_mode_display }}
+                    &middot; {{ row.module.max_score }} points
+                </p>
+
+                <p class="small">
+                    Due:
+                    {{ row.module.due_at|date:"M d, Y g:i A"|default:"No deadline" }}
+                </p>
+
+                {% if is_teacher %}
+                <span class="badge text-bg-light border">
+                    {{ row.module.get_status_display }}
+                </span>
+
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                    <a class="btn btn-primary"
+                       href="{% url 'classroom:module_manage' row.module.pk %}">
+                        Manage
+                    </a>
+                    <a class="btn btn-outline-primary"
+                       href="{% url 'classroom:module_submissions' row.module.pk %}">
+                        Submissions
+                    </a>
+                </div>
+                {% else %}
+                <p class="small">
+                    Status:
+                    {% if row.submission %}
+                        {{ row.submission.get_status_display }}
+                    {% else %}
+                        Not started
+                    {% endif %}
+                </p>
+
+                <a class="btn btn-primary"
+                   href="{% url 'classroom:module_work' row.module.pk %}">
+                    Open module
+                </a>
+                {% endif %}
+            </div>
+        </article>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <h3 class="h5">No modules found</h3>
+                <p class="text-muted mb-0">
+                    {% if is_teacher %}
+                        Add a module or change your filters.
+                    {% else %}
+                        Published modules will appear here.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
