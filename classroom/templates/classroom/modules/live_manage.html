@@ -1,0 +1,99 @@
+{% extends "classroom/modules/live_base.html" %}
+
+{% block title %}Manage {{ module.title }}{% endblock %}
+
+{% block module_content %}
+<h1 class="h3">{{ module.title }}</h1>
+
+<p class="text-muted">
+    {{ module.get_term_display }}
+    &middot; {{ module.get_status_display }}
+    &middot; {{ module.max_score }} points
+</p>
+
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a class="btn btn-outline-primary"
+       href="{% url 'classroom:module_work' module.pk %}">
+        Preview student workspace
+    </a>
+
+    <a class="btn btn-outline-primary"
+       href="{% url 'classroom:module_submissions' module.pk %}">
+        View submissions
+    </a>
+</div>
+
+{% if module.status == "draft" %}
+<form method="post" class="card">
+    {% csrf_token %}
+
+    <div class="card-body">
+        <h2 class="h5">Review the answer sheet</h2>
+
+        <p class="text-muted">
+            Labels can reference the PDF, for example:
+            “Activity A, page 4, item 1”.
+        </p>
+
+        {% if formset %}
+            {{ formset.management_form }}
+            {{ formset.non_form_errors }}
+
+            {% for item_form in formset %}
+                {% for hidden in item_form.hidden_fields %}
+                    {{ hidden }}
+                    {{ hidden.errors }}
+                {% endfor %}
+
+                {{ item_form.non_field_errors }}
+
+                <div class="row g-2 border-bottom py-3">
+                    <div class="col-md-8">
+                        <label class="form-label"
+                               for="{{ item_form.label.id_for_label }}">
+                            Item {{ forloop.counter }} label
+                        </label>
+                        {{ item_form.label }}
+                        {{ item_form.label.errors }}
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label"
+                               for="{{ item_form.answer_type.id_for_label }}">
+                            Answer type
+                        </label>
+                        {{ item_form.answer_type }}
+                        {{ item_form.answer_type.errors }}
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>
+                Answer method:
+                <strong>{{ module.get_answer_mode_display }}</strong>
+            </p>
+        {% endif %}
+
+        <div class="d-flex flex-wrap gap-2 mt-4">
+            <button name="action" value="save"
+                    class="btn btn-outline-primary">
+                Save answer fields
+            </button>
+
+            <button name="action" value="publish"
+                    class="btn btn-primary">
+                Save and publish
+            </button>
+        </div>
+    </div>
+</form>
+{% else %}
+<div class="alert alert-success">
+    This module is published. Enrolled Students can open it.
+</div>
+
+<p class="text-muted">
+    Editing published modules is disabled in this first version.
+</p>
+{% endif %}
+{% endblock %}

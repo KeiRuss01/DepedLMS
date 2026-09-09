@@ -1,0 +1,117 @@
+{% extends "classroom/modules/live_base.html" %}
+
+{% block title %}{{ module.title }}{% endblock %}
+
+{% block module_content %}
+<h1 class="h3">{{ module.title }}</h1>
+
+<p class="text-muted">
+    {{ module.get_term_display }}
+    &middot; {{ module.max_score }} points
+    &middot;
+    Due: {{ module.due_at|date:"M d, Y g:i A"|default:"No deadline" }}
+</p>
+
+{{ module.instructions|linebreaks }}
+
+{% if is_teacher %}
+<div class="alert alert-info">
+    Teacher preview. Answers cannot be submitted from this account.
+    Save answer-field changes before opening this preview.
+</div>
+{% elif submission.status == "submitted" %}
+<div class="alert alert-success">
+    Submitted on {{ submission.submitted_at|date:"M d, Y g:i A" }}.
+    Your answers are now read-only.
+</div>
+{% elif submission.status == "graded" %}
+<div class="alert alert-success">
+    <strong>Score: {{ submission.score }} / {{ module.max_score }}</strong>
+    {{ submission.feedback|linebreaks }}
+</div>
+{% elif deadline_closed %}
+<div class="alert alert-warning">
+    The deadline has passed. Late submissions are not allowed.
+</div>
+{% endif %}
+
+<div class="module-mobile-switch mb-3"
+     role="group" aria-label="Workspace panel">
+    <button type="button" class="btn btn-primary"
+            data-module-pane="document" aria-pressed="true">
+        Module
+    </button>
+    <button type="button" class="btn btn-outline-primary"
+            data-module-pane="answers" aria-pressed="false">
+        Answer sheet
+    </button>
+</div>
+
+<div class="module-workspace" data-visible-pane="document">
+    <div class="module-document">
+        {% include "classroom/modules/pdf_reader.html" %}
+    </div>
+
+    <section class="card module-answers">
+        <div class="card-header">
+            <strong>Answer sheet</strong>
+        </div>
+
+        <div class="card-body">
+            {% if submission.answer_file %}
+            <p>
+                <a href="{% url 'classroom:module_attachment' submission.pk %}">
+                    Download your saved answer file
+                </a>
+            </p>
+            {% endif %}
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <div class="text-danger">
+                    {{ form.non_field_errors }}
+                </div>
+
+                <fieldset {% if not can_edit %}disabled{% endif %}>
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label"
+                               for="{{ field.id_for_label }}">
+                            {{ field.label }}
+                        </label>
+
+                        {{ field }}
+
+                        <div class="small text-danger">
+                            {{ field.errors }}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    {% if can_edit %}
+                    <p class="small text-muted">
+                        Save draft before leaving. Answers are not
+                        automatically saved.
+                    </p>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-outline-primary"
+                                name="action" value="draft"
+                                formnovalidate>
+                            Save draft
+                        </button>
+
+                        <button class="btn btn-primary"
+                                name="action" value="submit"
+                                onclick="return confirm('Submit your work? You cannot edit it afterward in this version.');">
+                            Submit module
+                        </button>
+                    </div>
+                    {% endif %}
+                </fieldset>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}

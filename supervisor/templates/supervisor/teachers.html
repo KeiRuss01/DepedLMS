@@ -81,7 +81,7 @@
                     <div class="list-group-item px-0 py-3">
                         <strong class="d-block">{{ classroom.class_name }}</strong>
                         <small class="text-muted">{{ classroom.subject }} | {{ classroom.grade_level }} - {{ classroom.section }}</small>
-                        <small class="d-block text-muted">{{ classroom.get_quarter_display }} | School year {{ classroom.school_year }}</small>
+                        <small class="d-block text-muted">Academic year {{ classroom.school_year }}</small>
                     </div>
                     {% empty %}
                     <p class="text-center text-muted py-4 mb-0">This Teacher has not created a class yet.</p>

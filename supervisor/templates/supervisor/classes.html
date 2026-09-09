@@ -23,7 +23,7 @@
             <p>{{ classroom.grade_level }} - {{ classroom.section }}</p>
             <p>Teacher: <strong>{{ classroom.teacher }}</strong></p>
             <div class="d-flex justify-content-between mt-3 pt-3 border-top">
-                <span>{{ classroom.get_quarter_display }}</span>
+                <span>AY {{ classroom.school_year }}</span>
                 <span>{{ classroom.enrollments.all|length }} enrolled/requested</span>
             </div>
         </article>

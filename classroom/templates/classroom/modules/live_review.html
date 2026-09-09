@@ -1,0 +1,70 @@
+{% extends "classroom/modules/live_base.html" %}
+
+{% block title %}Review submission{% endblock %}
+
+{% block module_content %}
+<h1 class="h3">{{ submission.student }}</h1>
+<p class="text-muted">{{ module.title }}</p>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <section class="card mb-4">
+            <div class="card-body">
+                <h2 class="h5">Student answers</h2>
+
+                {% if module.answer_mode == "structured" %}
+                    {% for row in answer_rows %}
+                    <div class="border-bottom py-3">
+                        <strong>{{ row.label }}</strong>
+                        <div class="mt-2">
+                            {{ row.answer|default:"No answer"|linebreaksbr }}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                {% elif module.answer_mode == "written" %}
+                    {{ submission.written_answer|linebreaks }}
+
+                {% elif submission.answer_file %}
+                    <a href="{% url 'classroom:module_attachment' submission.pk %}"
+                       class="btn btn-outline-primary">
+                        Download submitted answer file
+                    </a>
+                {% endif %}
+            </div>
+        </section>
+
+        {% include "classroom/modules/pdf_reader.html" %}
+    </div>
+
+    <div class="col-lg-4">
+        <form method="post" class="card">
+            {% csrf_token %}
+
+            <div class="card-body">
+                <h2 class="h5">Score and feedback</h2>
+                <p class="text-muted">
+                    Maximum score: {{ module.max_score }}
+                </p>
+
+                {{ form.non_field_errors }}
+
+                {% for field in form %}
+                <div class="mb-3">
+                    <label class="form-label"
+                           for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                    </label>
+                    {{ field }}
+                    <div class="text-danger small">{{ field.errors }}</div>
+                </div>
+                {% endfor %}
+
+                <button class="btn btn-primary w-100">
+                    Return score and feedback
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

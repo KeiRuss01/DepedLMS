@@ -145,3 +145,6 @@ LOGOUT_REDIRECT_URL = 'accounts:login'
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
 ]
+
+
+PRIVATE_LEARNING_ROOT = BASE_DIR.parent / "DepedLMS-private"

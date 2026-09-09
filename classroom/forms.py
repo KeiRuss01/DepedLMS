@@ -15,7 +15,6 @@ class ClassroomForm(forms.ModelForm):
             "grade_level",
             "section",
             "school_year",
-            "quarter",
             "description",
         ]
 
@@ -49,9 +48,6 @@ class ClassroomForm(forms.ModelForm):
                     "class": "form-control",
                     "placeholder": "Example: 2026-2027",
                 }
-            ),
-            "quarter": forms.Select(
-                attrs={"class": "form-select"}
             ),
             "description": forms.Textarea(
                 attrs={

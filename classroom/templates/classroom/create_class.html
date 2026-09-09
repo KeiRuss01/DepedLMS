@@ -16,7 +16,8 @@
             <h1 class="h4 fw-bold mb-2">Create a Class</h1>
 
             <p class="text-muted mb-0">
-                You will automatically become the Teacher of this class.
+                You will automatically become the Teacher of this class for the academic year.
+                Learning modules will be organized into Term 1, Term 2, and Term 3 inside the class.
             </p>
         </div>
 
@@ -73,22 +74,13 @@
                 <div class="col-md-6">
                     <label class="form-label"
                            for="{{ form.school_year.id_for_label }}">
-                        School year
+                        Academic year
                     </label>
 
                     {{ form.school_year }}
                     {{ form.school_year.errors }}
                 </div>
 
-                <div class="col-md-6">
-                    <label class="form-label"
-                           for="{{ form.quarter.id_for_label }}">
-                        Quarter
-                    </label>
-
-                    {{ form.quarter }}
-                    {{ form.quarter.errors }}
-                </div>
             </div>
 
             <div class="mt-3">

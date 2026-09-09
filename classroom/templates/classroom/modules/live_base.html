@@ -1,0 +1,40 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet"
+      href="{% static 'classroom/css/module_live.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="module-live">
+
+    <a href="{% url 'classroom:class_page' classroom.class_id %}"
+       class="d-inline-block mb-3 text-decoration-none">
+        &larr; {{ classroom.class_name }}
+    </a>
+
+    <div class="mb-4">
+        <small class="text-muted">
+            Academic year {{ classroom.school_year }}
+        </small>
+
+        <nav class="d-flex gap-3 mt-2" aria-label="Class sections">
+            <a href="{% url 'classroom:class_page' classroom.class_id %}">
+                Stream
+            </a>
+            <a href="{% url 'classroom:module_list' classroom.class_id %}"
+               class="fw-bold">
+                Modules
+            </a>
+        </nav>
+    </div>
+
+    {% block module_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module"
+        src="{% static 'classroom/js/module_reader.js' %}"></script>
+{% endblock %}

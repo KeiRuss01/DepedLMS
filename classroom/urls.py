@@ -77,4 +77,52 @@ urlpatterns = [
         views.respond_parent_link_view,
         name="respond_parent_link",
     ),
+
+    path(
+        "classes/<int:classroom_id>/modules/",
+        views.module_list_view,
+        name="module_list",
+    ),
+
+    path(
+        "classes/<int:classroom_id>/modules/create/",
+        views.module_create_view,
+        name="module_create",
+    ),
+
+    path(
+        "modules/<int:module_id>/manage/",
+        views.module_manage_view,
+        name="module_manage",
+    ),
+
+    path(
+        "modules/<int:module_id>/work/",
+        views.module_work_view,
+        name="module_work",
+    ),
+
+    path(
+        "modules/<int:module_id>/submissions/",
+        views.module_submissions_view,
+        name="module_submissions",
+    ),
+
+    path(
+        "module-submissions/<int:submission_id>/review/",
+        views.module_review_view,
+        name="module_review",
+    ),
+
+    path(
+        "modules/<int:module_id>/pdf/",
+        views.module_pdf_view,
+        name="module_pdf",
+    ),
+
+    path(
+        "module-submissions/<int:submission_id>/file/",
+        views.module_attachment_view,
+        name="module_attachment",
+    ),
 ]

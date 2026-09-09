@@ -1,0 +1,16 @@
+<section data-screen="submissions" hidden>
+    <button class="mm-back" type="button" data-open="library"><i class="bi bi-arrow-left me-2"></i>Modules</button>
+    <div class="mm-heading"><div><h2>Module submissions</h2><p>Review student answers, enter a score, and give feedback.</p></div><button class="btn btn-outline-primary" type="button" data-open="review">Preview review layout</button></div>
+    <section class="mm-panel">
+        <div class="mm-review-filters"><div><label class="form-label" for="mmReviewModule">Module</label><select class="form-select" id="mmReviewModule" disabled><option>No published modules</option></select></div><div><label class="form-label" for="mmReviewStatus">Status</label><select class="form-select" id="mmReviewStatus" disabled><option>All submissions</option></select></div></div>
+        <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Student</th><th>Submitted</th><th>Status</th><th>Score</th><th>Action</th></tr></thead><tbody><tr><td colspan="5"><div class="mm-empty"><i class="bi bi-inbox" aria-hidden="true"></i><h3>No submissions yet</h3><p>Submitted work will appear here once the database is connected.</p></div></td></tr></tbody></table></div>
+    </section>
+</section>
+<section data-screen="review" hidden>
+    <button class="mm-back" type="button" data-open="submissions"><i class="bi bi-arrow-left me-2"></i>Submissions</button>
+    <div class="mm-heading"><div><h2>Review student work</h2><p>Review layout preview — no student record selected.</p></div><span class="badge text-bg-light border">Preview only</span></div>
+    <div class="mm-setup-grid">
+        <section class="mm-panel"><h3>Student answers</h3><p class="mm-help">The submitted answer sheet, written response, or file will appear here.</p><div class="mm-empty"><i class="bi bi-file-earmark-text" aria-hidden="true"></i><h3>No answer selected</h3><p>Open a real submission here in the next development step.</p></div></section>
+        <form class="mm-panel" id="mmGradeForm"><h3>Score and feedback</h3><label for="mmGrade" class="form-label">Score</label><div class="input-group mb-3"><input type="number" class="form-control" id="mmGrade" min="0" max="10" step="0.5" required><span class="input-group-text" id="mmGradeMax">/ 10</span></div><label for="mmFeedback" class="form-label">Feedback for the student</label><textarea class="form-control mb-3" id="mmFeedback" rows="6" placeholder="Explain what went well and what can be improved."></textarea><p class="mm-help">Returning a score is a preview action until grading is connected.</p><button type="submit" class="btn btn-primary w-100">Return score and feedback</button></form>
+    </div>
+</section>

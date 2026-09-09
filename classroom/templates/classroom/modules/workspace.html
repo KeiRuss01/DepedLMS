@@ -1,0 +1,28 @@
+<section data-screen="workspace" hidden>
+    <button class="mm-back" type="button" data-open="{% if is_teacher %}setup{% else %}library{% endif %}"><i class="bi bi-arrow-left me-2"></i>{% if is_teacher %}Back to module setup{% else %}Modules{% endif %}</button>
+    <div class="mm-heading"><div><small class="mm-eyebrow" id="mmWorkspaceTerm">Module workspace preview</small><h2 id="mmWorkspaceTitle">Read and answer</h2><p id="mmWorkspaceInstructions">Read the module and complete your answer sheet.</p></div><span class="badge text-bg-light border">Not submitted</span></div>
+    {% if not is_teacher %}
+    <details class="mm-preview-controls"><summary>Preview controls</summary><p class="mm-help">In the connected version, your teacher chooses the answer method and provides the PDF.</p><div class="row g-3"><div class="col-md-6"><label class="form-label" for="mmStudentPdf">Choose a local PDF to preview</label><input type="file" id="mmStudentPdf" accept="application/pdf,.pdf" class="form-control"></div><div class="col-md-6"><label class="form-label" for="mmPreviewMode">Preview answer method</label><select class="form-select" id="mmPreviewMode"><option value="structured">Numbered answer sheet</option><option value="written">Written response</option><option value="file">Answer file</option></select></div></div></details>
+    {% endif %}
+    <div class="mm-mobile-switch" role="group" aria-label="Workspace panel"><button type="button" data-pane="pdf" aria-pressed="true" class="is-active">Module</button><button type="button" data-pane="answers" aria-pressed="false">Answer sheet</button></div>
+    <div class="mm-workspace" data-mobile-pane="pdf">
+        <section class="mm-pdf-pane" aria-label="PDF module">
+            <div class="mm-pane-heading"><strong><i class="bi bi-file-earmark-pdf me-2"></i>Module PDF</strong><a id="mmOpenPdf" class="btn btn-sm btn-light border" target="_blank" rel="noopener" hidden>Open PDF</a></div>
+            <div id="mmPdfEmpty" class="mm-empty"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i><h3>PDF preview</h3><p>{% if is_teacher %}Choose a PDF in module setup to display it here.{% else %}Use the preview controls to choose a local PDF.{% endif %}</p></div>
+            <iframe id="mmPdfFrame" title="Learning module PDF preview" hidden></iframe>
+            <p class="mm-pdf-help">If the PDF does not display on your device, use Open PDF. The embedded viewer depends on your browser.</p>
+        </section>
+        <section class="mm-answer-pane" aria-label="Module answers">
+            <div class="mm-pane-heading"><strong>Answer sheet</strong><small id="mmAnswerProgress">0 answered</small></div>
+            <form id="mmAnswerForm">
+                <p class="mm-help">Refer to the item numbers in your PDF.</p>
+                <div id="mmStructuredAnswers"></div>
+                <div id="mmWrittenAnswer" hidden><label class="form-label" for="mmResponse">Your response</label><textarea class="form-control" id="mmResponse" rows="14" placeholder="Write your answers here. Include the activity name and item numbers."></textarea></div>
+                <div id="mmFileAnswer" hidden><label class="mm-upload" for="mmAnswerFile"><i class="bi bi-paperclip" aria-hidden="true"></i><strong>Attach your answer</strong><span>PDF, JPG, or PNG</span></label><input class="form-control" type="file" id="mmAnswerFile" accept="application/pdf,image/jpeg,image/png"><p class="mm-help" id="mmAnswerFileName">No file selected.</p></div>
+                <p class="mm-draft-status" id="mmDraftStatus" role="status">Preview only — answers are not saved.</p>
+                <div class="mm-answer-actions"><button class="btn btn-outline-primary" type="button" data-preview-action="Draft saving is not connected yet. Your answers remain in this page only.">Save draft</button><button class="btn btn-primary" type="submit">Review submission</button></div>
+            </form>
+        </section>
+    </div>
+    <div class="mm-panel mt-3" id="mmSubmissionReview" hidden tabindex="-1"><h3>Review your submission</h3><p id="mmReviewSummary"></p><p class="mm-help">This is a layout preview. Nothing will be sent to your teacher.</p><div class="mm-actions"><button class="btn btn-light border" type="button" id="mmReturnAnswers">Continue editing</button><button class="btn btn-primary" type="button" data-preview-action="Submission is not connected yet. No answers were sent or saved.">Submit module</button></div></div>
+</section>

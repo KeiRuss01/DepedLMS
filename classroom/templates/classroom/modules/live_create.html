@@ -1,0 +1,46 @@
+{% extends "classroom/modules/live_base.html" %}
+
+{% block title %}Create module{% endblock %}
+
+{% block module_content %}
+<h1 class="h3">Prepare a module</h1>
+<p class="text-muted">
+    Keep the questions in the PDF. Generate numbered answer fields
+    without retyping every question.
+</p>
+
+<form method="post" enctype="multipart/form-data" class="card">
+    {% csrf_token %}
+
+    <div class="card-body">
+        {{ form.non_field_errors }}
+
+        <div class="row g-3">
+            {% for field in form %}
+            <div class="{% if field.name == 'instructions' %}col-12{% else %}col-md-6{% endif %}">
+                <label class="form-label" for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                </label>
+
+                {{ field }}
+
+                {% if field.help_text %}
+                    <div class="form-text">{{ field.help_text }}</div>
+                {% endif %}
+
+                <div class="text-danger small">{{ field.errors }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <p class="small text-muted mt-3">
+            Number of items and default answer type apply only to
+            numbered answer sheets.
+        </p>
+
+        <button class="btn btn-primary" type="submit">
+            Create draft
+        </button>
+    </div>
+</form>
+{% endblock %}

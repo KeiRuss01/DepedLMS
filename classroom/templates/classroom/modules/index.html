@@ -1,0 +1,43 @@
+{# Layout only. Existing class_page view supplies classroom and is_teacher. #}
+<div class="mm-app" id="moduleApp" data-role="{% if is_teacher %}teacher{% else %}student{% endif %}">
+    <div class="mm-preview-note"><i class="bi bi-info-circle" aria-hidden="true"></i>
+        Layout preview. Files and answers stay in this page only. Nothing is uploaded, published, submitted, or saved after a refresh.
+    </div>
+    <p id="mmNotice" class="alert alert-info" role="status" hidden></p>
+
+    <section data-screen="library">
+        <div class="mm-heading">
+            <div><h2>Learning modules</h2><p>{{ classroom.school_year }} academic year · Read, answer, and submit in one place.</p></div>
+            {% if is_teacher %}
+            <button class="btn btn-primary" type="button" data-open="setup"><i class="bi bi-plus-lg me-2"></i>Add Module</button>
+            {% else %}
+            <button class="btn btn-outline-primary" type="button" data-open="workspace">Preview answer workspace</button>
+            {% endif %}
+        </div>
+        <div class="mm-toolbar">
+            <div class="mm-terms" role="group" aria-label="Filter modules by term">
+                <button type="button" class="is-active" data-term="all" aria-pressed="true">All terms</button>
+                <button type="button" data-term="1" aria-pressed="false">Term 1</button>
+                <button type="button" data-term="2" aria-pressed="false">Term 2</button>
+                <button type="button" data-term="3" aria-pressed="false">Term 3</button>
+            </div>
+            <label class="mm-search"><i class="bi bi-search" aria-hidden="true"></i><input id="mmSearch" type="search" class="form-control" placeholder="Search modules" aria-label="Search modules"></label>
+        </div>
+        <div class="mm-empty" id="mmLibraryEmpty">
+            <i class="bi bi-journal-richtext" aria-hidden="true"></i><h3>No modules yet</h3>
+            <p>{% if is_teacher %}Start with a PDF and choose how your students will answer.{% else %}Your teacher's published modules will appear here, organized by term.{% endif %}</p>
+        </div>
+        <article class="mm-module-card" id="mmDraftCard" hidden>
+            <span class="mm-file-icon"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i></span>
+            <div class="mm-card-copy"><small id="mmCardTerm">Term 1</small><h3 id="mmCardTitle">Untitled module</h3><p id="mmCardMeta"></p><span class="badge text-bg-light border">Preview only</span></div>
+            <div class="mm-actions"><button type="button" class="btn btn-outline-primary" data-open="workspace">Open preview</button><button type="button" class="btn btn-light border" data-open="setup">Edit</button></div>
+        </article>
+        {% if is_teacher %}
+        <div class="mm-library-footer"><p>Review student work in one place.</p><button type="button" class="btn btn-link" data-open="submissions">Preview submissions <i class="bi bi-arrow-right ms-1"></i></button></div>
+        {% endif %}
+    </section>
+
+    {% if is_teacher %}{% include 'classroom/modules/teacher_setup.html' %}{% endif %}
+    {% include 'classroom/modules/workspace.html' %}
+    {% if is_teacher %}{% include 'classroom/modules/submissions.html' %}{% endif %}
+</div>

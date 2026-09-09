@@ -1,0 +1,109 @@
+.module-live {
+    color: #102448;
+}
+
+.module-live .card {
+    border: 1px solid #dfe5ef;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.module-live .card-header,
+.module-live .card-footer {
+    background: #f8faff;
+    border-color: #dfe5ef;
+    padding: 1rem;
+}
+
+.module-live .card-body {
+    padding: 1.25rem;
+}
+
+.module-live .form-control,
+.module-live .form-select {
+    min-height: 44px;
+}
+
+.module-live .form-label {
+    font-weight: 600;
+}
+
+.module-live .table th,
+.module-live .table td {
+    padding: 1rem;
+}
+
+.module-live [hidden] {
+    display: none !important;
+}
+
+.module-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.module-document,
+.module-answers {
+    min-width: 0;
+}
+
+.pdf-viewport {
+    background: #e9edf3;
+    min-height: 300px;
+    max-height: 75vh;
+    overflow: auto;
+    padding: 12px;
+}
+
+.pdf-viewport canvas {
+    display: block;
+    margin: 0 auto;
+    background: white;
+}
+
+.module-mobile-switch {
+    display: none;
+}
+
+.module-live textarea {
+    resize: vertical;
+}
+
+.module-live .card-body {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 991.98px) {
+    .module-workspace {
+        display: block;
+    }
+
+    .module-mobile-switch {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .module-mobile-switch button {
+        flex: 1;
+    }
+
+    .module-workspace[data-visible-pane="document"] .module-answers {
+        display: none;
+    }
+
+    .module-workspace[data-visible-pane="answers"] .module-document {
+        display: none;
+    }
+
+    .pdf-viewport {
+        max-height: 65vh;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .module-live .card-body {
+        padding: 1rem;
+    }
+}

@@ -1,0 +1,53 @@
+<section data-screen="setup" hidden>
+    <button type="button" class="mm-back" data-open="library"><i class="bi bi-arrow-left me-2"></i>Modules</button>
+    <div class="mm-heading"><div><h2>Prepare a module</h2><p>Upload your lesson, then choose an answer format. The questions can stay in the PDF.</p></div><span class="badge text-bg-light border">Teacher workspace</span></div>
+    <form id="mmSetupForm">
+        <div class="mm-setup-grid">
+            <div>
+                <section class="mm-panel">
+                    <h3><span class="mm-step">1</span>Module details</h3>
+                    <label class="form-label" for="mmTitle">Module title</label>
+                    <input class="form-control mb-3" id="mmTitle" required maxlength="150" placeholder="Enter module title">
+                    <label class="form-label" for="mmInstructions">Instructions</label>
+                    <textarea class="form-control mb-3" id="mmInstructions" rows="3" placeholder="Tell students which pages and activities to complete."></textarea>
+                    <label class="mm-upload" for="mmPdf"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i><strong>Choose a PDF module</strong><span>Preview the original document inside the classroom.</span></label>
+                    <input class="form-control" type="file" id="mmPdf" accept="application/pdf,.pdf">
+                    <p class="mm-help" id="mmPdfName">PDF only. Selected files are not uploaded in this preview.</p>
+                </section>
+                <section class="mm-panel">
+                    <h3><span class="mm-step">2</span>How should students answer?</h3>
+                    <fieldset>
+                        <legend class="visually-hidden">Answer method</legend>
+                        <div class="mm-methods">
+                            <label class="mm-method"><input type="radio" name="answer_mode" value="structured" checked><span><strong>Numbered answer sheet</strong><small>Create fields in bulk. Keep the questions in the PDF.</small></span></label>
+                            <label class="mm-method"><input type="radio" name="answer_mode" value="written"><span><strong>Written response</strong><small>A spacious answer box for essays or numbered answers.</small></span></label>
+                            <label class="mm-method"><input type="radio" name="answer_mode" value="file"><span><strong>Answer file</strong><small>A student attaches a PDF or a photo of their work.</small></span></label>
+                        </div>
+                    </fieldset>
+                    <div id="mmBuilder">
+                        <div class="mm-bulk">
+                            <div><label for="mmItemCount" class="form-label">Number of items</label><input type="number" class="form-control" id="mmItemCount" min="1" max="50" value="5"></div>
+                            <div><label for="mmItemType" class="form-label">Answer type</label><select class="form-select" id="mmItemType"><option value="short">Short answer</option><option value="choice">Multiple choice (A–D)</option><option value="essay">Long answer</option></select></div>
+                            <button type="button" class="btn btn-outline-primary" id="mmBuildItems">Create blank fields</button>
+                        </div>
+                        <p class="mm-help">For example, create 10 short-answer fields for Activity A, page 4. No need to retype the questions.</p>
+                        <div id="mmBuilderItems"></div>
+                    </div>
+                    <div class="mm-future"><i class="bi bi-magic" aria-hidden="true"></i><div><strong>Extract questions from PDF</strong><p>Planned for a later step. Detected questions will need teacher review.</p></div><button class="btn btn-sm btn-light border" type="button" disabled>Not available yet</button></div>
+                </section>
+            </div>
+            <aside>
+                <section class="mm-panel">
+                    <h3><span class="mm-step">3</span>Schedule</h3>
+                    <label class="form-label" for="mmYear">Academic year</label><input class="form-control mb-3" id="mmYear" value="{{ classroom.school_year }}" readonly>
+                    <label class="form-label" for="mmTerm">Term</label><select class="form-select mb-3" id="mmTerm"><option value="1">Term 1</option><option value="2">Term 2</option><option value="3">Term 3</option></select>
+                    <label class="form-label" for="mmDue">Due date <span class="text-muted">(optional)</span></label><input class="form-control mb-3" type="datetime-local" id="mmDue">
+                    <label class="form-label" for="mmMaxScore">Maximum score</label><input class="form-control mb-3" type="number" id="mmMaxScore" min="1" max="10000" value="10" required>
+                    <div class="form-check"><input class="form-check-input" id="mmLate" type="checkbox"><label class="form-check-label" for="mmLate">Allow late submissions</label></div>
+                </section>
+                <section class="mm-panel mm-tip"><h3>One class, one academic year</h3><p>Use terms to organize modules inside this class. You do not need a new class for each term.</p><p>Preview the answer sheet before publishing.</p></section>
+            </aside>
+        </div>
+        <div class="mm-footer-actions"><button class="btn btn-light border" type="button" data-open="library">Back to modules</button><div class="mm-actions"><button class="btn btn-outline-primary" type="button" id="mmSavePreview">Keep draft in this page</button><button class="btn btn-primary" type="submit">Preview student layout <i class="bi bi-arrow-right ms-2"></i></button><button class="btn btn-primary" type="button" data-preview-action="Publishing will be connected when we add models and views. No module was published.">Publish</button></div></div>
+    </form>
+</section>

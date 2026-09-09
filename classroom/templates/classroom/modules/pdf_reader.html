@@ -1,0 +1,54 @@
+{% load static %}
+
+<section id="pdfReader"
+         class="card pdf-reader"
+         aria-label="Module PDF reader"
+         data-url="{% url 'classroom:module_pdf' module.pk %}"
+         data-library="{% static 'vendor/pdfjs/build/pdf.mjs' %}"
+         data-worker="{% static 'vendor/pdfjs/build/pdf.worker.mjs' %}"
+         data-assets="{% static 'vendor/pdfjs/' %}">
+
+    <div class="card-header">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <button type="button" id="pdfPrevious"
+                    class="btn btn-sm btn-outline-primary" disabled>
+                Previous
+            </button>
+
+            <span id="pdfPageLabel" class="small" aria-live="polite">
+                Loading PDF…
+            </span>
+
+            <button type="button" id="pdfNext"
+                    class="btn btn-sm btn-outline-primary" disabled>
+                Next
+            </button>
+
+            <button type="button" id="pdfZoomOut"
+                    class="btn btn-sm btn-light border"
+                    aria-label="Zoom out" disabled>
+                −
+            </button>
+
+            <button type="button" id="pdfZoomIn"
+                    class="btn btn-sm btn-light border"
+                    aria-label="Zoom in" disabled>
+                +
+            </button>
+        </div>
+    </div>
+
+    <div class="pdf-viewport">
+        <canvas id="pdfCanvas"
+                role="img"
+                aria-label="Module PDF page"></canvas>
+    </div>
+
+    <div class="card-footer small">
+        <p id="pdfError" class="text-danger mb-2" hidden></p>
+
+        <a href="{% url 'classroom:module_pdf' module.pk %}">
+            Download original PDF
+        </a>
+    </div>
+</section>

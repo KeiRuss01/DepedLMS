@@ -14,6 +14,27 @@ from .forms import (
 )
 from .models import Classroom, ClassEnrollment
 
+from pathlib import Path
+
+from django.core.exceptions import PermissionDenied
+from django.db import transaction
+from django.http import FileResponse, Http404
+from django.views.decorators.http import require_http_methods
+
+from .models import (
+    Module,
+    ModuleItem,
+    ModuleSubmission,
+    ModuleAnswer,
+)
+
+from .module_forms import (
+    ModuleCreateForm,
+    ModuleItemFormSet,
+    StudentModuleForm,
+    ModuleGradeForm,
+)
+
 
 @login_required(login_url="accounts:login")
 def dashboard_view(request):
@@ -693,6 +714,12 @@ def class_page_view(request, classroom_id):
         "grades",
     ]
 
+    if active_tab == "modules":
+        return redirect(
+            "classroom:module_list",
+            classroom_id=classroom_id,
+        )
+
     if active_tab not in allowed_tabs:
         active_tab = "stream"
 
@@ -905,3 +932,642 @@ def respond_parent_link_view(request, link_id, action):
         messages.error(request, "Invalid response.")
 
     return redirect("classroom:student_parent_requests")
+
+def _module_class_access(request, classroom_id):
+    if request.user.status != User.Status.ACTIVE:
+        raise PermissionDenied("Your account is not active.")
+
+    classroom = get_object_or_404(
+        Classroom.objects.select_related("teacher"),
+        pk=classroom_id,
+        is_archived=False,
+    )
+
+    if request.user.role == User.Role.TEACHER:
+        teacher = getattr(
+            request.user,
+            "teacher_profile",
+            None,
+        )
+
+        if teacher is None or classroom.teacher_id != teacher.pk:
+            raise PermissionDenied(
+                "You do not own this class."
+            )
+
+        return classroom, True, None
+
+    if request.user.role == User.Role.STUDENT:
+        student = getattr(
+            request.user,
+            "student_profile",
+            None,
+        )
+
+        if student is None:
+            raise PermissionDenied("Student profile not found.")
+
+        get_object_or_404(
+            ClassEnrollment,
+            classroom=classroom,
+            student=student,
+            status=ClassEnrollment.Status.APPROVED,
+        )
+
+        return classroom, False, student
+
+    raise PermissionDenied(
+        "Only the class Teacher and enrolled Students can access modules."
+    )
+
+
+def _get_module_access(request, module_id):
+    module = get_object_or_404(
+        Module.objects.select_related("classroom"),
+        pk=module_id,
+    )
+
+    classroom, is_teacher, student = _module_class_access(
+        request,
+        module.classroom_id,
+    )
+
+    if not is_teacher and module.status != Module.Status.PUBLISHED:
+        raise Http404("Module not found.")
+
+    return module, classroom, is_teacher, student
+
+@login_required(login_url="accounts:login")
+def module_list_view(request, classroom_id):
+    classroom, is_teacher, student = _module_class_access(
+        request,
+        classroom_id,
+    )
+
+    modules = classroom.modules.all()
+
+    if not is_teacher:
+        modules = modules.filter(
+            status=Module.Status.PUBLISHED,
+        )
+
+    selected_term = request.GET.get("term", "")
+
+    if selected_term in ["1", "2", "3"]:
+        modules = modules.filter(term=selected_term)
+
+    search = request.GET.get("q", "").strip()[:150]
+
+    if search:
+        modules = modules.filter(title__icontains=search)
+
+    submissions = {}
+
+    if student:
+        submissions = {
+            submission.module_id: submission
+            for submission in ModuleSubmission.objects.filter(
+                student=student,
+                module__classroom=classroom,
+            )
+        }
+
+    rows = [
+        {
+            "module": module,
+            "submission": submissions.get(module.pk),
+        }
+        for module in modules
+    ]
+
+    return render(
+        request,
+        "classroom/modules/live_list.html",
+        {
+            "classroom": classroom,
+            "is_teacher": is_teacher,
+            "rows": rows,
+            "selected_term": selected_term,
+            "search": search,
+        },
+    )
+
+@login_required(login_url="accounts:login")
+@require_http_methods(["GET", "POST"])
+def module_create_view(request, classroom_id):
+    classroom, is_teacher, student = _module_class_access(
+        request,
+        classroom_id,
+    )
+
+    if not is_teacher:
+        raise PermissionDenied("Only the Teacher can create modules.")
+
+    form = ModuleCreateForm(
+        request.POST if request.method == "POST" else None,
+        request.FILES if request.method == "POST" else None,
+    )
+
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            module = form.save(commit=False)
+            module.classroom = classroom
+            module.status = Module.Status.DRAFT
+            module.save()
+
+            if module.answer_mode == Module.AnswerMode.STRUCTURED:
+                count = form.cleaned_data["number_of_items"]
+                answer_type = form.cleaned_data["default_answer_type"]
+
+                for position in range(1, count + 1):
+                    ModuleItem.objects.create(
+                        module=module,
+                        position=position,
+                        label=f"Item {position}",
+                        answer_type=answer_type,
+                    )
+
+        messages.success(
+            request,
+            "Draft created. Review the answer fields before publishing.",
+        )
+
+        return redirect(
+            "classroom:module_manage",
+            module_id=module.pk,
+        )
+
+    return render(
+        request,
+        "classroom/modules/live_create.html",
+        {
+            "classroom": classroom,
+            "form": form,
+            "is_teacher": True,
+        },
+    )
+
+@login_required(login_url="accounts:login")
+@require_http_methods(["GET", "POST"])
+def module_manage_view(request, module_id):
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        module_id,
+    )
+
+    if not is_teacher:
+        raise PermissionDenied("Only the Teacher can manage modules.")
+
+    formset = None
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        if action not in ["save", "publish"]:
+            raise PermissionDenied("Invalid action.")
+
+        with transaction.atomic():
+            module = get_object_or_404(
+                Module.objects.select_for_update(),
+                pk=module.pk,
+            )
+
+            if module.status != Module.Status.DRAFT:
+                messages.error(
+                    request,
+                    "Published modules cannot be changed in this version.",
+                )
+                return redirect(
+                    "classroom:module_manage",
+                    module_id=module.pk,
+                )
+
+            valid = True
+
+            if module.answer_mode == Module.AnswerMode.STRUCTURED:
+                formset = ModuleItemFormSet(
+                    request.POST,
+                    queryset=module.items.all(),
+                    prefix="items",
+                )
+
+                valid = formset.is_valid()
+
+                if not module.items.exists():
+                    valid = False
+                    messages.error(
+                        request,
+                        "A numbered answer sheet needs at least one item.",
+                    )
+
+                if valid:
+                    formset.save()
+
+            if valid:
+                if action == "publish":
+                    module.status = Module.Status.PUBLISHED
+                    module.published_at = timezone.now()
+                    module.save(
+                        update_fields=["status", "published_at"]
+                    )
+
+                    messages.success(
+                        request,
+                        "Module published to enrolled Students.",
+                    )
+                else:
+                    messages.success(
+                        request,
+                        "Answer fields saved.",
+                    )
+
+                return redirect(
+                    "classroom:module_manage",
+                    module_id=module.pk,
+                )
+
+    elif (
+        module.status == Module.Status.DRAFT
+        and module.answer_mode == Module.AnswerMode.STRUCTURED
+    ):
+        formset = ModuleItemFormSet(
+            queryset=module.items.all(),
+            prefix="items",
+        )
+
+    return render(
+        request,
+        "classroom/modules/live_manage.html",
+        {
+            "classroom": classroom,
+            "module": module,
+            "formset": formset,
+            "is_teacher": True,
+        },
+    )
+
+@login_required(login_url="accounts:login")
+@require_http_methods(["GET", "POST"])
+def module_work_view(request, module_id):
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        module_id,
+    )
+
+    submission = None
+
+    if student:
+        submission = ModuleSubmission.objects.filter(
+            module=module,
+            student=student,
+        ).first()
+
+    locked = bool(
+        submission
+        and submission.status != ModuleSubmission.Status.DRAFT
+    )
+
+    deadline_closed = bool(
+        module.due_at
+        and timezone.now() > module.due_at
+        and not module.allow_late
+    )
+
+    action = request.POST.get("action")
+    complete = action == "submit"
+
+    form = StudentModuleForm(
+        module,
+        request.POST if request.method == "POST" else None,
+        request.FILES if request.method == "POST" else None,
+        submission=submission,
+        complete=complete,
+    )
+
+    if request.method == "POST":
+        if is_teacher:
+            raise PermissionDenied(
+                "The Teacher preview cannot submit student answers."
+            )
+
+        if action not in ["draft", "submit"]:
+            form.add_error(None, "Choose Save draft or Submit.")
+
+        elif locked:
+            form.add_error(
+                None,
+                "This work has already been submitted.",
+            )
+
+        elif deadline_closed:
+            form.add_error(
+                None,
+                "The deadline has passed and late submissions are closed.",
+            )
+
+        elif form.is_valid():
+            with transaction.atomic():
+                # Lock this enrollment while saving to prevent duplicate
+                # submissions from simultaneous requests.
+                get_object_or_404(
+                    ClassEnrollment.objects.select_for_update(),
+                    classroom=classroom,
+                    student=student,
+                    status=ClassEnrollment.Status.APPROVED,
+                )
+
+                saved, created = ModuleSubmission.objects.get_or_create(
+                    module=module,
+                    student=student,
+                )
+
+                saved = ModuleSubmission.objects.select_for_update().get(
+                    pk=saved.pk,
+                )
+
+                if saved.status != ModuleSubmission.Status.DRAFT:
+                    messages.error(
+                        request,
+                        "This work has already been submitted.",
+                    )
+                    return redirect(
+                        "classroom:module_work",
+                        module_id=module.pk,
+                    )
+
+                # Recheck the deadline immediately before saving.
+                if (
+                    module.due_at
+                    and timezone.now() > module.due_at
+                    and not module.allow_late
+                ):
+                    messages.error(request, "Submissions are closed.")
+                    return redirect(
+                        "classroom:module_work",
+                        module_id=module.pk,
+                    )
+
+                if module.answer_mode == Module.AnswerMode.STRUCTURED:
+                    for item in module.items.all():
+                        ModuleAnswer.objects.update_or_create(
+                            submission=saved,
+                            item=item,
+                            defaults={
+                                "answer_text": form.cleaned_data[
+                                    f"item_{item.pk}"
+                                ],
+                            },
+                        )
+
+                elif module.answer_mode == Module.AnswerMode.WRITTEN:
+                    saved.written_answer = form.cleaned_data[
+                        "written_answer"
+                    ]
+
+                else:
+                    upload = form.cleaned_data.get("answer_file")
+
+                    if upload:
+                        saved.answer_file = upload
+
+                if complete:
+                    saved.status = ModuleSubmission.Status.SUBMITTED
+                    saved.submitted_at = timezone.now()
+
+                saved.save()
+
+            messages.success(
+                request,
+                "Module submitted." if complete else "Draft saved.",
+            )
+
+            return redirect(
+                "classroom:module_work",
+                module_id=module.pk,
+            )
+
+    can_edit = (
+        not is_teacher
+        and not locked
+        and not deadline_closed
+    )
+
+    return render(
+        request,
+        "classroom/modules/live_work.html",
+        {
+            "classroom": classroom,
+            "module": module,
+            "submission": submission,
+            "form": form,
+            "is_teacher": is_teacher,
+            "can_edit": can_edit,
+            "deadline_closed": deadline_closed,
+        },
+    )
+
+@login_required(login_url="accounts:login")
+def module_submissions_view(request, module_id):
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        module_id,
+    )
+
+    if not is_teacher:
+        raise PermissionDenied("Only the Teacher can review submissions.")
+
+    submissions = module.submissions.filter(
+        status__in=[
+            ModuleSubmission.Status.SUBMITTED,
+            ModuleSubmission.Status.GRADED,
+        ],
+    ).select_related(
+        "student",
+        "student__user",
+    ).order_by("-submitted_at")
+
+    return render(
+        request,
+        "classroom/modules/live_submissions.html",
+        {
+            "classroom": classroom,
+            "module": module,
+            "submissions": submissions,
+            "is_teacher": True,
+        },
+    )
+
+
+@login_required(login_url="accounts:login")
+@require_http_methods(["GET", "POST"])
+def module_review_view(request, submission_id):
+    submission = get_object_or_404(
+        ModuleSubmission.objects.select_related(
+            "module",
+            "student",
+            "student__user",
+        ),
+        pk=submission_id,
+        status__in=[
+            ModuleSubmission.Status.SUBMITTED,
+            ModuleSubmission.Status.GRADED,
+        ],
+    )
+
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        submission.module_id,
+    )
+
+    if not is_teacher:
+        raise PermissionDenied("Only the Teacher can grade submissions.")
+
+    form = ModuleGradeForm(
+        module,
+        request.POST if request.method == "POST" else None,
+        initial={
+            "score": submission.score,
+            "feedback": submission.feedback,
+        },
+    )
+
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            submission = get_object_or_404(
+                ModuleSubmission.objects.select_for_update(),
+                pk=submission.pk,
+                status__in=[
+                    ModuleSubmission.Status.SUBMITTED,
+                    ModuleSubmission.Status.GRADED,
+                ],
+            )
+
+            submission.score = form.cleaned_data["score"]
+            submission.feedback = form.cleaned_data["feedback"]
+            submission.status = ModuleSubmission.Status.GRADED
+            submission.graded_at = timezone.now()
+
+            submission.save(
+                update_fields=[
+                    "score",
+                    "feedback",
+                    "status",
+                    "graded_at",
+                    "updated_at",
+                ]
+            )
+
+        messages.success(
+            request,
+            "Score and feedback are now visible to the Student.",
+        )
+
+        return redirect(
+            "classroom:module_review",
+            submission_id=submission.pk,
+        )
+
+    saved_answers = dict(
+        submission.answers.values_list(
+            "item_id",
+            "answer_text",
+        )
+    )
+
+    answer_rows = [
+        {
+            "label": item.label,
+            "answer": saved_answers.get(item.pk, ""),
+        }
+        for item in module.items.all()
+    ]
+
+    return render(
+        request,
+        "classroom/modules/live_review.html",
+        {
+            "classroom": classroom,
+            "module": module,
+            "submission": submission,
+            "answer_rows": answer_rows,
+            "form": form,
+            "is_teacher": True,
+        },
+    )
+
+def _private_file_response(field, filename, content_type):
+    if not field:
+        raise Http404("File not found.")
+
+    try:
+        file = field.open("rb")
+    except OSError:
+        raise Http404("File not found.")
+
+    response = FileResponse(
+        file,
+        as_attachment=True,
+        filename=filename,
+        content_type=content_type,
+    )
+
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+
+    return response
+
+
+@login_required(login_url="accounts:login")
+def module_pdf_view(request, module_id):
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        module_id,
+    )
+
+    return _private_file_response(
+        module.pdf,
+        "module.pdf",
+        "application/pdf",
+    )
+
+
+@login_required(login_url="accounts:login")
+def module_attachment_view(request, submission_id):
+    submission = get_object_or_404(
+        ModuleSubmission,
+        pk=submission_id,
+    )
+
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        submission.module_id,
+    )
+
+    if is_teacher:
+        if submission.status == ModuleSubmission.Status.DRAFT:
+            raise PermissionDenied(
+                "Student drafts are private."
+            )
+
+    elif submission.student_id != student.pk:
+        raise PermissionDenied(
+            "You cannot open another Student's answer."
+        )
+
+    extension = Path(submission.answer_file.name).suffix.lower()
+
+    content_types = {
+        ".pdf": "application/pdf",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+    }
+
+    return _private_file_response(
+        submission.answer_file,
+        f"student-answer{extension}",
+        content_types.get(
+            extension,
+            "application/octet-stream",
+        ),
+    )

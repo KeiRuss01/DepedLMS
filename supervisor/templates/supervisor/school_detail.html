@@ -133,9 +133,8 @@
                                 <strong class="d-block">{{ classroom.class_name }}</strong>
                                 <small class="text-muted">{{ classroom.subject }} | {{ classroom.grade_level }} - {{ classroom.section }}</small>
                             </div>
-                            <span class="badge text-bg-light border align-self-start">{{ classroom.get_quarter_display }}</span>
                         </div>
-                        <small class="text-muted">School year {{ classroom.school_year }}</small>
+                        <small class="text-muted">Academic year {{ classroom.school_year }}</small>
                     </div>
                     {% empty %}
                     <div class="sv-simple-empty">
