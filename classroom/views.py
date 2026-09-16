@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -15,26 +16,40 @@ from .forms import (
 from .models import Classroom, ClassEnrollment
 
 from pathlib import Path
+from decimal import Decimal, InvalidOperation
 
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.http import FileResponse, Http404
 from django.views.decorators.http import require_http_methods
 
 from .models import (
     Module,
-    ModuleItem,
+    ModuleAnswerSection,
+    SectionQuestion,
     ModuleSubmission,
-    ModuleAnswer,
+    SectionResponse,
+    SectionAnswer,
+    SubmissionAttachment,
 )
 
 from .module_forms import (
     ModuleCreateForm,
-    ModuleItemFormSet,
-    StudentModuleForm,
-    ModuleGradeForm,
+    AnswerSectionForm,
+    SectionQuestionFormSet,
+    SectionResponseForm,
+    SectionGradeForm,
 )
-from .module_scanner import scan_pdf_questions
+from .module_pdf_processor import build_student_pdf
+from .gradebook import (
+    build_summary,
+    build_term_record,
+    next_item_position,
+    sync_module_grade_item,
+    sync_module_grade_score,
+)
+from .gradebook_forms import GradeItemForm, GradebookSettingsForm
+from .models import GradeItem, GradeScore, GradebookSettings
 
 
 @login_required(login_url="accounts:login")
@@ -718,6 +733,9 @@ def class_page_view(request, classroom_id):
     if active_tab not in allowed_tabs:
         active_tab = "stream"
 
+    if active_tab == "grades":
+        return redirect("classroom:gradebook", classroom_id=classroom_id)
+
     is_teacher = False
     is_student = False
     student = None
@@ -1103,58 +1121,22 @@ def module_create_view(request, classroom_id):
     )
 
     if request.method == "POST" and form.is_valid():
-        with transaction.atomic():
-            module = form.save(commit=False)
-            module.classroom = classroom
-            module.status = Module.Status.DRAFT
-            module.save()
-
-            detected_questions = []
-
-            if module.answer_mode == Module.AnswerMode.STRUCTURED:
-                detected_questions = scan_pdf_questions(module.pdf)
-
-                for position, question in enumerate(
-                    detected_questions,
-                    start=1,
-                ):
-                    ModuleItem.objects.create(
-                        module=module,
-                        position=position,
-                        label=question["label"],
-                        answer_type=question["answer_type"],
-                    )
-
-                if not detected_questions:
-                    ModuleItem.objects.create(
-                        module=module,
-                        position=1,
-                        label=(
-                            "Question 1 - edit this field before publishing"
-                        ),
-                        answer_type=ModuleItem.AnswerType.SHORT,
-                    )
-
-        messages.success(
-            request,
-            "Draft created. Review the answer fields before publishing.",
-        )
-
-        if (
-            module.answer_mode == Module.AnswerMode.STRUCTURED
-            and not detected_questions
-        ):
-            messages.warning(
+        module = form.save(commit=False)
+        module.classroom = classroom
+        module.status = Module.Status.DRAFT
+        module.save()
+        sync_module_grade_item(module)
+        try:
+            build_student_pdf(module)
+        except ValidationError as error:
+            module.delete()
+            form.add_error("hidden_pages", error)
+        else:
+            messages.success(
                 request,
-                "No numbered questions were detected. The PDF may be "
-                "scanned or use a different layout. Edit the answer "
-                "field manually before publishing.",
+                "Draft created. Add only the answer sections that exist in this module.",
             )
-
-        return redirect(
-            "classroom:module_manage",
-            module_id=module.pk,
-        )
+            return redirect("classroom:module_manage", module_id=module.pk)
 
     return render(
         request,
@@ -1177,93 +1159,97 @@ def module_manage_view(request, module_id):
     if not is_teacher:
         raise PermissionDenied("Only the Teacher can manage modules.")
 
-    formset = None
-
     if request.method == "POST":
-        action = request.POST.get("action")
-
-        if action not in ["save", "publish"]:
+        if request.POST.get("action") != "publish":
             raise PermissionDenied("Invalid action.")
+        module.status = Module.Status.PUBLISHED
+        module.published_at = timezone.now()
+        module.save(update_fields=["status", "published_at"])
+        messages.success(request, "Module published to enrolled Students.")
+        return redirect("classroom:module_manage", module_id=module.pk)
 
-        with transaction.atomic():
-            module = get_object_or_404(
-                Module.objects.select_for_update(),
-                pk=module.pk,
-            )
-
-            if module.status != Module.Status.DRAFT:
-                messages.error(
-                    request,
-                    "Published modules cannot be changed in this version.",
-                )
-                return redirect(
-                    "classroom:module_manage",
-                    module_id=module.pk,
-                )
-
-            valid = True
-
-            if module.answer_mode == Module.AnswerMode.STRUCTURED:
-                formset = ModuleItemFormSet(
-                    request.POST,
-                    queryset=module.items.all(),
-                    prefix="items",
-                )
-
-                valid = formset.is_valid()
-
-                if not module.items.exists():
-                    valid = False
-                    messages.error(
-                        request,
-                        "A numbered answer sheet needs at least one item.",
-                    )
-
-                if valid:
-                    formset.save()
-
-            if valid:
-                if action == "publish":
-                    module.status = Module.Status.PUBLISHED
-                    module.published_at = timezone.now()
-                    module.save(
-                        update_fields=["status", "published_at"]
-                    )
-
-                    messages.success(
-                        request,
-                        "Module published to enrolled Students.",
-                    )
-                else:
-                    messages.success(
-                        request,
-                        "Answer fields saved.",
-                    )
-
-                return redirect(
-                    "classroom:module_manage",
-                    module_id=module.pk,
-                )
-
-    elif (
-        module.status == Module.Status.DRAFT
-        and module.answer_mode == Module.AnswerMode.STRUCTURED
-    ):
-        formset = ModuleItemFormSet(
-            queryset=module.items.all(),
-            prefix="items",
-        )
-
+    sections = module.answer_sections.prefetch_related("questions")
     return render(
         request,
         "classroom/modules/live_manage.html",
         {
             "classroom": classroom,
             "module": module,
-            "formset": formset,
+            "sections": sections,
             "is_teacher": True,
         },
     )
+
+
+@login_required(login_url="accounts:login")
+@require_http_methods(["GET", "POST"])
+def module_section_create_view(request, module_id):
+    module, classroom, is_teacher, student = _get_module_access(request, module_id)
+    if not is_teacher:
+        raise PermissionDenied("Only the Teacher can add answer sections.")
+    section = ModuleAnswerSection(module=module, position=module.answer_sections.count() + 1)
+    form = AnswerSectionForm(request.POST or None, instance=section)
+    if request.method == "POST" and form.is_valid():
+        section = form.save()
+        sync_module_grade_item(module)
+        messages.success(request, "Answer section added.")
+        return redirect("classroom:module_section_edit", section_id=section.pk)
+    return render(request, "classroom/modules/live_section_form.html", {
+        "classroom": classroom, "module": module, "form": form,
+        "section": None, "is_teacher": True,
+    })
+
+
+@login_required(login_url="accounts:login")
+@require_http_methods(["GET", "POST"])
+def module_section_edit_view(request, section_id):
+    section = get_object_or_404(ModuleAnswerSection.objects.select_related("module"), pk=section_id)
+    module, classroom, is_teacher, student = _get_module_access(request, section.module_id)
+    if not is_teacher:
+        raise PermissionDenied("Only the Teacher can edit answer sections.")
+    form = AnswerSectionForm(request.POST or None, instance=section)
+    formset = SectionQuestionFormSet(request.POST or None, instance=section, prefix="questions")
+    forms_valid = form.is_valid() and formset.is_valid() if request.method == "POST" else False
+    if forms_valid and form.cleaned_data["answer_method"] == ModuleAnswerSection.AnswerMethod.STRUCTURED:
+        question_points = sum(
+            row.get("points", 0)
+            for row in formset.cleaned_data
+            if row and not row.get("DELETE")
+        )
+        if question_points > form.cleaned_data["max_score"]:
+            form.add_error(
+                "max_score",
+                f"Question points total {question_points}, so the section total cannot be lower.",
+            )
+            forms_valid = False
+    if request.method == "POST" and forms_valid:
+        with transaction.atomic():
+            form.save()
+            formset.save()
+            for position, question in enumerate(section.questions.order_by("position", "pk"), start=1):
+                if question.position != position:
+                    question.position = position
+                    question.save(update_fields=["position"])
+            sync_module_grade_item(module)
+        messages.success(request, "Answer section saved.")
+        return redirect("classroom:module_manage", module_id=module.pk)
+    return render(request, "classroom/modules/live_section_form.html", {
+        "classroom": classroom, "module": module, "section": section,
+        "form": form, "formset": formset, "is_teacher": True,
+    })
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def module_section_delete_view(request, section_id):
+    section = get_object_or_404(ModuleAnswerSection.objects.select_related("module"), pk=section_id)
+    module, classroom, is_teacher, student = _get_module_access(request, section.module_id)
+    if not is_teacher:
+        raise PermissionDenied("Only the Teacher can delete answer sections.")
+    section.delete()
+    sync_module_grade_item(module)
+    messages.success(request, "Answer section removed.")
+    return redirect("classroom:module_manage", module_id=module.pk)
 
 @login_required(login_url="accounts:login")
 @require_http_methods(["GET", "POST"])
@@ -1274,142 +1260,51 @@ def module_work_view(request, module_id):
     )
 
     submission = None
-
     if student:
-        submission = ModuleSubmission.objects.filter(
-            module=module,
-            student=student,
-        ).first()
-
-    locked = bool(
-        submission
-        and submission.status != ModuleSubmission.Status.DRAFT
-    )
-
-    deadline_closed = bool(
-        module.due_at
-        and timezone.now() > module.due_at
-        and not module.allow_late
-    )
-
-    action = request.POST.get("action")
-    complete = action == "submit"
-
-    form = StudentModuleForm(
-        module,
-        request.POST if request.method == "POST" else None,
-        request.FILES if request.method == "POST" else None,
-        submission=submission,
-        complete=complete,
-    )
+        submission, created = ModuleSubmission.objects.get_or_create(module=module, student=student)
+    locked = bool(submission and submission.status != ModuleSubmission.Status.DRAFT)
+    deadline_closed = bool(module.due_at and timezone.now() > module.due_at and not module.allow_late)
 
     if request.method == "POST":
         if is_teacher:
-            raise PermissionDenied(
-                "The Teacher preview cannot submit student answers."
-            )
-
-        if action not in ["draft", "submit"]:
-            form.add_error(None, "Choose Save draft or Submit.")
-
-        elif locked:
-            form.add_error(
-                None,
-                "This work has already been submitted.",
-            )
-
+            raise PermissionDenied("The Teacher preview cannot submit student answers.")
+        if locked:
+            messages.error(request, "This module has already been submitted.")
         elif deadline_closed:
-            form.add_error(
-                None,
-                "The deadline has passed and late submissions are closed.",
-            )
-
-        elif form.is_valid():
-            with transaction.atomic():
-                # Lock this enrollment while saving to prevent duplicate
-                # submissions from simultaneous requests.
-                get_object_or_404(
-                    ClassEnrollment.objects.select_for_update(),
-                    classroom=classroom,
-                    student=student,
-                    status=ClassEnrollment.Status.APPROVED,
+            messages.error(request, "The deadline has passed and late submissions are closed.")
+        else:
+            missing = []
+            for section in module.answer_sections.filter(required=True):
+                response = submission.section_responses.filter(section=section, is_complete=True).first()
+                if not response:
+                    missing.append(section.title)
+            if missing:
+                messages.error(request, "Complete these required sections first: " + ", ".join(missing))
+            else:
+                submission.status = ModuleSubmission.Status.SUBMITTED
+                submission.submitted_at = timezone.now()
+                submission.save(update_fields=["status", "submitted_at", "updated_at"])
+                graded_required = submission.section_responses.filter(
+                    section__required=True,
+                    section__include_in_grade=True,
                 )
+                if graded_required.exists() and not graded_required.filter(score__isnull=True).exists():
+                    submission.update_total_score()
+                    sync_module_grade_score(submission)
+                    submission.status = ModuleSubmission.Status.GRADED
+                    submission.graded_at = timezone.now()
+                    submission.save(update_fields=["status", "graded_at", "updated_at"])
+                messages.success(request, "Complete module submitted to your Teacher.")
+                return redirect("classroom:module_work", module_id=module.pk)
 
-                saved, created = ModuleSubmission.objects.get_or_create(
-                    module=module,
-                    student=student,
-                )
-
-                saved = ModuleSubmission.objects.select_for_update().get(
-                    pk=saved.pk,
-                )
-
-                if saved.status != ModuleSubmission.Status.DRAFT:
-                    messages.error(
-                        request,
-                        "This work has already been submitted.",
-                    )
-                    return redirect(
-                        "classroom:module_work",
-                        module_id=module.pk,
-                    )
-
-                # Recheck the deadline immediately before saving.
-                if (
-                    module.due_at
-                    and timezone.now() > module.due_at
-                    and not module.allow_late
-                ):
-                    messages.error(request, "Submissions are closed.")
-                    return redirect(
-                        "classroom:module_work",
-                        module_id=module.pk,
-                    )
-
-                if module.answer_mode == Module.AnswerMode.STRUCTURED:
-                    for item in module.items.all():
-                        ModuleAnswer.objects.update_or_create(
-                            submission=saved,
-                            item=item,
-                            defaults={
-                                "answer_text": form.cleaned_data[
-                                    f"item_{item.pk}"
-                                ],
-                            },
-                        )
-
-                elif module.answer_mode == Module.AnswerMode.WRITTEN:
-                    saved.written_answer = form.cleaned_data[
-                        "written_answer"
-                    ]
-
-                else:
-                    upload = form.cleaned_data.get("answer_file")
-
-                    if upload:
-                        saved.answer_file = upload
-
-                if complete:
-                    saved.status = ModuleSubmission.Status.SUBMITTED
-                    saved.submitted_at = timezone.now()
-
-                saved.save()
-
-            messages.success(
-                request,
-                "Module submitted." if complete else "Draft saved.",
-            )
-
-            return redirect(
-                "classroom:module_work",
-                module_id=module.pk,
-            )
-
-    can_edit = (
-        not is_teacher
-        and not locked
-        and not deadline_closed
-    )
+    responses = {}
+    if submission:
+        responses = {row.section_id: row for row in submission.section_responses.all()}
+    section_rows = [
+        {"section": section, "response": responses.get(section.pk)}
+        for section in module.answer_sections.all()
+    ]
+    can_edit = not is_teacher and not locked and not deadline_closed
 
     return render(
         request,
@@ -1418,12 +1313,92 @@ def module_work_view(request, module_id):
             "classroom": classroom,
             "module": module,
             "submission": submission,
-            "form": form,
+            "section_rows": section_rows,
             "is_teacher": is_teacher,
             "can_edit": can_edit,
             "deadline_closed": deadline_closed,
         },
     )
+
+
+def _normalized_answer(value):
+    return " ".join((value or "").strip().casefold().split())
+
+
+@login_required(login_url="accounts:login")
+@require_http_methods(["GET", "POST"])
+def module_section_work_view(request, section_id):
+    section = get_object_or_404(
+        ModuleAnswerSection.objects.select_related("module").prefetch_related("questions"),
+        pk=section_id,
+    )
+    module, classroom, is_teacher, student = _get_module_access(request, section.module_id)
+    if is_teacher:
+        response = None
+        submission = None
+    else:
+        submission, created = ModuleSubmission.objects.get_or_create(module=module, student=student)
+        response = submission.section_responses.filter(section=section).first()
+    complete = request.POST.get("action") == "complete"
+    form = SectionResponseForm(
+        section,
+        request.POST or None,
+        request.FILES or None,
+        response=response,
+        complete=complete,
+    )
+    locked = bool(submission and submission.status != ModuleSubmission.Status.DRAFT)
+    deadline_closed = bool(module.due_at and timezone.now() > module.due_at and not module.allow_late)
+    if request.method == "POST":
+        if is_teacher:
+            raise PermissionDenied("Teacher preview cannot save Student work.")
+        if locked or deadline_closed:
+            raise PermissionDenied("This module can no longer be changed.")
+        if request.POST.get("action") not in ["draft", "complete"]:
+            form.add_error(None, "Choose Save draft or Mark section complete.")
+        elif form.is_valid():
+            response, created = SectionResponse.objects.get_or_create(
+                submission=submission, section=section
+            )
+            response.written_answer = form.cleaned_data.get("written_answer", response.written_answer)
+            response.is_complete = complete
+            response.auto_score = 0
+            if section.answer_method == ModuleAnswerSection.AnswerMethod.STRUCTURED:
+                response.score = None
+                all_automatic = True
+                for question in section.questions.all():
+                    value = form.cleaned_data.get(f"question_{question.pk}", "")
+                    is_correct = None
+                    awarded = 0
+                    if question.correct_answer.strip():
+                        is_correct = _normalized_answer(value) == _normalized_answer(question.correct_answer)
+                        awarded = question.points if is_correct else 0
+                    else:
+                        all_automatic = False
+                    SectionAnswer.objects.update_or_create(
+                        response=response,
+                        question=question,
+                        defaults={
+                            "answer_text": value,
+                            "is_correct": is_correct,
+                            "awarded_points": awarded,
+                        },
+                    )
+                    response.auto_score += awarded
+                if complete and all_automatic:
+                    response.score = min(response.auto_score, section.max_score)
+            response.save()
+            for upload in form.cleaned_data.get("answer_files", []):
+                SubmissionAttachment.objects.create(
+                    response=response, file=upload, original_name=upload.name
+                )
+            messages.success(request, "Section completed." if complete else "Section draft saved.")
+            return redirect("classroom:module_work", module_id=module.pk)
+    return render(request, "classroom/modules/live_section_work.html", {
+        "classroom": classroom, "module": module, "section": section,
+        "submission": submission, "response": response, "form": form,
+        "is_teacher": is_teacher, "can_edit": not is_teacher and not locked and not deadline_closed,
+    })
 
 @login_required(login_url="accounts:login")
 def module_submissions_view(request, module_id):
@@ -1481,65 +1456,30 @@ def module_review_view(request, submission_id):
     if not is_teacher:
         raise PermissionDenied("Only the Teacher can grade submissions.")
 
-    form = ModuleGradeForm(
-        module,
-        request.POST if request.method == "POST" else None,
-        initial={
-            "score": submission.score,
-            "feedback": submission.feedback,
-        },
+    responses = submission.section_responses.select_related("section").prefetch_related(
+        "answers__question", "attachments"
     )
-
-    if request.method == "POST" and form.is_valid():
-        with transaction.atomic():
-            submission = get_object_or_404(
-                ModuleSubmission.objects.select_for_update(),
-                pk=submission.pk,
-                status__in=[
-                    ModuleSubmission.Status.SUBMITTED,
-                    ModuleSubmission.Status.GRADED,
-                ],
+    forms = []
+    posted_response = request.POST.get("response_id")
+    for response in responses:
+        bound = request.POST if request.method == "POST" and posted_response == str(response.pk) else None
+        grade_form = SectionGradeForm(response.section, bound, instance=response, prefix=f"grade-{response.pk}")
+        forms.append({"response": response, "form": grade_form})
+        if bound is not None and grade_form.is_valid():
+            graded = grade_form.save(commit=False)
+            graded.graded_at = timezone.now()
+            graded.save()
+            submission.update_total_score()
+            sync_module_grade_score(submission)
+            required_responses = submission.section_responses.filter(
+                section__required=True, section__include_in_grade=True
             )
-
-            submission.score = form.cleaned_data["score"]
-            submission.feedback = form.cleaned_data["feedback"]
-            submission.status = ModuleSubmission.Status.GRADED
-            submission.graded_at = timezone.now()
-
-            submission.save(
-                update_fields=[
-                    "score",
-                    "feedback",
-                    "status",
-                    "graded_at",
-                    "updated_at",
-                ]
-            )
-
-        messages.success(
-            request,
-            "Score and feedback are now visible to the Student.",
-        )
-
-        return redirect(
-            "classroom:module_review",
-            submission_id=submission.pk,
-        )
-
-    saved_answers = dict(
-        submission.answers.values_list(
-            "item_id",
-            "answer_text",
-        )
-    )
-
-    answer_rows = [
-        {
-            "label": item.label,
-            "answer": saved_answers.get(item.pk, ""),
-        }
-        for item in module.items.all()
-    ]
+            if required_responses.exists() and not required_responses.filter(score__isnull=True).exists():
+                submission.status = ModuleSubmission.Status.GRADED
+                submission.graded_at = timezone.now()
+                submission.save(update_fields=["status", "graded_at", "updated_at"])
+            messages.success(request, f"Score saved for {response.section.title}.")
+            return redirect("classroom:module_review", submission_id=submission.pk)
 
     return render(
         request,
@@ -1548,11 +1488,272 @@ def module_review_view(request, submission_id):
             "classroom": classroom,
             "module": module,
             "submission": submission,
-            "answer_rows": answer_rows,
-            "form": form,
+            "response_forms": forms,
             "is_teacher": True,
         },
     )
+
+
+def _gradebook_access(request, classroom_id):
+    if request.user.role == User.Role.TEACHER:
+        teacher = getattr(request.user, "teacher_profile", None)
+        classroom = get_object_or_404(
+            Classroom,
+            class_id=classroom_id,
+            teacher=teacher,
+            is_archived=False,
+        )
+        return classroom, True, None
+
+    if request.user.role == User.Role.STUDENT:
+        student = getattr(request.user, "student_profile", None)
+        enrollment = get_object_or_404(
+            ClassEnrollment.objects.select_related("classroom"),
+            classroom_id=classroom_id,
+            student=student,
+            status=ClassEnrollment.Status.APPROVED,
+            classroom__is_archived=False,
+        )
+        return enrollment.classroom, False, student
+
+    raise PermissionDenied("Only the Teacher and enrolled Students can open the gradebook.")
+
+
+@login_required(login_url="accounts:login")
+@require_http_methods(["GET", "POST"])
+def gradebook_view(request, classroom_id):
+    classroom, is_teacher, current_student = _gradebook_access(request, classroom_id)
+    term = request.GET.get("term", "1")
+    if term not in {"1", "2", "3"}:
+        term = "1"
+    display = request.GET.get("view", "record")
+    if display not in {"record", "summary"}:
+        display = "record"
+    if not is_teacher:
+        display = "record"
+
+    enrolled = list(
+        Student.objects.filter(
+            class_enrollments__classroom=classroom,
+            class_enrollments__status=ClassEnrollment.Status.APPROVED,
+        ).distinct().order_by("gender", "lastname", "firstname")
+    )
+    visible_students = enrolled if is_teacher else [current_student]
+
+    settings, _ = GradebookSettings.objects.get_or_create(classroom=classroom)
+    # This also backfills gradebook columns for Modules made before the
+    # gradebook feature was introduced.
+    for module in classroom.modules.all().order_by("created_at", "pk"):
+        sync_module_grade_item(module)
+        for submission in module.submissions.filter(score__isnull=False):
+            sync_module_grade_score(submission)
+    item_form = GradeItemForm()
+    settings_form = GradebookSettingsForm(instance=settings)
+
+    if request.method == "POST":
+        if not is_teacher:
+            raise PermissionDenied("Only the Teacher can change grades.")
+        action = request.POST.get("action")
+
+        if action == "add_item":
+            item_form = GradeItemForm(request.POST)
+            if item_form.is_valid():
+                item = item_form.save(commit=False)
+                item.classroom = classroom
+                item.term = term
+                item.position = next_item_position(classroom, term, item.component)
+                item.save()
+                messages.success(request, f"{item.title} was added to the next empty slot.")
+                return redirect(f"{request.path}?term={term}")
+
+        elif action == "save_weights":
+            settings_form = GradebookSettingsForm(request.POST, instance=settings)
+            if settings_form.is_valid():
+                settings_form.save()
+                messages.success(request, "Grade component weights saved.")
+                return redirect(f"{request.path}?term={term}")
+
+        elif action == "toggle_release":
+            field_name = f"term_{term}_released"
+            current_value = getattr(settings, field_name)
+            setattr(settings, field_name, not current_value)
+            settings.save(update_fields=[field_name])
+            message = "released to Students" if not current_value else "hidden from Students"
+            messages.success(request, f"Term {term} Quarterly Grades are now {message}.")
+            return redirect(f"{request.path}?term={term}")
+
+        elif action == "save_scores":
+            errors = []
+            new_item_ids = set()
+            with transaction.atomic():
+                component_labels = {
+                    GradeItem.Component.WRITTEN_WORK: "Written Work",
+                    GradeItem.Component.PERFORMANCE_TASK: "Performance Task",
+                    GradeItem.Component.ASSESSMENT: "Quarterly Assessment",
+                }
+
+                # Empty cells are direct-entry slots. Supplying an HPS or a
+                # learner score turns that exact slot into a manual item.
+                for key in request.POST:
+                    if not key.startswith("new_hps_"):
+                        continue
+                    remainder = key[len("new_hps_"):]
+                    component, separator, position_text = remainder.rpartition("_")
+                    if not separator or component not in component_labels:
+                        continue
+                    try:
+                        position = int(position_text)
+                    except ValueError:
+                        continue
+                    hps_raw = request.POST.get(key, "").strip()
+                    score_values = {
+                        student.pk: request.POST.get(
+                            f"new_score_{component}_{position}_{student.pk}", ""
+                        ).strip()
+                        for student in enrolled
+                    }
+                    if not hps_raw and not any(score_values.values()):
+                        continue
+                    try:
+                        hps = Decimal(hps_raw)
+                    except InvalidOperation:
+                        errors.append(
+                            f"Enter the highest possible score for {component_labels[component]} {position}."
+                        )
+                        continue
+                    if hps <= 0:
+                        errors.append(
+                            f"The highest possible score for {component_labels[component]} {position} must be greater than zero."
+                        )
+                        continue
+                    item, created = GradeItem.objects.get_or_create(
+                        classroom=classroom,
+                        term=term,
+                        component=component,
+                        position=position,
+                        defaults={
+                            "title": f"{component_labels[component]} {position}",
+                            "highest_possible_score": hps,
+                        },
+                    )
+                    if not created:
+                        continue
+                    new_item_ids.add(item.pk)
+                    for student in enrolled:
+                        raw_value = score_values[student.pk]
+                        if not raw_value:
+                            continue
+                        try:
+                            score = Decimal(raw_value)
+                        except InvalidOperation:
+                            errors.append(f"Invalid score for {student.firstname}.")
+                            continue
+                        if score < 0 or score > hps:
+                            errors.append(
+                                f"{item.title}: {student.firstname}'s score must be 0 to {hps}."
+                            )
+                            continue
+                        GradeScore.objects.create(item=item, student=student, score=score)
+
+                items = GradeItem.objects.filter(classroom=classroom, term=term)
+                for item in items:
+                    if item.pk in new_item_ids:
+                        continue
+                    for student in enrolled:
+                        field = f"score_{item.pk}_{student.pk}"
+                        raw_value = request.POST.get(field, "").strip()
+                        if raw_value == "":
+                            GradeScore.objects.filter(item=item, student=student).delete()
+                            continue
+                        try:
+                            score = Decimal(raw_value)
+                        except InvalidOperation:
+                            errors.append(f"Invalid score for {student.firstname} in {item.title}.")
+                            continue
+                        if score < 0 or score > item.highest_possible_score:
+                            errors.append(
+                                f"{item.title}: {student.firstname}'s score must be 0 to {item.highest_possible_score}."
+                            )
+                            continue
+                        GradeScore.objects.update_or_create(
+                            item=item,
+                            student=student,
+                            defaults={"score": score},
+                        )
+                if errors:
+                    transaction.set_rollback(True)
+            if errors:
+                for error in errors[:5]:
+                    messages.error(request, error)
+            else:
+                messages.success(request, "Scores saved and grades recalculated.")
+                return redirect(f"{request.path}?term={term}")
+
+    record = build_term_record(classroom, term, visible_students)
+    quarterly_grade_released = getattr(settings, f"term_{term}_released")
+    student_score_groups = []
+    if not is_teacher:
+        score_lookup = {
+            score.item_id: score.score
+            for score in GradeScore.objects.filter(
+                student=current_student,
+                item__classroom=classroom,
+                item__term=term,
+            )
+        }
+        for component, label in (
+            (GradeItem.Component.WRITTEN_WORK, "Written Works"),
+            (GradeItem.Component.PERFORMANCE_TASK, "Performance Tasks"),
+            (GradeItem.Component.ASSESSMENT, "Quarterly Assessment"),
+        ):
+            component_items = record["grouped"][component]
+            student_score_groups.append({
+                "label": label,
+                "items": [
+                    {"item": item, "score": score_lookup.get(item.pk)}
+                    for item in component_items
+                ],
+            })
+    summary_rows = build_summary(classroom, visible_students) if display == "summary" else []
+    return render(request, "classroom/gradebook.html", {
+        "classroom": classroom,
+        "is_teacher": is_teacher,
+        "is_student": not is_teacher,
+        "term": term,
+        "display": display,
+        "record": record,
+        "rows": record["rows"],
+        "summary_rows": summary_rows,
+        "summary_male_rows": [row for row in summary_rows if row["student"].gender == Student.Gender.MALE],
+        "summary_female_rows": [row for row in summary_rows if row["student"].gender == Student.Gender.FEMALE],
+        "item_form": item_form,
+        "settings_form": settings_form,
+        "quarterly_grade_released": quarterly_grade_released,
+        "student_score_groups": student_score_groups,
+        "student_term_row": record["rows"][0] if record["rows"] else None,
+        "male_rows": [row for row in record["rows"] if row["student"].gender == Student.Gender.MALE],
+        "female_rows": [row for row in record["rows"] if row["student"].gender == Student.Gender.FEMALE],
+    })
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def grade_item_delete_view(request, item_id):
+    item = get_object_or_404(GradeItem.objects.select_related("classroom", "module"), pk=item_id)
+    classroom, is_teacher, current_student = _gradebook_access(request, item.classroom_id)
+    if not is_teacher:
+        raise PermissionDenied("Only the Teacher can remove grade items.")
+    if item.module_id:
+        messages.error(request, "A Module column is removed by deleting its Module, not from the gradebook.")
+    else:
+        title = item.title
+        term = item.term
+        item.delete()
+        messages.success(request, f"{title} was removed.")
+        return redirect(
+            f"{reverse('classroom:gradebook', args=[classroom.pk])}?term={term}"
+        )
+    return redirect("classroom:gradebook", classroom_id=classroom.pk)
 
 def _private_file_response(field, filename, content_type):
     if not field:
@@ -1583,8 +1784,9 @@ def module_pdf_view(request, module_id):
         module_id,
     )
 
+    pdf_file = module.pdf if is_teacher else (module.student_pdf or module.pdf)
     return _private_file_response(
-        module.pdf,
+        pdf_file,
         "module.pdf",
         "application/pdf",
     )
@@ -1629,4 +1831,30 @@ def module_attachment_view(request, submission_id):
             extension,
             "application/octet-stream",
         ),
+    )
+
+
+@login_required(login_url="accounts:login")
+def section_attachment_view(request, attachment_id):
+    attachment = get_object_or_404(
+        SubmissionAttachment.objects.select_related(
+            "response__submission__module", "response__submission__student"
+        ),
+        pk=attachment_id,
+    )
+    submission = attachment.response.submission
+    module, classroom, is_teacher, student = _get_module_access(request, submission.module_id)
+    if not is_teacher and submission.student_id != student.pk:
+        raise PermissionDenied("You cannot open another Student's answer.")
+    if is_teacher and submission.status == ModuleSubmission.Status.DRAFT:
+        raise PermissionDenied("Student drafts are private.")
+    extension = Path(attachment.file.name).suffix.lower()
+    content_types = {
+        ".pdf": "application/pdf", ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg", ".png": "image/png",
+    }
+    return _private_file_response(
+        attachment.file,
+        attachment.original_name,
+        content_types.get(extension, "application/octet-stream"),
     )

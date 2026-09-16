@@ -1,0 +1,55 @@
+{% extends "classroom/modules/live_base.html" %}
+{% block title %}{% if section %}Edit{% else %}Add{% endif %} answer section{% endblock %}
+{% block module_content %}
+<h1 class="h3">{% if section %}Edit{% else %}Add{% endif %} answer section</h1>
+<p class="text-muted">Keep the PDF visible as your reference. The section inherits the module deadline.</p>
+<div class="module-mobile-switch mb-3" role="group">
+  <button type="button" class="btn btn-primary" data-module-pane="document">Module PDF</button>
+  <button type="button" class="btn btn-outline-primary" data-module-pane="answers">Section builder</button>
+</div>
+<div class="module-workspace module-builder-workspace" data-visible-pane="document">
+  <div class="module-document">{% include "classroom/modules/pdf_reader.html" %}</div>
+  <form method="post" class="card module-answers">{% csrf_token %}
+    <div class="card-header"><strong>Section settings</strong></div>
+    <div class="card-body">
+      {{ form.non_field_errors }}
+      {% for field in form %}
+      <div class="mb-3"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}<div class="text-danger small">{{ field.errors }}</div></div>
+      {% endfor %}
+
+      {% if formset and section.answer_method == "structured" %}
+      <hr><h2 class="h5">Structured questions</h2>
+      <p class="small text-muted">These are used only when the selected method is Structured answer sheet. Leave Correct answer blank for essays or anything the Teacher must check.</p>
+      {{ formset.management_form }}
+      <div id="questionForms">
+      {% for question_form in formset %}
+      <div class="border rounded p-3 mb-3 question-form">
+        {% for hidden in question_form.hidden_fields %}{{ hidden }}{% endfor %}
+        <strong>Question {{ forloop.counter }}</strong>
+        {% for field in question_form.visible_fields %}
+        <div class="mt-2"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}<div class="text-danger small">{{ field.errors }}</div></div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+      </div>
+      <button type="button" class="btn btn-sm btn-outline-primary mb-3" id="addQuestion">+ Add another question</button>
+      <template id="emptyQuestionForm">
+        <div class="border rounded p-3 mb-3 question-form">
+          {% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+          <strong>New question</strong>
+          {% for field in formset.empty_form.visible_fields %}
+          <div class="mt-2"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}<div class="text-danger small">{{ field.errors }}</div></div>
+          {% endfor %}
+        </div>
+      </template>
+      {% elif not section %}
+      <div class="alert alert-info">Save the section settings first. You can then add structured questions if needed.</div>
+      {% endif %}
+    </div>
+    <div class="card-footer builder-actions d-flex justify-content-end gap-2">
+      <a class="btn btn-outline-secondary" href="{% url 'classroom:module_manage' module.pk %}">Cancel</a>
+      <button class="btn btn-primary">Save answer section</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

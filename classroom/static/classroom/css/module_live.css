@@ -71,13 +71,73 @@
     resize: vertical;
 }
 
+.module-live textarea.auto-grow {
+    min-height: 44px;
+    overflow-y: hidden;
+    resize: none;
+}
+
+.section-actions form {
+    margin: 0;
+}
+
+.section-actions .btn {
+    min-height: 34px;
+    white-space: nowrap;
+}
+
 .module-live .card-body {
     overflow-wrap: anywhere;
+}
+
+@media (min-width: 992px) {
+    .module-builder-workspace {
+        position: sticky;
+        top: 88px;
+        height: calc(100vh - 104px);
+        min-height: 560px;
+        align-items: stretch;
+    }
+
+    .module-builder-workspace .module-document,
+    .module-builder-workspace .module-answers,
+    .module-builder-workspace .pdf-reader {
+        min-height: 0;
+        height: 100%;
+    }
+
+    .module-builder-workspace .pdf-reader,
+    .module-builder-workspace .module-answers {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .module-builder-workspace .pdf-viewport,
+    .module-builder-workspace .module-answers .card-body {
+        min-height: 0;
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .module-builder-workspace .pdf-viewport {
+        max-height: none;
+    }
+
+    .module-builder-workspace .card-header,
+    .module-builder-workspace .card-footer {
+        flex: 0 0 auto;
+    }
 }
 
 @media (max-width: 991.98px) {
     .module-workspace {
         display: block;
+    }
+
+    .module-builder-workspace {
+        position: static;
+        height: auto;
+        min-height: 0;
     }
 
     .module-mobile-switch {

@@ -1,0 +1,29 @@
+{% extends "classroom/modules/live_base.html" %}
+{% block title %}{{ section.title }}{% endblock %}
+{% block module_content %}
+<a href="{% url 'classroom:module_work' module.pk %}" class="text-decoration-none">&larr; Back to complete module</a>
+<h1 class="h3 mt-3">{{ section.title }}</h1>
+<p class="text-muted">{{ section.get_answer_method_display }} · Maximum {{ section.max_score }} points{% if section.page_start %} · Refer to page {{ section.page_start }}{% if section.page_end %}-{{ section.page_end }}{% endif %}{% endif %}</p>
+{{ section.instructions|linebreaks }}
+<div class="module-mobile-switch mb-3" role="group">
+  <button type="button" class="btn btn-primary" data-module-pane="document">Module PDF</button>
+  <button type="button" class="btn btn-outline-primary" data-module-pane="answers">My answer</button>
+</div>
+<div class="module-workspace" data-visible-pane="document">
+  <div class="module-document">{% include "classroom/modules/pdf_reader.html" %}</div>
+  <section class="card module-answers">
+    <div class="card-header"><strong>{{ section.title }}</strong></div>
+    <div class="card-body">
+      {% if section.answer_method == "none" %}<div class="alert alert-info">No written answer is required. Mark this section complete after reading it.</div>{% endif %}
+      {% if response.attachments.exists %}<h2 class="h6">Saved files</h2><ul>{% for attachment in response.attachments.all %}<li>{{ attachment.original_name }}</li>{% endfor %}</ul>{% endif %}
+      <form method="post" enctype="multipart/form-data">{% csrf_token %}
+        {{ form.non_field_errors }}
+        <fieldset {% if not can_edit %}disabled{% endif %}>
+        {% for field in form %}<div class="mb-3"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}<div class="text-danger small">{{ field.errors }}</div></div>{% endfor %}
+        {% if can_edit %}<div class="d-flex gap-2"><button class="btn btn-outline-primary" name="action" value="draft" formnovalidate>Save draft</button><button class="btn btn-primary" name="action" value="complete">Mark section complete</button></div>{% endif %}
+        </fieldset>
+      </form>
+    </div>
+  </section>
+</div>
+{% endblock %}

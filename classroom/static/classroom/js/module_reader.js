@@ -24,6 +24,41 @@ if (reader) {
     startReader();
 }
 
+const addQuestion = document.getElementById("addQuestion");
+
+if (addQuestion) {
+    addQuestion.addEventListener("click", () => {
+        const total = document.getElementById("id_questions-TOTAL_FORMS");
+        const template = document.getElementById("emptyQuestionForm");
+        const container = document.getElementById("questionForms");
+        const index = Number(total.value);
+        container.insertAdjacentHTML(
+            "beforeend",
+            template.innerHTML.replaceAll("__prefix__", String(index))
+        );
+        total.value = index + 1;
+        initializeAutoGrow(container);
+    });
+}
+
+function resizeTextarea(textarea) {
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(44, textarea.scrollHeight)}px`;
+}
+
+function initializeAutoGrow(scope = document) {
+    scope.querySelectorAll("textarea.auto-grow").forEach((textarea) => {
+        if (textarea.dataset.autoGrowReady === "true") {
+            return;
+        }
+        textarea.dataset.autoGrowReady = "true";
+        resizeTextarea(textarea);
+        textarea.addEventListener("input", () => resizeTextarea(textarea));
+    });
+}
+
+initializeAutoGrow();
+
 async function startReader() {
     const canvas = document.getElementById("pdfCanvas");
     const viewportBox = reader.querySelector(".pdf-viewport");

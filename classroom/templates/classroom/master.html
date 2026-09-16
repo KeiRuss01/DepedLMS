@@ -56,7 +56,7 @@
                     </a>
 
                     <!-- Classes is active on all class-related pages -->
-                    <a class="dock-link {% if current_page == 'classes' or current_page == 'class_page' or current_page == 'class_detail' or current_page == 'create_class' or current_page == 'join_class' or current_page|slice:":7" == 'module_' %}active{% endif %}"
+                    <a class="dock-link {% if current_page == 'classes' or current_page == 'class_page' or current_page == 'class_detail' or current_page == 'create_class' or current_page == 'join_class' or current_page == 'gradebook' or current_page|slice:":7" == 'module_' %}active{% endif %}"
                        href="{% url 'classroom:classes' %}">
 
                         <i class="bi bi-grid"></i>
@@ -210,10 +210,10 @@
         </a>
 
         <!-- Classes -->
-        <a class="mobile-tab {% if current_page == 'classes' or current_page == 'class_page' or current_page == 'class_detail' or current_page == 'create_class' or current_page == 'join_class' %}active{% endif %}"
+        <a class="mobile-tab {% if current_page == 'classes' or current_page == 'class_page' or current_page == 'class_detail' or current_page == 'create_class' or current_page == 'join_class' or current_page == 'gradebook' %}active{% endif %}"
            href="{% url 'classroom:classes' %}">
 
-            {% if current_page == "classes" or current_page == "class_page" or current_page == "class_detail" or current_page == "create_class" or current_page == "join_class" %}
+            {% if current_page == "classes" or current_page == "class_page" or current_page == "class_detail" or current_page == "create_class" or current_page == "join_class" or current_page == "gradebook" %}
                 <i class="bi bi-grid-fill"></i>
             {% else %}
                 <i class="bi bi-grid"></i>

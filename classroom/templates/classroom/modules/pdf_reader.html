@@ -48,7 +48,7 @@
         <p id="pdfError" class="text-danger mb-2" hidden></p>
 
         <a href="{% url 'classroom:module_pdf' module.pk %}">
-            Download original PDF
+            {% if is_teacher %}Download original PDF{% else %}Download Student PDF{% endif %}
         </a>
     </div>
 </section>

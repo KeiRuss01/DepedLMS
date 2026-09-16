@@ -1,70 +1,39 @@
 {% extends "classroom/modules/live_base.html" %}
-
 {% block title %}Review submission{% endblock %}
-
 {% block module_content %}
 <h1 class="h3">{{ submission.student }}</h1>
-<p class="text-muted">{{ module.title }}</p>
-
+<p class="text-muted">{{ module.title }} · Current total: {{ submission.score|default_if_none:"Not fully graded" }} / {{ module.total_points }}</p>
 <div class="row g-4">
-    <div class="col-lg-8">
-        <section class="card mb-4">
-            <div class="card-body">
-                <h2 class="h5">Student answers</h2>
-
-                {% if module.answer_mode == "structured" %}
-                    {% for row in answer_rows %}
-                    <div class="border-bottom py-3">
-                        <strong>{{ row.label }}</strong>
-                        <div class="mt-2">
-                            {{ row.answer|default:"No answer"|linebreaksbr }}
-                        </div>
-                    </div>
-                    {% endfor %}
-
-                {% elif module.answer_mode == "written" %}
-                    {{ submission.written_answer|linebreaks }}
-
-                {% elif submission.answer_file %}
-                    <a href="{% url 'classroom:module_attachment' submission.pk %}"
-                       class="btn btn-outline-primary">
-                        Download submitted answer file
-                    </a>
-                {% endif %}
-            </div>
-        </section>
-
-        {% include "classroom/modules/pdf_reader.html" %}
-    </div>
-
-    <div class="col-lg-4">
-        <form method="post" class="card">
-            {% csrf_token %}
-
-            <div class="card-body">
-                <h2 class="h5">Score and feedback</h2>
-                <p class="text-muted">
-                    Maximum score: {{ module.max_score }}
-                </p>
-
-                {{ form.non_field_errors }}
-
-                {% for field in form %}
-                <div class="mb-3">
-                    <label class="form-label"
-                           for="{{ field.id_for_label }}">
-                        {{ field.label }}
-                    </label>
-                    {{ field }}
-                    <div class="text-danger small">{{ field.errors }}</div>
-                </div>
-                {% endfor %}
-
-                <button class="btn btn-primary w-100">
-                    Return score and feedback
-                </button>
-            </div>
-        </form>
-    </div>
+  <div class="col-lg-7">
+    {% for row in response_forms %}
+    <section class="card mb-3">
+      <div class="card-header d-flex justify-content-between"><strong>{{ row.response.section.title }}</strong><span>{{ row.response.section.max_score }} points</span></div>
+      <div class="card-body">
+        {% if row.response.section.answer_method == "structured" %}
+          {% for answer in row.response.answers.all %}
+          <div class="border-bottom py-2"><strong>{{ answer.question.position }}. {{ answer.question.prompt }}</strong><div>{{ answer.answer_text|default:"No answer"|linebreaksbr }}</div>{% if answer.is_correct != None %}<small class="{% if answer.is_correct %}text-success{% else %}text-danger{% endif %}">{% if answer.is_correct %}Correct{% else %}Incorrect{% endif %} · {{ answer.awarded_points }} / {{ answer.question.points }}</small>{% endif %}</div>
+          {% endfor %}
+        {% elif row.response.section.answer_method == "written" %}
+          {{ row.response.written_answer|default:"No answer"|linebreaks }}
+        {% elif row.response.section.answer_method == "file" %}
+          {% for attachment in row.response.attachments.all %}<a class="btn btn-sm btn-outline-primary me-2 mb-2" href="{% url 'classroom:section_attachment' attachment.pk %}">{{ attachment.original_name }}</a>{% empty %}<span class="text-muted">No files</span>{% endfor %}
+        {% else %}<span class="text-muted">No answer required.</span>{% endif %}
+      </div>
+    </section>
+    {% empty %}<div class="alert alert-warning">No completed answer sections were found.</div>{% endfor %}
+    {% include "classroom/modules/pdf_reader.html" %}
+  </div>
+  <div class="col-lg-5">
+    {% for row in response_forms %}
+    <form method="post" class="card mb-3">{% csrf_token %}<input type="hidden" name="response_id" value="{{ row.response.pk }}">
+      <div class="card-body"><h2 class="h6">Grade: {{ row.response.section.title }}</h2>
+        {% if row.response.auto_score %}<p class="small text-muted">Automatically checked points: {{ row.response.auto_score }}</p>{% endif %}
+        {{ row.form.non_field_errors }}
+        {% for field in row.form %}<div class="mb-3"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}<div class="text-danger small">{{ field.errors }}</div></div>{% endfor %}
+        <button class="btn btn-primary w-100">Save section grade</button>
+      </div>
+    </form>
+    {% endfor %}
+  </div>
 </div>
 {% endblock %}

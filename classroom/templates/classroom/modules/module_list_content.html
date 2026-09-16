@@ -51,8 +51,9 @@
                 <h3 class="h5 mt-2">{{ row.module.title }}</h3>
 
                 <p class="text-muted">
-                    {{ row.module.get_answer_mode_display }}
-                    &middot; {{ row.module.max_score }} points
+                    Written Work
+                    &middot; {{ row.module.answer_sections.count }} answer section{{ row.module.answer_sections.count|pluralize }}
+                    &middot; {{ row.module.total_points }} total points
                 </p>
 
                 <p class="small">

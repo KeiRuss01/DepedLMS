@@ -151,7 +151,7 @@
 
     <!-- GRADES -->
 
-    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=grades"
+    <a href="{% url 'classroom:gradebook' classroom.class_id %}"
        class="class-navigation-link
        {% if active_tab == 'grades' %}active{% endif %}">
 

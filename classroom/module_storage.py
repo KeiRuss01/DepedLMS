@@ -16,6 +16,11 @@ def module_pdf_path(instance, filename):
     return f"modules/{uuid4().hex}.pdf"
 
 
+def student_module_pdf_path(instance, filename):
+    # This copy excludes any Teacher-only pages such as answer keys.
+    return f"modules/student/{uuid4().hex}.pdf"
+
+
 def submission_file_path(instance, filename):
     extension = Path(filename).suffix.lower()
     return f"answers/{uuid4().hex}{extension}"

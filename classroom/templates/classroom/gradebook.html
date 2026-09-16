@@ -1,0 +1,182 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block title %}Gradebook | {{ classroom.class_name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'classroom/css/gradebook.css' %}?v=1">
+{% endblock %}
+
+{% block content %}
+<section class="classroom-banner no-print">
+    <div class="classroom-banner-content">
+        <a href="{% url 'classroom:classes' %}" class="classroom-banner-back">
+            <i class="bi bi-arrow-left"></i> Classes
+        </a>
+        <small>{{ classroom.subject }}</small>
+        <h1>{{ classroom.class_name }}</h1>
+        <p>{{ classroom.grade_level }} · {{ classroom.section }} · {{ classroom.school_year }}</p>
+    </div>
+    {% if is_teacher %}
+    <div class="classroom-banner-actions">
+        <div class="class-code-small"><small>Class code</small><strong>{{ classroom.class_code }}</strong></div>
+        <a href="{% url 'classroom:class_detail' classroom.class_id %}" class="btn btn-light">
+            <i class="bi bi-gear me-2"></i> Manage Class
+        </a>
+    </div>
+    {% endif %}
+</section>
+
+<nav class="class-navigation no-print" aria-label="Class navigation">
+    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=stream" class="class-navigation-link"><i class="bi bi-chat-left-text"></i><span>Stream</span></a>
+    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=modules" class="class-navigation-link"><i class="bi bi-collection"></i><span>Modules</span></a>
+    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=activities" class="class-navigation-link"><i class="bi bi-clipboard-check"></i><span>Activities</span></a>
+    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=people" class="class-navigation-link"><i class="bi bi-people"></i><span>People</span></a>
+    <a href="{% url 'classroom:gradebook' classroom.class_id %}" class="class-navigation-link active"><i class="bi bi-journal-check"></i><span>Grades</span></a>
+</nav>
+
+<section class="gradebook-toolbar no-print">
+    <div>
+        <h2>{% if is_teacher %}Gradebook{% else %}My Grades{% endif %}</h2>
+        <p>Modules fill Written Work slots automatically. Face-to-face records use the next available slot.</p>
+    </div>
+    <div class="gradebook-actions">
+        {% if is_teacher %}
+        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#weightsModal"><i class="bi bi-sliders"></i> Weights</button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addItemModal"><i class="bi bi-plus-lg"></i> Add activity</button>
+        {% if display == 'record' %}
+        <form method="post" class="d-inline">
+            {% csrf_token %}<input type="hidden" name="action" value="toggle_release">
+            <button class="btn {% if quarterly_grade_released %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
+                <i class="bi {% if quarterly_grade_released %}bi-eye-slash{% else %}bi-eye{% endif %}"></i>
+                {% if quarterly_grade_released %}Hide Term {{ term }} Grade{% else %}Release Term {{ term }} Grade{% endif %}
+            </button>
+        </form>
+        {% endif %}
+        {% endif %}
+        <button type="button" class="btn btn-outline-dark" onclick="window.print()"><i class="bi bi-printer"></i> Print / Save PDF</button>
+    </div>
+</section>
+
+<div class="gradebook-switcher no-print">
+    <a href="?term=1" class="{% if display == 'record' and term == '1' %}active{% endif %}">Term 1</a>
+    <a href="?term=2" class="{% if display == 'record' and term == '2' %}active{% endif %}">Term 2</a>
+    <a href="?term=3" class="{% if display == 'record' and term == '3' %}active{% endif %}">Term 3</a>
+    {% if is_teacher %}<a href="?view=summary" class="{% if display == 'summary' %}active{% endif %}">Summary of Grades</a>{% endif %}
+</div>
+
+{% if is_student %}
+<section class="student-grade-view">
+    <div class="student-grade-heading">
+        <div><span>TERM {{ term }}</span><h2>My scores</h2><p>You can see only your own recorded scores.</p></div>
+        <div class="released-grade {% if not quarterly_grade_released %}is-hidden{% endif %}">
+            <small>Quarterly Grade</small>
+            {% if quarterly_grade_released %}
+                <strong>{{ student_term_row.quarterly|default_if_none:"—" }}</strong>
+                <span>Released by your Teacher</span>
+            {% else %}
+                <i class="bi bi-lock"></i>
+                <strong>Not released</strong>
+                <span>Your Teacher will release this at the end of the term.</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="student-score-groups">
+        {% for group in student_score_groups %}
+        <section class="student-score-card">
+            <h3>{{ group.label }}</h3>
+            {% for row in group.items %}
+            <div class="student-score-row">
+                <div><strong>{{ row.item.title }}</strong><small>{% if row.item.module_id %}Module{% else %}Face-to-face activity{% endif %}</small></div>
+                <span>{% if row.score != None %}<strong>{{ row.score }}</strong> / {{ row.item.highest_possible_score }}{% else %}Not yet recorded{% endif %}</span>
+            </div>
+            {% empty %}<p class="student-score-empty">No recorded activities in this component yet.</p>{% endfor %}
+        </section>
+        {% endfor %}
+    </div>
+</section>
+{% else %}
+<section class="print-sheet">
+    <header class="record-heading">
+        <div class="record-seal">DepEd</div>
+        <div class="record-title">
+            <h1>{% if display == 'summary' %}Summary of Term Grades{% else %}Class Record{% endif %}</h1>
+            <small>Department of Education classroom record</small>
+        </div>
+        <div class="record-deped">DepEd</div>
+    </header>
+
+    <div class="school-record-info">
+        <span><strong>Region:</strong> {{ classroom.teacher.school.region|default:"Not provided" }}</span>
+        <span><strong>Division:</strong> {{ classroom.teacher.school.division|default:"Not provided" }}</span>
+        <span><strong>School:</strong> {{ classroom.teacher.school.school_name }}</span>
+        <span><strong>School ID:</strong> {{ classroom.teacher.school.school_id_number|default:"Not provided" }}</span>
+        <span><strong>School Year:</strong> {{ classroom.school_year }}</span>
+        <span><strong>Grade & Section:</strong> {{ classroom.grade_level }} - {{ classroom.section }}</span>
+        <span><strong>Teacher:</strong> {{ classroom.teacher.firstname }} {{ classroom.teacher.lastname }}</span>
+        <span><strong>Subject:</strong> {{ classroom.subject }}</span>
+    </div>
+
+    {% if display == "summary" %}
+    <div class="grade-table-wrap">
+        <table class="deped-record summary-record">
+            <thead><tr><th>#</th><th>Learners' Names</th><th>Term 1</th><th>Term 2</th><th>Term 3</th><th>Final Grade</th><th>Remark</th></tr></thead>
+            <tbody><tr class="gender-row"><th colspan="7">MALE</th></tr>
+                {% for row in summary_male_rows %}
+                <tr><td>{{ forloop.counter }}</td><td class="learner-name">{{ row.student.lastname|upper }}, {{ row.student.firstname|upper }}</td><td>{{ row.term_1|default_if_none:"" }}</td><td>{{ row.term_2|default_if_none:"" }}</td><td>{{ row.term_3|default_if_none:"" }}</td><td class="final-cell">{{ row.final|default_if_none:"" }}</td><td>{{ row.remark }}</td></tr>
+                {% empty %}<tr><td colspan="7" class="record-empty">No male learners.</td></tr>{% endfor %}
+            </tbody>
+            <tbody><tr class="gender-row"><th colspan="7">FEMALE</th></tr>
+                {% for row in summary_female_rows %}
+                <tr><td>{{ forloop.counter }}</td><td class="learner-name">{{ row.student.lastname|upper }}, {{ row.student.firstname|upper }}</td><td>{{ row.term_1|default_if_none:"" }}</td><td>{{ row.term_2|default_if_none:"" }}</td><td>{{ row.term_3|default_if_none:"" }}</td><td class="final-cell">{{ row.final|default_if_none:"" }}</td><td>{{ row.remark }}</td></tr>
+                {% empty %}<tr><td colspan="7" class="record-empty">No female learners.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="term-label">TERM {{ term }}</div>
+    <form method="post">
+        {% csrf_token %}<input type="hidden" name="action" value="save_scores">
+        <div class="grade-table-wrap">
+            <table class="deped-record">
+                <thead>
+                    <tr>
+                        <th rowspan="3" class="record-number">#</th><th rowspan="3" class="learner-name">Learners' Names</th>
+                        <th colspan="{{ record.written_slots|length|add:3 }}">Written Works ({{ record.settings.written_work_weight }}%)</th>
+                        <th colspan="{{ record.performance_slots|length|add:3 }}">Performance Tasks ({{ record.settings.performance_task_weight }}%)</th>
+                        <th colspan="{{ record.assessment_slots|length|add:2 }}">Quarterly Assessment ({{ record.settings.assessment_weight }}%)</th>
+                        <th rowspan="3">Initial Grade</th><th rowspan="3">Quarterly Grade</th>
+                    </tr>
+                    <tr>
+                        {% for slot in record.written_slots %}<th title="{% if slot.item %}{{ slot.item.title }}{% else %}Empty slot{% endif %}" class="item-number {% if slot.item.module_id %}module-slot{% endif %}">{{ slot.number }}</th>{% endfor %}<th>Total</th><th>PS</th><th>WS</th>
+                        {% for slot in record.performance_slots %}<th title="{% if slot.item %}{{ slot.item.title }}{% else %}Empty slot{% endif %}" class="item-number">{{ slot.number }}</th>{% endfor %}<th>Total</th><th>PS</th><th>WS</th>
+                        {% for slot in record.assessment_slots %}<th title="{% if slot.item %}{{ slot.item.title }}{% else %}Empty slot{% endif %}" class="item-number">{{ slot.number }}</th>{% endfor %}<th>PS</th><th>WS</th>
+                    </tr>
+                    <tr class="highest-row">
+                        {% for slot in record.written_slots %}<th>{% if slot.item %}{{ slot.item.highest_possible_score }}{% else %}<input class="hps-input" type="number" name="new_hps_written_work_{{ slot.number }}" min="1" step="0.01" placeholder="HPS" aria-label="Highest possible score for Written Work {{ slot.number }}">{% endif %}</th>{% endfor %}<th>{{ record.highest.written_work }}</th><th>100</th><th>{{ record.settings.written_work_weight }}%</th>
+                        {% for slot in record.performance_slots %}<th>{% if slot.item %}{{ slot.item.highest_possible_score }}{% else %}<input class="hps-input" type="number" name="new_hps_performance_task_{{ slot.number }}" min="1" step="0.01" placeholder="HPS" aria-label="Highest possible score for Performance Task {{ slot.number }}">{% endif %}</th>{% endfor %}<th>{{ record.highest.performance_task }}</th><th>100</th><th>{{ record.settings.performance_task_weight }}%</th>
+                        {% for slot in record.assessment_slots %}<th>{% if slot.item %}{{ slot.item.highest_possible_score }}{% else %}<input class="hps-input" type="number" name="new_hps_assessment_{{ slot.number }}" min="1" step="0.01" placeholder="HPS" aria-label="Highest possible score for Quarterly Assessment {{ slot.number }}">{% endif %}</th>{% endfor %}<th>100</th><th>{{ record.settings.assessment_weight }}%</th>
+                    </tr>
+                </thead>
+                <tbody><tr class="gender-row"><th colspan="99">MALE</th></tr>{% include "classroom/_gradebook_rows.html" with group_rows=male_rows %}</tbody>
+                <tbody><tr class="gender-row"><th colspan="99">FEMALE</th></tr>{% include "classroom/_gradebook_rows.html" with group_rows=female_rows %}</tbody>
+            </table>
+        </div>
+        {% if is_teacher %}<div class="save-gradebar no-print"><button class="btn btn-primary"><i class="bi bi-check2-circle"></i> Save scores</button></div>{% endif %}
+    </form>
+
+    {% if is_teacher and record.items %}
+    <div class="item-legend no-print">
+        <h3>Grade columns</h3>
+        {% for item in record.items %}<div><span>{{ item.get_component_display }} {{ item.position }}</span><strong>{{ item.title }}</strong><small>{{ item.highest_possible_score }} points{% if item.module_id %} · Module (automatic score){% endif %}</small>{% if not item.module_id %}<form method="post" action="{% url 'classroom:grade_item_delete' item.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this grade column and its scores?')">Remove</button></form>{% endif %}</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% endif %}
+</section>
+{% endif %}
+
+{% if is_teacher %}
+<div class="modal fade" id="addItemModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="add_item"><div class="modal-header"><h5 class="modal-title">Add face-to-face activity</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p class="text-muted">This activity will use the next empty slot for Term {{ term }}.</p>{{ item_form.as_p }}</div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Add activity</button></div></form></div></div></div>
+<div class="modal fade" id="weightsModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><form method="post">{% csrf_token %}<input type="hidden" name="action" value="save_weights"><div class="modal-header"><h5 class="modal-title">Grade component weights</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p class="text-muted">The three percentages must total 100%.</p>{{ settings_form.as_p }}</div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save weights</button></div></form></div></div></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,73 @@
+{% for row in group_rows %}
+<tr>
+    <td class="record-number">{{ forloop.counter }}</td>
+    <td class="learner-name">{{ row.student.lastname|upper }}, {{ row.student.firstname|upper }}{% if row.student.middlename %} {{ row.student.middlename|slice:":1" }}.{% endif %}</td>
+
+    {% for cell in row.written_cells %}
+    <td class="score-cell">
+        {% if cell.slot.item %}
+            {% if is_teacher %}
+            <input type="number" name="score_{{ cell.slot.item.pk }}_{{ row.student.pk }}"
+                   value="{{ cell.score|default_if_none:'' }}" min="0"
+                   max="{{ cell.slot.item.highest_possible_score }}" step="0.01"
+                   aria-label="{{ cell.slot.item.title }} score for {{ row.student }}"
+                   {% if cell.slot.item.module_id %}readonly title="Calculated from the Module submission"{% endif %}>
+            {% else %}{{ cell.score|default_if_none:"" }}{% endif %}
+        {% elif is_teacher %}
+            <input type="number"
+                   name="new_score_written_work_{{ cell.slot.number }}_{{ row.student.pk }}"
+                   min="0" step="0.01"
+                   aria-label="Written Work {{ cell.slot.number }} score for {{ row.student }}">
+        {% endif %}
+    </td>
+    {% endfor %}
+    <td class="computed-cell">{{ row.written.total }}</td>
+    <td class="computed-cell">{{ row.written.ps }}</td>
+    <td class="computed-cell">{{ row.written.weighted }}</td>
+
+    {% for cell in row.performance_cells %}
+    <td class="score-cell">
+        {% if cell.slot.item %}
+            {% if is_teacher %}
+            <input type="number" name="score_{{ cell.slot.item.pk }}_{{ row.student.pk }}"
+                   value="{{ cell.score|default_if_none:'' }}" min="0"
+                   max="{{ cell.slot.item.highest_possible_score }}" step="0.01"
+                   aria-label="{{ cell.slot.item.title }} score for {{ row.student }}">
+            {% else %}{{ cell.score|default_if_none:"" }}{% endif %}
+        {% elif is_teacher %}
+            <input type="number"
+                   name="new_score_performance_task_{{ cell.slot.number }}_{{ row.student.pk }}"
+                   min="0" step="0.01"
+                   aria-label="Performance Task {{ cell.slot.number }} score for {{ row.student }}">
+        {% endif %}
+    </td>
+    {% endfor %}
+    <td class="computed-cell">{{ row.performance.total }}</td>
+    <td class="computed-cell">{{ row.performance.ps }}</td>
+    <td class="computed-cell">{{ row.performance.weighted }}</td>
+
+    {% for cell in row.assessment_cells %}
+    <td class="score-cell">
+        {% if cell.slot.item %}
+            {% if is_teacher %}
+            <input type="number" name="score_{{ cell.slot.item.pk }}_{{ row.student.pk }}"
+                   value="{{ cell.score|default_if_none:'' }}" min="0"
+                   max="{{ cell.slot.item.highest_possible_score }}" step="0.01"
+                   aria-label="{{ cell.slot.item.title }} score for {{ row.student }}">
+            {% else %}{{ cell.score|default_if_none:"" }}{% endif %}
+        {% elif is_teacher %}
+            <input type="number"
+                   name="new_score_assessment_{{ cell.slot.number }}_{{ row.student.pk }}"
+                   min="0" step="0.01"
+                   aria-label="Quarterly Assessment {{ cell.slot.number }} score for {{ row.student }}">
+        {% endif %}
+    </td>
+    {% endfor %}
+    <td class="computed-cell">{{ row.assessment.ps }}</td>
+    <td class="computed-cell">{{ row.assessment.weighted }}</td>
+    <td class="final-cell">{{ row.initial|default_if_none:"" }}</td>
+    <td class="final-cell">{{ row.quarterly|default_if_none:"" }}</td>
+</tr>
+{% empty %}
+<tr><td colspan="99" class="record-empty">No enrolled learners in this group.</td></tr>
+{% endfor %}

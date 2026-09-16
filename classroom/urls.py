@@ -59,6 +59,16 @@ urlpatterns = [
         views.class_page_view,
         name="class_page",
     ),
+    path(
+        "classes/<int:classroom_id>/grades/",
+        views.gradebook_view,
+        name="gradebook",
+    ),
+    path(
+        "grade-items/<int:item_id>/delete/",
+        views.grade_item_delete_view,
+        name="grade_item_delete",
+    ),
 
     path(
         "family/children/",
@@ -97,9 +107,33 @@ urlpatterns = [
     ),
 
     path(
+        "modules/<int:module_id>/sections/add/",
+        views.module_section_create_view,
+        name="module_section_create",
+    ),
+
+    path(
+        "module-sections/<int:section_id>/edit/",
+        views.module_section_edit_view,
+        name="module_section_edit",
+    ),
+
+    path(
+        "module-sections/<int:section_id>/delete/",
+        views.module_section_delete_view,
+        name="module_section_delete",
+    ),
+
+    path(
         "modules/<int:module_id>/work/",
         views.module_work_view,
         name="module_work",
+    ),
+
+    path(
+        "module-sections/<int:section_id>/work/",
+        views.module_section_work_view,
+        name="module_section_work",
     ),
 
     path(
@@ -124,5 +158,11 @@ urlpatterns = [
         "module-submissions/<int:submission_id>/file/",
         views.module_attachment_view,
         name="module_attachment",
+    ),
+
+    path(
+        "module-attachments/<int:attachment_id>/file/",
+        views.section_attachment_view,
+        name="section_attachment",
     ),
 ]

@@ -1,7 +1,7 @@
 from django import forms
-from django.forms import modelformset_factory
+from django.forms import inlineformset_factory
 
-from .models import Module, ModuleItem
+from .models import Module, ModuleAnswerSection, SectionQuestion, SectionResponse
 from .module_validators import validate_pdf, validate_answer_file
 
 
@@ -13,34 +13,30 @@ def apply_bootstrap(form):
             css_class = "form-select"
         else:
             css_class = "form-control"
-
-        field.widget.attrs["class"] = css_class
+        existing_class = field.widget.attrs.get("class", "")
+        field.widget.attrs["class"] = f"{existing_class} {css_class}".strip()
 
 
 class ModuleCreateForm(forms.ModelForm):
     class Meta:
         model = Module
-
         fields = [
-            "title",
-            "instructions",
-            "pdf",
-            "term",
-            "answer_mode",
-            "max_score",
-            "due_at",
-            "allow_late",
+            "title", "instructions", "pdf", "term", "week",
+            "due_at", "allow_late", "hidden_pages",
         ]
-
         widgets = {
             "instructions": forms.Textarea(attrs={"rows": 3}),
-            "pdf": forms.FileInput(
-                attrs={"accept": "application/pdf,.pdf"}
-            ),
+            "pdf": forms.FileInput(attrs={"accept": "application/pdf,.pdf"}),
             "due_at": forms.DateTimeInput(
-                attrs={"type": "datetime-local"},
-                format="%Y-%m-%dT%H:%M",
+                attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
             ),
+        }
+        help_texts = {
+            "hidden_pages": (
+                "Optional Teacher-only pages, such as an answer key. "
+                "Example: 18, 20-22"
+            ),
+            "due_at": "This one deadline applies to the complete module.",
         }
 
     def __init__(self, *args, **kwargs):
@@ -53,156 +49,157 @@ class ModuleCreateForm(forms.ModelForm):
         return upload
 
 
-class ModuleItemForm(forms.ModelForm):
+class AnswerSectionForm(forms.ModelForm):
     class Meta:
-        model = ModuleItem
-        fields = ["label", "answer_type"]
+        model = ModuleAnswerSection
+        fields = [
+            "title", "instructions", "answer_method", "page_start",
+            "page_end", "required", "max_score", "max_files",
+        ]
+        widgets = {"instructions": forms.Textarea(attrs={"rows": 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        apply_bootstrap(self)
+        self.fields["title"].help_text = (
+            "Use the heading in the module, such as What I Know or Assessment."
+        )
+        self.fields["max_score"].help_text = (
+            "For essays and uploaded work, the Teacher checks the response and "
+            "enters a score up to this total."
+        )
+
+    def clean(self):
+        data = super().clean()
+        start = data.get("page_start")
+        end = data.get("page_end")
+        if start and end and end < start:
+            self.add_error("page_end", "The ending page cannot be before the starting page.")
+        if data.get("answer_method") == ModuleAnswerSection.AnswerMethod.NONE:
+            data["max_score"] = 0
+        return data
+
+
+class SectionQuestionForm(forms.ModelForm):
+    class Meta:
+        model = SectionQuestion
+        fields = [
+            "prompt", "question_type", "choices_text", "correct_answer",
+            "points", "required",
+        ]
+        widgets = {
+            "prompt": forms.Textarea(
+                attrs={"rows": 2, "class": "auto-grow"}
+            ),
+            "choices_text": forms.Textarea(
+                attrs={"rows": 1, "class": "auto-grow"}
+            ),
+            "correct_answer": forms.TextInput(),
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         apply_bootstrap(self)
 
 
-ModuleItemFormSet = modelformset_factory(
-    ModuleItem,
-    form=ModuleItemForm,
-    extra=0,
-    can_delete=False,
-    edit_only=True,
-    max_num=50,
-    validate_max=True,
+SectionQuestionFormSet = inlineformset_factory(
+    ModuleAnswerSection,
+    SectionQuestion,
+    form=SectionQuestionForm,
+    extra=3,
+    can_delete=True,
 )
 
 
-class StudentModuleForm(forms.Form):
-    def __init__(
-        self,
-        module,
-        *args,
-        submission=None,
-        complete=False,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
 
-        self.module = module
-        self.submission = submission
+
+class MultipleFileField(forms.FileField):
+    def clean(self, data, initial=None):
+        files = data if isinstance(data, (list, tuple)) else [data]
+        return [super(MultipleFileField, self).clean(upload, initial) for upload in files if upload]
+
+
+class SectionResponseForm(forms.Form):
+    def __init__(self, section, *args, response=None, complete=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.section = section
+        self.response = response
         self.complete = complete
 
-        if module.answer_mode == Module.AnswerMode.STRUCTURED:
-            saved_answers = {}
-
-            if submission:
-                saved_answers = dict(
-                    submission.answers.values_list(
-                        "item_id",
-                        "answer_text",
-                    )
-                )
-
-            for item in module.items.all():
-                field_name = f"item_{item.pk}"
-
-                if item.answer_type == ModuleItem.AnswerType.CHOICE:
+        if section.answer_method == ModuleAnswerSection.AnswerMethod.STRUCTURED:
+            saved = {}
+            if response:
+                saved = dict(response.answers.values_list("question_id", "answer_text"))
+            for question in section.questions.all():
+                name = f"question_{question.pk}"
+                required = complete and question.required
+                if question.question_type == SectionQuestion.QuestionType.MULTIPLE_CHOICE:
+                    choices = [("", "Choose an answer")]
+                    choices += [(choice, choice) for choice in question.choices]
+                    field = forms.ChoiceField(choices=choices, required=required)
+                elif question.question_type == SectionQuestion.QuestionType.TRUE_FALSE:
                     field = forms.ChoiceField(
-                        choices=[
-                            ("", "Choose an answer"),
-                            ("A", "A"),
-                            ("B", "B"),
-                            ("C", "C"),
-                            ("D", "D"),
-                        ],
-                        required=complete,
+                        choices=[("", "Choose an answer"), ("True", "True"), ("False", "False")],
+                        required=required,
+                    )
+                elif question.question_type == SectionQuestion.QuestionType.LONG:
+                    field = forms.CharField(
+                        widget=forms.Textarea(attrs={"rows": 6}),
+                        required=required,
+                        max_length=20000,
                     )
                 else:
-                    widget = (
-                        forms.Textarea(attrs={"rows": 4})
-                        if item.answer_type == ModuleItem.AnswerType.LONG
-                        else forms.TextInput()
-                    )
-
-                    field = forms.CharField(
-                        widget=widget,
-                        max_length=10000,
-                        required=complete,
-                    )
-
-                field.label = item.label
-                field.initial = saved_answers.get(item.pk, "")
-                self.fields[field_name] = field
-
-        elif module.answer_mode == Module.AnswerMode.WRITTEN:
+                    field = forms.CharField(required=required, max_length=5000)
+                field.label = f"{question.position}. {question.prompt} ({question.points:g} points)"
+                field.initial = saved.get(question.pk, "")
+                self.fields[name] = field
+        elif section.answer_method == ModuleAnswerSection.AnswerMethod.WRITTEN:
             self.fields["written_answer"] = forms.CharField(
-                label="Your answer",
-                widget=forms.Textarea(attrs={"rows": 14}),
+                label=f"Written answer (maximum {section.max_score} points)",
+                widget=forms.Textarea(attrs={"rows": 16}),
                 max_length=50000,
-                required=complete,
-                initial=(
-                    submission.written_answer
-                    if submission else ""
-                ),
+                required=complete and section.required,
+                initial=response.written_answer if response else "",
             )
-
-        else:
-            self.fields["answer_file"] = forms.FileField(
-                label="Your answer file",
+        elif section.answer_method == ModuleAnswerSection.AnswerMethod.FILE:
+            self.fields["answer_files"] = MultipleFileField(
+                label=f"Upload files (maximum {section.max_files})",
                 required=False,
                 validators=[validate_answer_file],
-                widget=forms.FileInput(
-                    attrs={
-                        "accept": ".pdf,.jpg,.jpeg,.png",
-                    }
-                ),
+                widget=MultipleFileInput(attrs={"accept": ".pdf,.jpg,.jpeg,.png"}),
             )
-
         apply_bootstrap(self)
 
     def clean(self):
-        cleaned_data = super().clean()
-
-        if (
-            self.complete
-            and self.module.answer_mode == Module.AnswerMode.FILE
-        ):
-            existing_file = (
-                self.submission
-                and self.submission.answer_file
-            )
-
-            if not cleaned_data.get("answer_file") and not existing_file:
-                self.add_error(
-                    "answer_file",
-                    "Attach your answer before submitting.",
-                )
-
-        return cleaned_data
+        data = super().clean()
+        if self.section.answer_method == ModuleAnswerSection.AnswerMethod.FILE:
+            new_files = data.get("answer_files", [])
+            old_count = self.response.attachments.count() if self.response else 0
+            if len(new_files) + old_count > self.section.max_files:
+                self.add_error("answer_files", f"You may upload up to {self.section.max_files} files.")
+            if self.complete and self.section.required and not new_files and not old_count:
+                self.add_error("answer_files", "Upload at least one file to complete this section.")
+        return data
 
 
-class ModuleGradeForm(forms.Form):
-    score = forms.DecimalField(
-        min_value=0,
-        max_digits=7,
-        decimal_places=2,
-    )
+class SectionGradeForm(forms.ModelForm):
+    class Meta:
+        model = SectionResponse
+        fields = ["score", "feedback"]
+        widgets = {"feedback": forms.Textarea(attrs={"rows": 4})}
 
-    feedback = forms.CharField(
-        required=False,
-        max_length=10000,
-        widget=forms.Textarea(attrs={"rows": 5}),
-    )
-
-    def __init__(self, module, *args, **kwargs):
+    def __init__(self, section, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.module = module
-        self.fields["score"].widget.attrs["max"] = module.max_score
+        self.section = section
+        self.fields["score"].required = True
+        self.fields["score"].label = f"Final score (out of {section.max_score})"
+        self.fields["score"].widget.attrs.update({"min": 0, "max": section.max_score})
         apply_bootstrap(self)
 
     def clean_score(self):
         score = self.cleaned_data["score"]
-
-        if score > self.module.max_score:
-            raise forms.ValidationError(
-                f"The maximum score is {self.module.max_score}."
-            )
-
+        if score > self.section.max_score:
+            raise forms.ValidationError(f"The maximum score is {self.section.max_score}.")
         return score
