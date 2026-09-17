@@ -114,19 +114,23 @@
     </a>
 </section>
 
-<section class="classroom-card continue-learning-card mb-4">
+<a class="classroom-card continue-learning-card mb-4 dashboard-card-link"
+   {% if continue_module %}href="{% url 'classroom:module_work' continue_module.pk %}"{% endif %}>
     <div class="continue-icon science">
         <i class="bi bi-book"></i>
     </div>
 
     <div class="continue-information">
         <small>Continue Learning</small>
+        {% if continue_module %}
+        <h3>{{ continue_module.title }}</h3>
+        <p class="mb-0">{{ continue_module.classroom.class_name }}{% if continue_module.due_at %} &middot; Due {{ continue_module.due_at|date:"M j, Y g:i A" }}{% endif %}</p>
+        {% else %}
         <h3>No lesson available</h3>
-        <p class="mb-0">
-            Your latest lesson will appear here when a Teacher publishes one.
-        </p>
+        <p class="mb-0">Your latest Module will appear here when a Teacher publishes one.</p>
+        {% endif %}
     </div>
-</section>
+</a>
 
 <div class="row g-4">
     <div class="col-lg-8">
@@ -135,10 +139,22 @@
                 <h3>Due Soon</h3>
             </div>
 
-            <div class="dashboard-empty-card">
-                <i class="bi bi-clipboard-check"></i>
-                <h4>No upcoming tasks</h4>
-                <p>Published activities and deadlines will appear here.</p>
+            <div class="task-list">
+                {% for module in due_soon %}
+                <a class="task-item" href="{% url 'classroom:module_work' module.pk %}">
+                    <span class="attention-icon dashboard-icon-blue"><i class="bi bi-journal-text"></i></span>
+                    <span class="task-information">
+                        <strong>{{ module.title }}</strong>
+                        <small>{{ module.classroom.class_name }} &middot; Due {{ module.due_at|date:"M j, Y g:i A" }}</small>
+                    </span>
+                </a>
+                {% empty %}
+                <div class="dashboard-empty-card">
+                    <i class="bi bi-clipboard-check"></i>
+                    <h4>No upcoming tasks</h4>
+                    <p>Published Modules with deadlines will appear here.</p>
+                </div>
+                {% endfor %}
             </div>
         </section>
     </div>
@@ -149,10 +165,21 @@
                 <h3>Latest Announcement</h3>
             </div>
 
-            <div class="dashboard-empty-card compact">
-                <i class="bi bi-megaphone"></i>
-                <h4>No announcements</h4>
-                <p>New class announcements will appear here.</p>
+            <div class="announcement-dashboard-list">
+                {% for announcement in latest_announcements %}
+                <a class="dashboard-announcement" href="{% url 'classroom:class_page' announcement.classroom.pk %}?tab=stream">
+                    <span class="announcement-priority {{ announcement.priority }}">{{ announcement.get_priority_display }}</span>
+                    <strong>{{ announcement.title }}</strong>
+                    <small>{{ announcement.classroom.class_name }} &middot; {{ announcement.created_at|timesince }} ago</small>
+                    <p>{{ announcement.content|truncatechars:100 }}</p>
+                </a>
+                {% empty %}
+                <div class="dashboard-empty-card compact">
+                    <i class="bi bi-megaphone"></i>
+                    <h4>No announcements</h4>
+                    <p>New class announcements will appear here.</p>
+                </div>
+                {% endfor %}
             </div>
         </section>
     </div>

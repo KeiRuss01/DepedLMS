@@ -60,9 +60,29 @@ urlpatterns = [
         name="class_page",
     ),
     path(
+        "classes/<int:classroom_id>/announcements/create/",
+        views.announcement_create_view,
+        name="announcement_create",
+    ),
+    path(
+        "announcements/<int:announcement_id>/edit/",
+        views.announcement_edit_view,
+        name="announcement_edit",
+    ),
+    path(
+        "announcements/<int:announcement_id>/delete/",
+        views.announcement_delete_view,
+        name="announcement_delete",
+    ),
+    path(
         "classes/<int:classroom_id>/grades/",
         views.gradebook_view,
         name="gradebook",
+    ),
+    path(
+        "classes/<int:classroom_id>/attendance/",
+        views.attendance_view,
+        name="attendance",
     ),
     path(
         "grade-items/<int:item_id>/delete/",

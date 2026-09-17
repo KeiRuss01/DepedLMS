@@ -2,7 +2,7 @@ from django.db import models
 from django.utils.crypto import get_random_string
 from django.core.validators import MinValueValidator, MaxValueValidator
 
-from accounts.models import Student, Teacher
+from accounts.models import Student, Teacher, User
 
 from .module_storage import (
     learning_storage,
@@ -180,6 +180,45 @@ class ClassEnrollment(models.Model):
             f"{self.classroom} - "
             f"{self.get_status_display()}"
         )
+
+
+# =========================================================
+# CLASS ANNOUNCEMENT
+# =========================================================
+
+class Announcement(models.Model):
+    class Priority(models.TextChoices):
+        NORMAL = "normal", "Normal"
+        IMPORTANT = "important", "Important"
+        URGENT = "urgent", "Urgent"
+
+    announcement_id = models.AutoField(primary_key=True)
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name="announcements",
+    )
+    posted_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="class_announcements",
+    )
+    title = models.CharField(max_length=150)
+    content = models.TextField()
+    priority = models.CharField(
+        max_length=20,
+        choices=Priority.choices,
+        default=Priority.NORMAL,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "announcement"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.classroom} - {self.title}"
 
 
 # =========================================================
@@ -892,3 +931,92 @@ class GradeScore(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.item}: {self.score}"
+
+
+# =========================================================
+# DAILY ATTENDANCE
+# =========================================================
+
+class AttendanceDay(models.Model):
+    """Defines whether one calendar date is a class day or a non-class day."""
+
+    class DayType(models.TextChoices):
+        CLASS_DAY = "class_day", "Class day"
+        HOLIDAY = "holiday", "Holiday"
+        NO_CLASS = "no_class", "No class"
+
+    attendance_day_id = models.AutoField(primary_key=True)
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name="attendance_days",
+    )
+    date = models.DateField()
+    day_type = models.CharField(
+        max_length=20,
+        choices=DayType.choices,
+        default=DayType.CLASS_DAY,
+    )
+    note = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text="Example: Independence Day, typhoon suspension, or school activity.",
+    )
+    recorded_by = models.ForeignKey(
+        Teacher,
+        on_delete=models.PROTECT,
+        related_name="recorded_attendance_days",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "attendance_day"
+        ordering = ["date"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["classroom", "date"],
+                name="unique_classroom_attendance_day",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.classroom} - {self.date}"
+
+
+class AttendanceRecord(models.Model):
+    class Status(models.TextChoices):
+        PRESENT = "present", "Present"
+        ABSENT = "absent", "Absent"
+        LATE = "late", "Late"
+        EXCUSED = "excused", "Excused"
+
+    attendance_id = models.AutoField(primary_key=True)
+    attendance_day = models.ForeignKey(
+        AttendanceDay,
+        on_delete=models.CASCADE,
+        related_name="records",
+    )
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name="attendance_records",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PRESENT,
+    )
+    remarks = models.CharField(max_length=200, blank=True)
+    recorded_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "attendance_record"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["attendance_day", "student"],
+                name="unique_attendance_day_student",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.student} - {self.attendance_day.date} - {self.status}"

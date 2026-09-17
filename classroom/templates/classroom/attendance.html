@@ -1,0 +1,117 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block title %}Attendance | {{ classroom.class_name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'classroom/css/attendance.css' %}?v=1">
+{% endblock %}
+
+{% block content %}
+<section class="classroom-banner no-print">
+    <div class="classroom-banner-content">
+        <a href="{% url 'classroom:classes' %}" class="classroom-banner-back"><i class="bi bi-arrow-left"></i> Classes</a>
+        <small>{{ classroom.subject }}</small>
+        <h1>{{ classroom.class_name }}</h1>
+        <p>{{ classroom.grade_level }} · {{ classroom.section }} · {{ classroom.school_year }}</p>
+    </div>
+    <div class="classroom-banner-actions">
+        <div class="class-code-small"><small>Class code</small><strong>{{ classroom.class_code }}</strong></div>
+        <a href="{% url 'classroom:class_detail' classroom.class_id %}" class="btn btn-light"><i class="bi bi-gear me-2"></i> Manage Class</a>
+    </div>
+</section>
+
+<nav class="class-navigation no-print" aria-label="Class navigation">
+    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=stream" class="class-navigation-link"><i class="bi bi-chat-left-text"></i><span>Stream</span></a>
+    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=modules" class="class-navigation-link"><i class="bi bi-collection"></i><span>Modules</span></a>
+    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=activities" class="class-navigation-link"><i class="bi bi-clipboard-check"></i><span>Activities</span></a>
+    <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=people" class="class-navigation-link"><i class="bi bi-people"></i><span>People</span></a>
+    <a href="{% url 'classroom:attendance' classroom.class_id %}" class="class-navigation-link active"><i class="bi bi-calendar2-check"></i><span>Attendance</span></a>
+    <a href="{% url 'classroom:gradebook' classroom.class_id %}" class="class-navigation-link"><i class="bi bi-journal-check"></i><span>Grades</span></a>
+</nav>
+
+<section class="attendance-heading no-print">
+    <div><h2>Attendance</h2><p>Record daily attendance or prepare the monthly SF2-style report.</p></div>
+    <div class="attendance-view-switcher">
+        <a href="?view=daily&date={{ selected_date|date:'Y-m-d' }}" class="{% if view_mode == 'daily' %}active{% endif %}"><i class="bi bi-pencil-square"></i> Daily Entry</a>
+        <a href="?view=monthly&month={{ selected_month|date:'Y-m' }}" class="{% if view_mode == 'monthly' %}active{% endif %}"><i class="bi bi-table"></i> Monthly Report</a>
+    </div>
+</section>
+
+{% if view_mode == "daily" %}
+<section class="attendance-card">
+    <form method="get" class="date-picker-row no-print">
+        <input type="hidden" name="view" value="daily">
+        <div><label for="attendanceDate">Attendance date</label><input id="attendanceDate" class="form-control" type="date" name="date" value="{{ selected_date|date:'Y-m-d' }}"></div>
+        <button class="btn btn-outline-primary">Open date</button>
+    </form>
+
+    <form method="post" id="attendanceForm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_attendance">
+        <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+
+        <div class="day-settings no-print">
+            <div><span class="setting-label">Date type</span><div class="day-type-options">
+                {% for value, label in day_type_choices %}
+                <label><input type="radio" name="day_type" value="{{ value }}" {% if attendance_day and attendance_day.day_type == value or not attendance_day and value == 'class_day' %}checked{% endif %}> <span>{{ label }}</span></label>
+                {% endfor %}
+            </div></div>
+            <div><label class="setting-label" for="dayNote">Holiday / no-class reason</label><input id="dayNote" class="form-control" name="note" maxlength="150" value="{{ attendance_day.note|default:'' }}" placeholder="Example: Independence Day or typhoon suspension"></div>
+        </div>
+
+        <div class="daily-title"><div><span>{{ selected_date|date:"l" }}</span><h3>{{ selected_date|date:"F d, Y" }}</h3></div><span>{{ daily_rows|length }} learner{{ daily_rows|length|pluralize }}</span></div>
+
+        <div class="daily-table-wrap" id="studentAttendanceFields">
+            <table class="daily-attendance-table">
+                <thead><tr><th>#</th><th>Learner</th><th>Status</th><th>Remarks</th></tr></thead>
+                <tbody>
+                    {% for row in daily_rows %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td><strong>{{ row.student.lastname }}, {{ row.student.firstname }}</strong><small>{{ row.student.lrn }}</small></td>
+                        <td><select class="form-select attendance-status" name="status_{{ row.student.pk }}">
+                            {% for value, label in status_choices %}<option value="{{ value }}" {% if row.record and row.record.status == value or not row.record and value == 'present' %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                        </select></td>
+                        <td><input class="form-control" name="remarks_{{ row.student.pk }}" maxlength="200" value="{{ row.record.remarks|default:'' }}" placeholder="Optional"></td>
+                    </tr>
+                    {% empty %}<tr><td colspan="4" class="attendance-empty">No approved Students are enrolled in this Class.</td></tr>{% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="non-class-message" id="nonClassMessage"><i class="bi bi-calendar-x"></i><strong>No learner statuses are required.</strong><span>Saving this date as a holiday or no-class day removes its learner attendance entries.</span></div>
+        <div class="attendance-save no-print"><button class="btn btn-primary"><i class="bi bi-check2-circle"></i> Save attendance</button></div>
+    </form>
+</section>
+{% else %}
+<section class="attendance-report-toolbar no-print">
+    <form method="get"><input type="hidden" name="view" value="monthly"><label for="reportMonth">Report month</label><input id="reportMonth" class="form-control" type="month" name="month" value="{{ selected_month|date:'Y-m' }}"><button class="btn btn-outline-primary">Open report</button></form>
+    <button type="button" class="btn btn-outline-dark" onclick="window.print()"><i class="bi bi-printer"></i> Print / Save PDF</button>
+</section>
+
+<section class="attendance-report-sheet">
+    <header class="sf2-heading">
+        <img src="{% static 'classroom/images/deped.png' %}" alt="Department of Education seal">
+        <div><h1>School Form 2 (SF2) Daily Attendance Report of Learners</h1><p>Monthly classroom attendance record</p></div>
+        <img class="deped-wordmark" src="{% static 'classroom/images/markup.png' %}" alt="Department of Education">
+    </header>
+    <div class="sf2-information">
+        <span><strong>School ID:</strong> {{ classroom.teacher.school.school_id_number|default:"Not provided" }}</span>
+        <span><strong>School Year:</strong> {{ classroom.school_year }}</span>
+        <span><strong>Report Month:</strong> {{ selected_month|date:"F Y" }}</span>
+        <span><strong>School:</strong> {{ classroom.teacher.school.school_name }}</span>
+        <span><strong>Grade Level:</strong> {{ classroom.grade_level }}</span>
+        <span><strong>Section:</strong> {{ classroom.section }}</span>
+    </div>
+    <div class="sf2-table-wrap"><table class="sf2-table">
+        <thead><tr><th rowspan="2" class="sf2-name">Learner's Name<br><small>Last Name, First Name, Middle Name</small></th>{% for column in monthly_columns %}<th title="{{ column.date|date:'F d, Y' }}">{{ column.number }}</th>{% endfor %}<th colspan="2">Total for Month</th><th rowspan="2" class="sf2-remarks">Remarks</th></tr><tr>{% for column in monthly_columns %}<th>{{ column.weekday }}</th>{% endfor %}<th>Absent</th><th>Late</th></tr></thead>
+        <tbody>{% for row in monthly_rows %}<tr><td class="sf2-name">{{ row.student.lastname|upper }}, {{ row.student.firstname|upper }}{% if row.student.middlename %} {{ row.student.middlename|slice:":1" }}.{% endif %}</td>{% for cell in row.cells %}<td class="attendance-code {{ cell.css_class }}" title="{{ cell.title }}">{{ cell.code }}</td>{% endfor %}<td class="total-cell">{{ row.absent_total }}</td><td class="total-cell">{{ row.late_total }}</td><td class="sf2-remarks">{{ row.remarks }}</td></tr>{% empty %}<tr><td colspan="99" class="attendance-empty">No approved Students are enrolled.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <footer class="sf2-legend"><span><strong>✓</strong> Present</span><span><strong>A</strong> Absent</span><span><strong>L</strong> Late</span><span><strong>E</strong> Excused</span><span><strong>H</strong> Holiday</span><span><strong>NC</strong> No class</span></footer>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'classroom/js/attendance.js' %}?v=1"></script>
+{% endblock %}

@@ -32,6 +32,7 @@
     <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=modules" class="class-navigation-link"><i class="bi bi-collection"></i><span>Modules</span></a>
     <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=activities" class="class-navigation-link"><i class="bi bi-clipboard-check"></i><span>Activities</span></a>
     <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=people" class="class-navigation-link"><i class="bi bi-people"></i><span>People</span></a>
+    {% if is_teacher %}<a href="{% url 'classroom:attendance' classroom.class_id %}" class="class-navigation-link"><i class="bi bi-calendar2-check"></i><span>Attendance</span></a>{% endif %}
     <a href="{% url 'classroom:gradebook' classroom.class_id %}" class="class-navigation-link active"><i class="bi bi-journal-check"></i><span>Grades</span></a>
 </nav>
 
@@ -98,12 +99,18 @@
 {% else %}
 <section class="print-sheet">
     <header class="record-heading">
-        <div class="record-seal">DepEd</div>
+        <div class="record-seal">
+        <img src="{% static 'classroom/images/deped.png' %}"
+            alt="Department of Education seal">
+    </div>
         <div class="record-title">
             <h1>{% if display == 'summary' %}Summary of Term Grades{% else %}Class Record{% endif %}</h1>
             <small>Department of Education classroom record</small>
         </div>
-        <div class="record-deped">DepEd</div>
+        <div class="record-deped">
+            <img src="{% static 'classroom/images/markup.png' %}"
+                alt="Department of Education">
+        </div>
     </header>
 
     <div class="school-record-info">

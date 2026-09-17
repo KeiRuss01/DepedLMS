@@ -436,6 +436,68 @@ body.classroom-body {
     gap: 17px;
 }
 
+.dashboard-card-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.dashboard-card-link[href]:hover {
+    border-color: #b9d2ff;
+    box-shadow: 0 8px 22px rgba(13, 110, 253, 0.08);
+}
+
+.dashboard-icon-blue {
+    background: #eaf2ff;
+    color: var(--classroom-blue);
+}
+
+.dashboard-icon-teal {
+    background: #e6f8f7;
+    color: var(--classroom-teal);
+}
+
+.announcement-dashboard-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-announcement {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 0;
+    color: var(--classroom-navy);
+    text-decoration: none;
+    border-bottom: 1px solid #eef0f4;
+}
+
+.dashboard-announcement:last-child {
+    border-bottom: 0;
+}
+
+.dashboard-announcement small,
+.dashboard-announcement p {
+    margin: 0;
+    color: var(--classroom-muted);
+    font-size: 11px;
+}
+
+.announcement-priority {
+    width: fit-content;
+    color: var(--classroom-blue);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.announcement-priority.important {
+    color: #b76e00;
+}
+
+.announcement-priority.urgent {
+    color: var(--classroom-red);
+}
+
 .continue-information {
     flex: 1;
 }
@@ -1144,6 +1206,59 @@ body.classroom-body {
     line-height: 1.7;
 }
 
+.stream-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 18px;
+}
+
+.stream-feed-card {
+    position: relative;
+    margin: 0;
+    padding: 17px;
+    overflow: hidden;
+    border: 1px solid var(--classroom-border);
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.stream-feed-card.priority-important::before,
+.stream-feed-card.priority-urgent::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 4px;
+    background: #f59e0b;
+    content: "";
+}
+
+.stream-feed-card.priority-urgent::before { background: #dc3545; }
+.stream-post-author { min-width: 0; }
+.announcement-priority { margin-left: auto; padding: 4px 8px; border-radius: 20px; background: #f1f4f8; color: #64748b; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.announcement-priority.important { background: #fff4d6; color: #9a6500; }
+.announcement-priority.urgent { background: #ffe4e7; color: #b4232f; }
+.stream-post-heading .dropdown { margin-left: 0 !important; }
+.stream-post-heading .dropdown form { margin: 0; }
+.stream-post-body { padding-left: 56px; }
+.stream-post-body h3 { margin: 0 0 7px; color: var(--classroom-navy); font-size: 16px; }
+.stream-post-body p { margin: 0 0 12px; }
+.stream-content-label { display: inline-block; margin-bottom: 5px; color: var(--classroom-blue); font-size: 9px; font-weight: 800; letter-spacing: 1px; }
+.stream-module-meta { display: flex; flex-wrap: wrap; gap: 14px; margin: 10px 0 13px; color: var(--classroom-muted); font-size: 11px; }
+.stream-module-meta i { margin-right: 4px; color: var(--classroom-blue); }
+
+.upcoming-list { display: flex; flex-direction: column; }
+.upcoming-item { display: flex; align-items: center; gap: 11px; padding: 12px 0; border-bottom: 1px solid #eef1f5; color: var(--classroom-navy); text-decoration: none; }
+.upcoming-item:last-child { border-bottom: 0; }
+.upcoming-item:hover > span:last-child > strong { color: var(--classroom-blue); }
+.upcoming-item > span:last-child { display: flex; min-width: 0; flex-direction: column; }
+.upcoming-item > span:last-child strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.upcoming-item > span:last-child small { margin-top: 3px; color: var(--classroom-muted); font-size: 10px; }
+.upcoming-date { display: grid; width: 42px; height: 46px; place-items: center; flex: 0 0 42px; border-radius: 8px; background: var(--classroom-blue-light); color: var(--classroom-blue); line-height: 1; }
+.upcoming-date strong { margin-top: 5px; font-size: 16px; }
+.upcoming-date small { margin-top: -4px; font-size: 8px; font-weight: 800; }
+
 .upcoming-placeholder {
     display: flex;
     align-items: flex-start;
@@ -1409,6 +1524,9 @@ body.classroom-body {
     .stream-create-card > .btn {
         width: 100%;
     }
+
+    .stream-post-body { padding-left: 0; }
+    .announcement-priority { margin-left: 0; }
 
     .module-card {
         align-items: flex-start;

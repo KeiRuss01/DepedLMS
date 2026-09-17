@@ -2,7 +2,25 @@ from django import forms
 
 from accounts.models import ParentStudentLink
 
-from .models import Classroom
+from .models import Announcement, Classroom
+
+
+class AnnouncementForm(forms.ModelForm):
+    class Meta:
+        model = Announcement
+        fields = ["title", "content", "priority"]
+        widgets = {
+            "title": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": "Announcement title",
+            }),
+            "content": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 5,
+                "placeholder": "Write the announcement for your class...",
+            }),
+            "priority": forms.Select(attrs={"class": "form-select"}),
+        }
 
 
 class ClassroomForm(forms.ModelForm):

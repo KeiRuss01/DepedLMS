@@ -149,6 +149,22 @@
     </a>
 
 
+    <!-- ATTENDANCE -->
+
+    {% if is_teacher %}
+    <a href="{% url 'classroom:attendance' classroom.class_id %}"
+       class="class-navigation-link">
+
+        <i class="bi bi-calendar2-check"></i>
+
+        <span>
+            Attendance
+        </span>
+
+    </a>
+    {% endif %}
+
+
     <!-- GRADES -->
 
     <a href="{% url 'classroom:gradebook' classroom.class_id %}"
@@ -209,7 +225,8 @@
 
                     <button class="btn btn-primary"
                             type="button"
-                            disabled>
+                            data-bs-toggle="modal"
+                            data-bs-target="#newAnnouncementModal">
 
                         <i class="bi bi-plus-lg me-2"></i>
 
@@ -222,21 +239,51 @@
                 </div>
 
 
-                <div class="grade-placeholder">
-
-                    <span>
-                        <i class="bi bi-chat-left-text"></i>
-                    </span>
-
-                    <h3>
-                        No class posts yet
-                    </h3>
-
-                    <p>
-                        The Stream will display published
-                        announcements and activities.
-                    </p>
-
+                <div class="stream-feed">
+                    {% for item in stream_items %}
+                        {% if item.kind == "announcement" %}
+                        <article class="stream-post stream-feed-card priority-{{ item.announcement.priority }}">
+                            <div class="stream-post-heading">
+                                <span class="stream-post-icon announcement-color"><i class="bi bi-megaphone"></i></span>
+                                <div class="stream-post-author">
+                                    <strong>{{ item.announcement.posted_by.full_name }}</strong>
+                                    <small>{{ item.created_at|date:"M d, Y · g:i A" }}{% if item.announcement.updated_at != item.announcement.created_at %} · Edited{% endif %}</small>
+                                </div>
+                                <span class="announcement-priority {{ item.announcement.priority }}">{{ item.announcement.get_priority_display }}</span>
+                                {% if is_teacher %}
+                                <div class="dropdown ms-auto">
+                                    <button class="btn btn-sm btn-light" data-bs-toggle="dropdown" aria-label="Announcement actions"><i class="bi bi-three-dots"></i></button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#editAnnouncement{{ item.announcement.pk }}"><i class="bi bi-pencil me-2"></i>Edit</button></li>
+                                        <li><form method="post" action="{% url 'classroom:announcement_delete' item.announcement.pk %}">{% csrf_token %}<button class="dropdown-item text-danger" onclick="return confirm('Delete this announcement?')"><i class="bi bi-trash me-2"></i>Delete</button></form></li>
+                                    </ul>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="stream-post-body"><h3>{{ item.announcement.title }}</h3><p>{{ item.announcement.content|linebreaksbr }}</p></div>
+                        </article>
+                        {% else %}
+                        <article class="stream-post stream-feed-card module-stream-card">
+                            <div class="stream-post-heading">
+                                <span class="stream-post-icon activity-color"><i class="bi bi-journal-text"></i></span>
+                                <div><strong>New Module published</strong><small>{{ item.created_at|date:"M d, Y · g:i A" }}</small></div>
+                            </div>
+                            <div class="stream-post-body">
+                                <span class="stream-content-label">TERM {{ item.module.term }}{% if item.module.week %} · {{ item.module.week }}{% endif %}</span>
+                                <h3>{{ item.module.title }}</h3>
+                                {% if item.module.instructions %}<p>{{ item.module.instructions|truncatewords:35 }}</p>{% endif %}
+                                <div class="stream-module-meta">{% if item.module.due_at %}<span><i class="bi bi-calendar-event"></i> Due {{ item.module.due_at|date:"M d, Y · g:i A" }}</span>{% endif %}<span><i class="bi bi-list-check"></i> {{ item.module.answer_sections.count }} answer section{{ item.module.answer_sections.count|pluralize }}</span></div>
+                                {% if is_teacher %}<a class="btn btn-sm btn-outline-primary" href="{% url 'classroom:module_manage' item.module.pk %}">Open Module</a>{% else %}<a class="btn btn-sm btn-primary" href="{% url 'classroom:module_work' item.module.pk %}">Open Module</a>{% endif %}
+                            </div>
+                        </article>
+                        {% endif %}
+                    {% empty %}
+                    <div class="grade-placeholder">
+                        <span><i class="bi bi-chat-left-text"></i></span>
+                        <h3>No class posts yet</h3>
+                        <p>Published Modules and Teacher announcements will appear here.</p>
+                    </div>
+                    {% endfor %}
                 </div>
 
             </section>
@@ -260,19 +307,15 @@
                 </div>
 
 
-                <div class="dashboard-empty-card compact">
-
-                    <i class="bi bi-calendar-check"></i>
-
-                    <h4>
-                        No upcoming deadlines
-                    </h4>
-
-                    <p>
-                        Published activity deadlines
-                        will appear here.
-                    </p>
-
+                <div class="upcoming-list">
+                    {% for module in upcoming_modules %}
+                    <a href="{% if is_teacher %}{% url 'classroom:module_manage' module.pk %}{% else %}{% url 'classroom:module_work' module.pk %}{% endif %}" class="upcoming-item">
+                        <span class="upcoming-date"><strong>{{ module.due_at|date:"d" }}</strong><small>{{ module.due_at|date:"M"|upper }}</small></span>
+                        <span><strong>{{ module.title }}</strong><small>Due {{ module.due_at|date:"g:i A" }}</small></span>
+                    </a>
+                    {% empty %}
+                    <div class="dashboard-empty-card compact"><i class="bi bi-calendar-check"></i><h4>No upcoming deadlines</h4><p>Published Module deadlines will appear here.</p></div>
+                    {% endfor %}
                 </div>
 
             </section>
@@ -280,6 +323,29 @@
         </div>
 
     </div>
+
+    {% if is_teacher %}
+    <div class="modal fade" id="newAnnouncementModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form method="post" action="{% url 'classroom:announcement_create' classroom.pk %}">
+            {% csrf_token %}<div class="modal-header"><h5 class="modal-title">New Announcement</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">{{ announcement_form.as_p }}</div>
+            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary"><i class="bi bi-send me-2"></i>Post announcement</button></div>
+        </form></div></div>
+    </div>
+    {% for item in stream_items %}{% if item.kind == "announcement" %}
+    <div class="modal fade" id="editAnnouncement{{ item.announcement.pk }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form method="post" action="{% url 'classroom:announcement_edit' item.announcement.pk %}">
+            {% csrf_token %}<div class="modal-header"><h5 class="modal-title">Edit Announcement</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <p><label class="form-label">Title</label><input class="form-control" name="title" maxlength="150" value="{{ item.announcement.title }}" required></p>
+                <p><label class="form-label">Message</label><textarea class="form-control" name="content" rows="5" required>{{ item.announcement.content }}</textarea></p>
+                <p><label class="form-label">Priority</label><select class="form-select" name="priority"><option value="normal" {% if item.announcement.priority == 'normal' %}selected{% endif %}>Normal</option><option value="important" {% if item.announcement.priority == 'important' %}selected{% endif %}>Important</option><option value="urgent" {% if item.announcement.priority == 'urgent' %}selected{% endif %}>Urgent</option></select></p>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save changes</button></div>
+        </form></div></div>
+    </div>
+    {% endif %}{% endfor %}
+    {% endif %}
 
 
 

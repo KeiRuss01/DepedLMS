@@ -121,6 +121,36 @@
 .item-legend > div { display: grid; grid-template-columns: 150px 1fr auto auto; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid #eef1f6; font-size: 12px; }
 .item-legend small { color: #667085; }
 
+.record-seal,
+.record-deped {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.record-seal img {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+}
+
+.record-deped img {
+    width: 120px;
+    height: auto;
+    object-fit: contain;
+}
+
+@media print {
+    .record-seal img {
+        width: 48px;
+        height: 48px;
+    }
+
+    .record-deped img {
+        width: 90px;
+    }
+}
+
 @media (max-width: 991.98px) {
     .gradebook-toolbar { align-items: stretch; flex-direction: column; }
     .gradebook-actions .btn { flex: 1; }

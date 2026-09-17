@@ -12,6 +12,9 @@ from classroom.models import (
     ModuleSubmission,
     GradeItem,
     GradeScore,
+    AttendanceDay,
+    AttendanceRecord,
+    Announcement,
     SectionResponse,
     SectionQuestion,
 )
@@ -230,6 +233,67 @@ class ModuleSubmissionFlowTests(TestCase):
         self.assertEqual(submission.status, ModuleSubmission.Status.GRADED)
         self.assertEqual(submission.score, 17)
 
+    def test_teacher_announcement_and_published_module_appear_in_stream(self):
+        self.client.force_login(self.teacher_user)
+        response = self.client.post(
+            reverse("classroom:announcement_create", args=[self.classroom.pk]),
+            {
+                "title": "Class reminder",
+                "content": "Please finish the published Module.",
+                "priority": Announcement.Priority.IMPORTANT,
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        announcement = Announcement.objects.get(classroom=self.classroom)
+        self.assertEqual(announcement.posted_by, self.teacher_user)
+
+        self.client.force_login(self.student_user)
+        stream = self.client.get(
+            reverse("classroom:class_page", args=[self.classroom.pk]) + "?tab=stream"
+        )
+        self.assertEqual(stream.status_code, 200)
+        self.assertContains(stream, "Class reminder")
+        self.assertContains(stream, self.module.title)
+
+    def test_student_cannot_create_announcement(self):
+        self.client.force_login(self.student_user)
+        response = self.client.post(
+            reverse("classroom:announcement_create", args=[self.classroom.pk]),
+            {"title": "Not allowed", "content": "No", "priority": "normal"},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(Announcement.objects.filter(title="Not allowed").exists())
+
+    def test_student_dashboard_uses_enrolled_class_content(self):
+        Announcement.objects.create(
+            classroom=self.classroom,
+            posted_by=self.teacher_user,
+            title="Dashboard reminder",
+            content="Read your Module before answering.",
+        )
+        self.client.force_login(self.student_user)
+
+        response = self.client.get(reverse("classroom:dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["continue_module"], self.module)
+        self.assertContains(response, "Dashboard reminder")
+        self.assertContains(response, self.module.title)
+
+    def test_teacher_dashboard_shows_submissions_needing_review(self):
+        submission = ModuleSubmission.objects.create(
+            module=self.module,
+            student=self.student,
+            status=ModuleSubmission.Status.SUBMITTED,
+        )
+        self.client.force_login(self.teacher_user)
+
+        response = self.client.get(reverse("classroom:dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(submission, response.context["submissions_to_review"])
+        self.assertContains(response, "Submitted Module 1")
+
 
 class GradebookTests(TestCase):
     def setUp(self):
@@ -361,3 +425,98 @@ class GradebookTests(TestCase):
         )
         self.assertContains(response, "Released by your Teacher")
         self.assertNotContains(response, "Not released")
+
+
+class AttendanceTests(TestCase):
+    def setUp(self):
+        self.school = School.objects.create(school_name="Attendance School")
+        self.teacher_user = User.objects.create_user(
+            email="attendance.teacher@example.com", password="TestPass123!",
+            role=User.Role.TEACHER,
+        )
+        self.teacher = Teacher.objects.create(
+            user=self.teacher_user, school=self.school, employee_id="AT-1",
+            firstname="Attendance", lastname="Teacher",
+        )
+        self.student_user = User.objects.create_user(
+            email="attendance.student@example.com", password="TestPass123!",
+            role=User.Role.STUDENT,
+        )
+        self.student = Student.objects.create(
+            user=self.student_user, school=self.school, lrn="444455556666",
+            firstname="Daily", lastname="Learner", gender=Student.Gender.FEMALE,
+            birth_date=date(2011, 1, 1), acc_status=Student.AccStatus.APPROVED,
+        )
+        self.classroom = Classroom.objects.create(
+            teacher=self.teacher, class_name="English 8", grade_level="8",
+            subject="English", section="A", school_year="2026-2027",
+        )
+        ClassEnrollment.objects.create(
+            classroom=self.classroom, student=self.student,
+            status=ClassEnrollment.Status.APPROVED,
+        )
+
+    def test_teacher_records_daily_attendance(self):
+        self.client.force_login(self.teacher_user)
+        self.assertEqual(
+            self.client.get(
+                reverse("classroom:attendance", args=[self.classroom.pk])
+            ).status_code,
+            200,
+        )
+        response = self.client.post(
+            reverse("classroom:attendance", args=[self.classroom.pk]),
+            {
+                "action": "save_attendance",
+                "date": "2026-09-17",
+                "day_type": AttendanceDay.DayType.CLASS_DAY,
+                f"status_{self.student.pk}": AttendanceRecord.Status.LATE,
+                f"remarks_{self.student.pk}": "Arrived at 8:15 AM",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        attendance_day = AttendanceDay.objects.get(
+            classroom=self.classroom, date="2026-09-17"
+        )
+        record = AttendanceRecord.objects.get(
+            attendance_day=attendance_day, student=self.student
+        )
+        self.assertEqual(record.status, AttendanceRecord.Status.LATE)
+        self.assertEqual(record.remarks, "Arrived at 8:15 AM")
+        monthly_response = self.client.get(
+            reverse("classroom:attendance", args=[self.classroom.pk])
+            + "?view=monthly&month=2026-09"
+        )
+        self.assertEqual(monthly_response.status_code, 200)
+        self.assertContains(monthly_response, "School Form 2")
+
+    def test_holiday_removes_learner_entries_for_that_date(self):
+        attendance_day = AttendanceDay.objects.create(
+            classroom=self.classroom, date="2026-09-18",
+            day_type=AttendanceDay.DayType.CLASS_DAY, recorded_by=self.teacher,
+        )
+        AttendanceRecord.objects.create(
+            attendance_day=attendance_day, student=self.student,
+            status=AttendanceRecord.Status.PRESENT,
+        )
+        self.client.force_login(self.teacher_user)
+        self.client.post(
+            reverse("classroom:attendance", args=[self.classroom.pk]),
+            {
+                "action": "save_attendance",
+                "date": "2026-09-18",
+                "day_type": AttendanceDay.DayType.HOLIDAY,
+                "note": "Local holiday",
+            },
+        )
+        attendance_day.refresh_from_db()
+        self.assertEqual(attendance_day.day_type, AttendanceDay.DayType.HOLIDAY)
+        self.assertEqual(attendance_day.note, "Local holiday")
+        self.assertFalse(attendance_day.records.exists())
+
+    def test_student_cannot_open_teacher_attendance_page(self):
+        self.client.force_login(self.student_user)
+        response = self.client.get(
+            reverse("classroom:attendance", args=[self.classroom.pk])
+        )
+        self.assertEqual(response.status_code, 403)

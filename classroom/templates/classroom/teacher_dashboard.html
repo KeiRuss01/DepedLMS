@@ -63,10 +63,34 @@
                 <h3>Today</h3>
             </div>
 
-            <div class="dashboard-empty-card">
-                <i class="bi bi-calendar2-check"></i>
-                <h4>No scheduled items</h4>
-                <p>Your class schedule will appear here when it is available.</p>
+            <div class="task-list">
+                {% for module in today_modules %}
+                <a class="task-item" href="{% url 'classroom:module_manage' module.pk %}">
+                    <span class="attention-icon dashboard-icon-blue"><i class="bi bi-journal-text"></i></span>
+                    <span class="task-information">
+                        <strong>{{ module.title }}</strong>
+                        <small>{{ module.classroom.class_name }} &middot; Due {{ module.due_at|date:"g:i A" }}</small>
+                    </span>
+                </a>
+                {% endfor %}
+
+                {% for classroom in attendance_pending_classrooms %}
+                <a class="task-item" href="{% url 'classroom:attendance' classroom.pk %}?date={{ today|date:'Y-m-d' }}">
+                    <span class="attention-icon dashboard-icon-teal"><i class="bi bi-calendar-check"></i></span>
+                    <span class="task-information">
+                        <strong>Record attendance</strong>
+                        <small>{{ classroom.class_name }} &middot; {{ today|date:"F j, Y" }}</small>
+                    </span>
+                </a>
+                {% endfor %}
+
+                {% if not today_modules and not attendance_pending_classrooms %}
+                <div class="dashboard-empty-card">
+                    <i class="bi bi-calendar2-check"></i>
+                    <h4>Nothing scheduled today</h4>
+                    <p>Today's Module deadlines and attendance reminders will appear here.</p>
+                </div>
+                {% endif %}
             </div>
         </section>
     </div>
@@ -93,13 +117,25 @@
                         </small>
                     </span>
                 </a>
-                {% empty %}
+                {% endfor %}
+
+                {% for submission in submissions_to_review %}
+                <a href="{% url 'classroom:module_review' submission.pk %}" class="attention-item">
+                    <span class="attention-icon dashboard-icon-blue"><i class="bi bi-file-earmark-check"></i></span>
+                    <span>
+                        <strong>{{ submission.student }}</strong>
+                        <small>Submitted {{ submission.module.title }} in {{ submission.module.classroom.class_name }}</small>
+                    </span>
+                </a>
+                {% endfor %}
+
+                {% if not join_requests and not submissions_to_review %}
                 <div class="dashboard-empty-card compact">
                     <i class="bi bi-check2-circle"></i>
                     <h4>Nothing needs attention</h4>
-                    <p>New Student join requests will appear here.</p>
+                    <p>Student join requests and submitted Modules will appear here.</p>
                 </div>
-                {% endfor %}
+                {% endif %}
             </div>
         </section>
     </div>
