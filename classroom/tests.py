@@ -1,7 +1,12 @@
 from datetime import date
+from io import BytesIO
+import json
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
+from PIL import Image
+from pypdf import PdfReader, PdfWriter
 
 from accounts.models import Parent, ParentStudentLink, School, Student, Teacher, User
 from classroom.models import (
@@ -10,6 +15,7 @@ from classroom.models import (
     Module,
     ModuleAnswerSection,
     ModuleSubmission,
+    SubmissionExtraPage,
     GradeItem,
     GradeScore,
     AttendanceDay,
@@ -125,8 +131,123 @@ class ModuleSubmissionFlowTests(TestCase):
         )
         self.module = Module.objects.create(
             classroom=self.classroom, title="Module 1", pdf="modules/test.pdf",
-            status=Module.Status.PUBLISHED,
+            status=Module.Status.PUBLISHED, max_score=10,
         )
+
+    def test_teacher_sets_score_after_reviewing_pdf_before_publish(self):
+        module = Module.objects.create(
+            classroom=self.classroom,
+            title="Score Later",
+            pdf="modules/score-later.pdf",
+            status=Module.Status.DRAFT,
+        )
+        self.assertEqual(module.max_score, 0)
+
+        self.client.force_login(self.teacher_user)
+        manage_url = reverse("classroom:module_manage", args=[module.pk])
+        page = self.client.get(manage_url)
+        self.assertContains(page, "Score not set")
+        self.assertContains(page, "Maximum score")
+
+        self.client.post(manage_url, {"action": "publish"})
+        module.refresh_from_db()
+        self.assertEqual(module.status, Module.Status.DRAFT)
+
+        response = self.client.post(
+            manage_url,
+            {"action": "save_score", "max_score": "25"},
+        )
+        self.assertRedirects(response, manage_url)
+        module.refresh_from_db()
+        self.assertEqual(module.max_score, 25)
+        self.assertEqual(module.grade_item.highest_possible_score, 25)
+
+        self.client.post(manage_url, {"action": "publish"})
+        module.refresh_from_db()
+        self.assertEqual(module.status, Module.Status.PUBLISHED)
+
+    def test_student_saves_and_loads_mobile_annotations(self):
+        self.client.force_login(self.student_user)
+        save_url = reverse(
+            "classroom:module_mobile_annotations_save",
+            args=[self.module.pk],
+        )
+        annotation = {
+            "id": "answer-1",
+            "page": 3,
+            "tool": "type",
+            "x": 0.25,
+            "y": 0.42,
+            "text": "Manila",
+            "color": "#000000",
+        }
+        response = self.client.post(
+            save_url,
+            data=json.dumps({
+                "current_page": 3,
+                "annotations": [annotation],
+            }),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        submission = ModuleSubmission.objects.get(
+            module=self.module,
+            student=self.student,
+        )
+        self.assertEqual(submission.current_page, 3)
+        self.assertEqual(submission.annotation_data[0]["text"], "Manila")
+        self.assertIsNotNone(submission.draft_saved_at)
+
+        state = self.client.get(
+            reverse("classroom:module_mobile_draft", args=[self.module.pk])
+        )
+        self.assertEqual(state.status_code, 200)
+        self.assertEqual(state.json()["current_page"], 3)
+        self.assertEqual(len(state.json()["annotations"]), 1)
+
+    def test_student_creates_updates_and_deletes_extra_answer_page(self):
+        self.client.force_login(self.student_user)
+        create_response = self.client.post(
+            reverse("classroom:module_extra_page_create", args=[self.module.pk]),
+            {
+                "page_type": SubmissionExtraPage.PageType.ESSAY,
+                "title": "My Reflection",
+                "related_pdf_page": "8",
+            },
+        )
+        self.assertEqual(create_response.status_code, 201)
+        page_id = create_response.json()["page"]["id"]
+
+        update_response = self.client.post(
+            reverse("classroom:module_extra_page_update", args=[page_id]),
+            data=json.dumps({
+                "essay_text": "This is my complete reflection.",
+                "caption": "Related to the lesson on page 8.",
+            }),
+            content_type="application/json",
+        )
+        self.assertEqual(update_response.status_code, 200)
+        extra_page = SubmissionExtraPage.objects.get(pk=page_id)
+        self.assertEqual(extra_page.related_pdf_page, 8)
+        self.assertEqual(extra_page.essay_text, "This is my complete reflection.")
+
+        delete_response = self.client.post(
+            reverse("classroom:module_extra_page_delete", args=[page_id])
+        )
+        self.assertEqual(delete_response.status_code, 200)
+        self.assertFalse(SubmissionExtraPage.objects.filter(pk=page_id).exists())
+
+    def test_teacher_cannot_open_student_mobile_draft_state(self):
+        ModuleSubmission.objects.create(
+            module=self.module,
+            student=self.student,
+        )
+        self.client.force_login(self.teacher_user)
+        response = self.client.get(
+            reverse("classroom:module_mobile_draft", args=[self.module.pk])
+        )
+        self.assertEqual(response.status_code, 403)
 
     def test_teacher_can_add_sections_to_published_module_before_submission(self):
         self.client.force_login(self.teacher_user)
@@ -293,6 +414,136 @@ class ModuleSubmissionFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(submission, response.context["submissions_to_review"])
         self.assertContains(response, "Submitted Module 1")
+
+    def test_student_generates_combined_pdf_and_teacher_grades_it(self):
+        source_buffer = BytesIO()
+        source_writer = PdfWriter()
+        source_writer.add_blank_page(width=612, height=792)
+        source_writer.write(source_buffer)
+        source_buffer.seek(0)
+        self.module.pdf.save(
+            "module-source.pdf",
+            SimpleUploadedFile(
+                "module-source.pdf",
+                source_buffer.getvalue(),
+                content_type="application/pdf",
+            ),
+        )
+
+        self.client.force_login(self.student_user)
+        save_response = self.client.post(
+            reverse(
+                "classroom:module_mobile_annotations_save",
+                args=[self.module.pk],
+            ),
+            data=json.dumps({
+                "current_page": 1,
+                "annotations": [{
+                    "id": "typed-answer",
+                    "page": 1,
+                    "tool": "type",
+                    "x": 0.2,
+                    "y": 0.3,
+                    "width": 0.3,
+                    "height": 0.05,
+                    "size": 0.026,
+                    "color": "#0b57d0",
+                    "text": "Manila",
+                }],
+            }),
+            content_type="application/json",
+        )
+        self.assertEqual(save_response.status_code, 200)
+
+        submission = ModuleSubmission.objects.get(
+            module=self.module,
+            student=self.student,
+        )
+        SubmissionExtraPage.objects.create(
+            submission=submission,
+            page_type=SubmissionExtraPage.PageType.ESSAY,
+            title="My Reflection",
+            position=1,
+            essay_text="This is my complete written reflection.",
+        )
+
+        image_buffer = BytesIO()
+        Image.new("RGB", (320, 180), "white").save(
+            image_buffer,
+            format="PNG",
+        )
+        image_buffer.seek(0)
+        uploaded_page = SubmissionExtraPage.objects.create(
+            submission=submission,
+            page_type=SubmissionExtraPage.PageType.UPLOAD,
+            title="Handwritten Output",
+            position=2,
+            original_name="output.png",
+        )
+        uploaded_page.uploaded_file.save(
+            "output.png",
+            SimpleUploadedFile(
+                "output.png",
+                image_buffer.getvalue(),
+                content_type="image/png",
+            ),
+        )
+
+        self.assertFalse(submission.answered_pdf)
+        self.assertEqual(submission.status, ModuleSubmission.Status.DRAFT)
+
+        submit_response = self.client.post(
+            reverse("classroom:module_work", args=[self.module.pk])
+        )
+        self.assertRedirects(
+            submit_response,
+            reverse("classroom:module_work", args=[self.module.pk]),
+        )
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, ModuleSubmission.Status.SUBMITTED)
+        self.assertTrue(submission.answered_pdf)
+
+        submission.answered_pdf.open("rb")
+        try:
+            completed_pdf = PdfReader(submission.answered_pdf)
+            self.assertEqual(len(completed_pdf.pages), 3)
+            combined_text = "\n".join(
+                page.extract_text() or ""
+                for page in completed_pdf.pages
+            )
+        finally:
+            submission.answered_pdf.close()
+
+        self.assertIn("Manila", combined_text)
+        self.assertIn("My Reflection", combined_text)
+        self.assertIn(
+            "This is my complete written reflection.",
+            combined_text,
+        )
+
+        self.client.force_login(self.teacher_user)
+        grade_response = self.client.post(
+            reverse("classroom:module_review", args=[submission.pk]),
+            {"score": "9", "feedback": "Good work."},
+        )
+        self.assertRedirects(
+            grade_response,
+            reverse("classroom:module_review", args=[submission.pk]),
+        )
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, ModuleSubmission.Status.GRADED)
+        self.assertEqual(submission.score, 9)
+        self.assertEqual(
+            GradeScore.objects.get(
+                item__module=self.module,
+                student=self.student,
+            ).score,
+            9,
+        )
+
+        submission.answered_pdf.delete(save=False)
+        uploaded_page.uploaded_file.delete(save=False)
+        self.module.pdf.delete(save=False)
 
 
 class GradebookTests(TestCase):

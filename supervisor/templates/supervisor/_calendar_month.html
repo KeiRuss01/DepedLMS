@@ -1,0 +1,80 @@
+<div class="calendar-card">
+    <div class="calendar-toolbar">
+        <a
+            class="calendar-arrow"
+            href="?year={{ previous_year }}&month={{ previous_month }}"
+            aria-label="Previous month"
+        >
+            <i class="bi bi-chevron-left"></i>
+        </a>
+
+        <h2>
+            {{ calendar_month_name }}
+            {{ calendar_year }}
+        </h2>
+
+        <a
+            class="calendar-arrow"
+            href="?year={{ next_year }}&month={{ next_month }}"
+            aria-label="Next month"
+        >
+            <i class="bi bi-chevron-right"></i>
+        </a>
+    </div>
+
+    <div class="calendar-weekdays">
+        <div>Sun</div>
+        <div>Mon</div>
+        <div>Tue</div>
+        <div>Wed</div>
+        <div>Thu</div>
+        <div>Fri</div>
+        <div>Sat</div>
+    </div>
+
+    <div class="calendar-month-grid">
+        {% for week in calendar_weeks %}
+            {% for cell in week %}
+                <div
+                    class="calendar-day
+                    {% if not cell.is_current_month %}
+                        calendar-day-outside
+                    {% endif %}
+                    {% if cell.is_today %}
+                        calendar-day-today
+                    {% endif %}
+                    {% if cell.is_weekend %}
+                        calendar-day-weekend
+                    {% endif %}"
+                >
+                    <span class="calendar-day-number">
+                        {{ cell.date.day }}
+                    </span>
+
+                    <div class="calendar-day-events">
+                        {% for event in cell.events|slice:":3" %}
+                            <div
+                                class="calendar-event-label
+                                event-type-{{ event.event_type }}"
+                                title="{{ event.title }}"
+                            >
+                                {% if event.level != "classroom" %}
+                                    <i class="bi bi-lock-fill"></i>
+                                {% endif %}
+
+                                {{ event.title }}
+                            </div>
+                        {% endfor %}
+
+                        {% if cell.events|length > 3 %}
+                            <small class="calendar-more">
+                                +{{ cell.events|length|add:"-3" }}
+                                more
+                            </small>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+</div>

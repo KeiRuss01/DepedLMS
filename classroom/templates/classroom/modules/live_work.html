@@ -1,35 +1,131 @@
 {% extends "classroom/modules/live_base.html" %}
+{% load static %}
+
 {% block title %}{{ module.title }}{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+
+<link
+    rel="stylesheet"
+    href="{% static 'classroom/css/mobile_module_editor.css' %}?v=20260922-1"
+>
+{% endblock %}
+
 {% block module_content %}
-<h1 class="h3">{{ module.title }}</h1>
-<p class="text-muted">{{ module.get_term_display }}{% if module.week %} · {{ module.week }}{% endif %} · Written Work · {{ module.total_points }} total points · Due {{ module.due_at|date:"M d, Y g:i A"|default:"No deadline" }}</p>
-{{ module.instructions|linebreaks }}
-{% if is_teacher %}<div class="alert alert-info">Teacher preview. Student work cannot be saved here.</div>
-{% elif submission.status == "submitted" %}<div class="alert alert-success">Submitted {{ submission.submitted_at|date:"M d, Y g:i A" }}. The complete module is now read-only.</div>
-{% elif submission.status == "graded" %}<div class="alert alert-success"><strong>Score: {{ submission.score }} / {{ module.total_points }}</strong></div>
-{% elif deadline_closed %}<div class="alert alert-warning">The deadline has passed. Late submissions are closed.</div>{% endif %}
-<div class="module-mobile-switch mb-3" role="group">
-  <button type="button" class="btn btn-primary" data-module-pane="document">Module PDF</button>
-  <button type="button" class="btn btn-outline-primary" data-module-pane="answers">Answer sheet</button>
-</div>
-<div class="module-workspace" data-visible-pane="document">
-  <div class="module-document">{% include "classroom/modules/pdf_reader.html" %}</div>
-  <section class="card module-answers">
-    <div class="card-header"><strong>Complete module answer sheet</strong></div>
-    <div class="card-body">
-      {% for row in section_rows %}
-      <article class="border rounded p-3 mb-3">
-        <div class="d-flex justify-content-between gap-2">
-          <div><h2 class="h6 mb-1">{{ row.section.title }}</h2><small class="text-muted">{{ row.section.get_answer_method_display }} · {{ row.section.max_score }} points</small></div>
-          {% if row.response.is_complete %}<span class="badge text-bg-success">Complete</span>{% elif row.response %}<span class="badge text-bg-warning">Draft</span>{% else %}<span class="badge text-bg-light border">Not started</span>{% endif %}
-        </div>
-        {% if row.section.instructions %}<p class="small mt-2 mb-2">{{ row.section.instructions }}</p>{% endif %}
-        <a class="btn btn-sm btn-outline-primary" href="{% url 'classroom:module_section_work' row.section.pk %}">{% if is_teacher %}Preview{% else %}Open section{% endif %}</a>
-        {% if submission.status == "graded" and row.response.score != None %}<div class="mt-2"><strong>{{ row.response.score }} / {{ row.section.max_score }}</strong>{% if row.response.feedback %}<br>{{ row.response.feedback }}{% endif %}</div>{% endif %}
-      </article>
-      {% empty %}<div class="text-muted py-4">This module is for reading only. It has no answer sections.</div>{% endfor %}
-      {% if can_edit %}<form method="post">{% csrf_token %}<button class="btn btn-primary w-100" onclick="return confirm('Submit the complete module? You cannot edit it afterward.');">Submit complete module</button></form><p class="small text-muted mt-2 mb-0">Every required section must be marked complete. All sections use the same module deadline.</p>{% endif %}
+<div class="d-flex flex-wrap justify-content-between gap-3 mb-3">
+    <div>
+        <h1 class="h3 mb-1">{{ module.title }}</h1>
+
+        <p class="text-muted mb-0">
+            {{ module.get_term_display }}
+
+            {% if module.week %}
+                &middot; {{ module.week }}
+            {% endif %}
+
+            &middot; Written Work
+            &middot; {{ module.total_points }} points
+        </p>
+
+        <small class="text-muted">
+            Due
+            {{ module.due_at|date:"M d, Y g:i A"|default:"No deadline" }}
+        </small>
     </div>
-  </section>
+
+    {% if submission.status == "graded" %}
+    <div class="module-score-badge">
+        {{ submission.score }} / {{ module.total_points }}
+    </div>
+    {% endif %}
 </div>
+
+{% if module.instructions %}
+<div class="alert alert-light border">
+    {{ module.instructions|linebreaksbr }}
+</div>
+{% endif %}
+
+{% if is_teacher %}
+<div class="alert alert-info">
+    Teacher preview is read-only. Every Student receives a
+    separate private PDF copy.
+</div>
+
+{% elif submission.status == "submitted" %}
+<div class="alert alert-success">
+    Submitted
+    {{ submission.submitted_at|date:"M d, Y g:i A" }}.
+    Your answered Module is now read-only.
+</div>
+
+{% elif submission.status == "graded" %}
+<div class="alert alert-success">
+    <strong>
+        Graded:
+        {{ submission.score }} / {{ module.total_points }}
+    </strong>
+
+    {% if submission.feedback %}
+    <div class="mt-2">
+        Teacher feedback:
+        {{ submission.feedback|linebreaksbr }}
+    </div>
+    {% endif %}
+</div>
+
+{% elif deadline_closed %}
+<div class="alert alert-warning">
+    The deadline has passed and late submissions are closed.
+</div>
+
+{% elif can_edit %}
+<div class="alert alert-primary">
+    Answer directly on the Module. Additional essay pages,
+    drawing pages and uploaded outputs will remain part of one
+    complete Module submission.
+</div>
+{% endif %}
+
+{% include "classroom/modules/mobile_pdf_editor.html" %}
+
+{% if can_edit %}
+<form id="moduleSubmissionForm" method="post" class="card mt-3">
+    {% csrf_token %}
+
+    <div
+        class="card-body d-flex flex-wrap justify-content-between
+               align-items-center gap-3"
+    >
+        <div>
+            <strong>Submit the complete Module</strong>
+
+            <div class="small text-muted">
+                Submission locks the PDF. Your Teacher will review
+                and grade the complete worksheet.
+            </div>
+        </div>
+
+        <button
+            id="submitAnsweredModule"
+            class="btn btn-primary"
+            onclick="return confirm(
+                'Submit your complete answered Module? You cannot edit it afterward.'
+            );"
+        >
+            Submit Module
+        </button>
+    </div>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+
+<script
+    type="module"
+    src="{% static 'classroom/js/mobile_module_editor.js' %}?v=20260922-2"
+></script>
 {% endblock %}

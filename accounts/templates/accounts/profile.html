@@ -1,0 +1,284 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block title %}My Profile | District 1 Classroom{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet"
+      href="{% static 'accounts/css/account-pages.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="account-page">
+
+    <aside class="account-sidebar">
+        <h2>Account</h2>
+
+        <nav class="account-navigation">
+            <a href="{% url 'accounts:profile' %}"
+               class="account-nav-link active">
+                <i class="bi bi-person"></i>
+                <span>My Profile</span>
+            </a>
+
+            <a href="{% url 'accounts:settings' %}"
+               class="account-nav-link">
+                <i class="bi bi-gear"></i>
+                <span>Settings</span>
+            </a>
+        </nav>
+    </aside>
+
+    <section class="account-content">
+
+        <header class="account-page-header">
+            <div>
+                <h1>My Profile</h1>
+                <p>Manage your personal and school information.</p>
+            </div>
+        </header>
+
+        <form method="post"
+              enctype="multipart/form-data"
+              class="profile-form">
+
+            {% csrf_token %}
+
+            {% if profile_form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ profile_form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <article class="account-card profile-main-card">
+
+                <div class="profile-photo-section">
+
+                    <div class="profile-photo">
+                        {% if request.user.profile_picture %}
+                            <img src="{{ request.user.profile_picture.url }}"
+                                 alt="{{ request.user.full_name }}">
+                        {% else %}
+                            <span>
+                                {{ request.user.full_name|default:request.user.email|slice:":2"|upper }}
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="profile-photo-control">
+                        <label for="{{ profile_form.profile_picture.id_for_label }}"
+                               class="profile-upload-label">
+                            <i class="bi bi-camera"></i>
+                            Change photo
+                        </label>
+
+                        {{ profile_form.profile_picture }}
+
+                        <small>JPG, PNG or WEBP up to 2 MB</small>
+
+                        {% for error in profile_form.profile_picture.errors %}
+                            <span class="field-error">{{ error }}</span>
+                        {% endfor %}
+                    </div>
+
+                </div>
+
+                <div class="profile-information">
+                    <h2>Personal Information</h2>
+
+                    <div class="account-field-grid">
+
+                        <div class="account-field">
+                            <div class="field-heading">
+                                <label>Full name</label>
+                                <span>Official record</span>
+                            </div>
+
+                            <div class="readonly-field">
+                                {{ request.user.full_name }}
+                            </div>
+                        </div>
+
+                        <div class="account-field">
+                            <div class="field-heading">
+                                <label>Email address</label>
+                                <span>Official record</span>
+                            </div>
+
+                            <div class="readonly-field">
+                                {{ request.user.email }}
+                            </div>
+                        </div>
+
+                        <div class="account-field">
+                            <div class="field-heading">
+                                <label for="{{ profile_form.phone_number.id_for_label }}">
+                                    Mobile number
+                                </label>
+                                <span class="editable-label">Editable</span>
+                            </div>
+
+                            {{ profile_form.phone_number }}
+
+                            {% if profile_form.phone_number.help_text %}
+                                <small class="field-help">
+                                    {{ profile_form.phone_number.help_text }}
+                                </small>
+                            {% endif %}
+
+                            {% for error in profile_form.phone_number.errors %}
+                                <span class="field-error">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+
+                        <div class="account-field">
+                            <div class="field-heading">
+                                <label>Role</label>
+                                <span>Official record</span>
+                            </div>
+
+                            <div class="readonly-field">
+                                {{ request.user.get_role_display }}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </article>
+
+            {% if request.user.role == "teacher" %}
+
+                <article class="account-card">
+                    <h2>Professional Information</h2>
+
+                    <div class="account-field-grid">
+
+                        <div class="account-field">
+                            <div class="field-heading">
+                                <label>Employee ID</label>
+                                <span>Official record</span>
+                            </div>
+
+                            <div class="readonly-field">
+                                {{ profile.employee_id|default:"Not provided" }}
+                            </div>
+                        </div>
+
+                        <div class="account-field">
+                            <div class="field-heading">
+                                <label>School</label>
+                                <span>Official record</span>
+                            </div>
+
+                            <div class="readonly-field">
+                                {{ profile.school.school_name|default:"Not assigned" }}
+                            </div>
+                        </div>
+
+                        <div class="account-field">
+                            <div class="field-heading">
+                                <label>Designation</label>
+                                <span>Official record</span>
+                            </div>
+
+                            <div class="readonly-field">
+                                {{ profile.designation|default:"Teacher" }}
+                            </div>
+                        </div>
+
+                        <div class="account-field">
+                            <div class="field-heading">
+                                <label>Specialization</label>
+                                <span>Official record</span>
+                            </div>
+
+                            <div class="readonly-field">
+                                {{ profile.specialization|default:"Not provided" }}
+                            </div>
+                        </div>
+
+                    </div>
+                </article>
+
+            {% elif request.user.role == "student" %}
+
+                <article class="account-card">
+                    <h2>School Information</h2>
+
+                    <div class="account-field-grid">
+
+                        <div class="account-field">
+                            <div class="field-heading">
+                                <label>School</label>
+                                <span>Official record</span>
+                            </div>
+
+                            <div class="readonly-field">
+                                {{ profile.school.school_name|default:"Not assigned" }}
+                            </div>
+                        </div>
+
+                        <div class="account-field">
+                            <div class="field-heading">
+                                <label>Learner Reference Number</label>
+                                <span>Official record</span>
+                            </div>
+
+                            <div class="readonly-field">
+                                {{ profile.lrn|default:"Not provided" }}
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="enrollment-section">
+                        <h3>Current Classes</h3>
+
+                        {% if student_enrollments %}
+                            <div class="enrollment-list">
+                                {% for enrollment in student_enrollments %}
+                                    <div class="enrollment-item">
+                                        <div>
+                                            <strong>
+                                                {{ enrollment.classroom.subject }}
+                                            </strong>
+
+                                            <span>
+                                                {{ enrollment.classroom.class_name }}
+                                            </span>
+                                        </div>
+
+                                        <div class="enrollment-details">
+                                            <span>
+                                                {{ enrollment.classroom.grade_level }}
+                                            </span>
+
+                                            <span>
+                                                {{ enrollment.classroom.section }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="empty-information">
+                                You are not currently enrolled in a class.
+                            </p>
+                        {% endif %}
+                    </div>
+                </article>
+
+            {% endif %}
+
+            <div class="account-form-actions">
+                <button type="submit" class="account-primary-button">
+                    <i class="bi bi-check2"></i>
+                    Save Changes
+                </button>
+            </div>
+
+        </form>
+    </section>
+</div>
+{% endblock %}

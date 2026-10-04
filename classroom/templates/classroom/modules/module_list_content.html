@@ -53,7 +53,7 @@
                 <p class="text-muted">
                     Written Work
                     &middot; {{ row.module.answer_sections.count }} answer section{{ row.module.answer_sections.count|pluralize }}
-                    &middot; {{ row.module.total_points }} total points
+                    &middot; {% if row.module.total_points %}{{ row.module.total_points }} total points{% else %}Score not set{% endif %}
                 </p>
 
                 <p class="small">

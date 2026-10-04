@@ -1,0 +1,239 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block title %}{{ calendar_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'classroom/css/calendar.css' %}?v=2">
+{% endblock %}
+
+{% block content %}
+<section class="role-calendar-page">
+    <header class="role-calendar-header">
+        <div>
+            <h1>{{ calendar_title }}</h1>
+            <p>{{ calendar_subtitle }}</p>
+        </div>
+
+        {% if read_only %}
+            <span class="calendar-read-only">
+                <i class="bi bi-lock-fill"></i> Read only
+            </span>
+        {% endif %}
+    </header>
+
+    {% if request.user.role == "teacher" %}
+        <form class="calendar-selector" method="get">
+            <label for="classroom_id">Class</label>
+            <select class="form-select" id="classroom_id" name="classroom_id" onchange="this.form.submit()">
+                {% for classroom in available_classrooms %}
+                    <option value="{{ classroom.pk }}" {% if selected_classroom.pk == classroom.pk %}selected{% endif %}>
+                        {{ classroom.subject }} — {{ classroom.section }}
+                    </option>
+                {% empty %}
+                    <option value="">No active classes</option>
+                {% endfor %}
+            </select>
+        </form>
+
+        <div class="calendar-info-banner">
+            <i class="bi bi-info-circle-fill"></i>
+            <span>
+                Official district and school dates are locked. You can manage class events only.
+                Published Module deadlines appear automatically.
+            </span>
+        </div>
+    {% elif request.user.role == "parent" %}
+        <form class="calendar-selector" method="get">
+            <label for="learner_id">Connected learner</label>
+            <select class="form-select" id="learner_id" name="learner_id" onchange="this.form.submit()">
+                {% for learner in linked_students %}
+                    <option value="{{ learner.pk }}" {% if selected_learner.pk == learner.pk %}selected{% endif %}>
+                        {{ learner.firstname }} {{ learner.lastname }}
+                    </option>
+                {% empty %}
+                    <option value="">No connected learners</option>
+                {% endfor %}
+            </select>
+        </form>
+    {% endif %}
+
+    <nav class="calendar-filters" aria-label="Calendar filters">
+        <a class="{% if selected_filter == 'all' %}active{% endif %}"
+           href="?filter=all{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner_id={{ selected_learner.pk }}{% endif %}">
+            All
+        </a>
+        <a class="{% if selected_filter == 'school' %}active{% endif %}"
+           href="?filter=school{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner_id={{ selected_learner.pk }}{% endif %}">
+            School
+        </a>
+        <a class="{% if selected_filter == 'classes' %}active{% endif %}"
+           href="?filter=classes{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner_id={{ selected_learner.pk }}{% endif %}">
+            Classes
+        </a>
+        <a class="{% if selected_filter == 'deadlines' %}active{% endif %}"
+           href="?filter=deadlines{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner_id={{ selected_learner.pk }}{% endif %}">
+            Deadlines
+        </a>
+    </nav>
+
+    <div class="role-calendar-layout {% if request.user.role == 'teacher' %}teacher-layout{% endif %}">
+        <div class="role-calendar-main">
+            <section class="role-month-card">
+                <div class="role-month-toolbar">
+                    <a href="?year={{ previous_year }}&month={{ previous_month }}&filter={{ selected_filter }}{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner_id={{ selected_learner.pk }}{% endif %}"
+                       aria-label="Previous month">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+
+                    <h2>{{ calendar_month_name }} {{ calendar_year }}</h2>
+
+                    <a href="?year={{ next_year }}&month={{ next_month }}&filter={{ selected_filter }}{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner_id={{ selected_learner.pk }}{% endif %}"
+                       aria-label="Next month">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+
+                <div class="role-calendar-scroll">
+                    <div class="role-calendar-weekdays">
+                        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div>
+                        <div>Thu</div><div>Fri</div><div>Sat</div>
+                    </div>
+
+                    <div class="role-calendar-grid">
+                        {% for week in calendar_weeks %}
+                            {% for cell in week %}
+                                <div class="role-calendar-day {% if not cell.is_current_month %}outside{% endif %} {% if cell.is_today %}today{% endif %} {% if cell.is_weekend %}weekend{% endif %}">
+                                    <span class="role-day-number">{{ cell.date.day }}</span>
+
+                                    <div class="role-day-events">
+                                        {% for event in cell.events|slice:':3' %}
+                                            <span class="role-event event-{{ event.event_type }}" title="{{ event.title }}">
+                                                {% if not event.is_editable %}<i class="bi bi-lock-fill"></i>{% endif %}
+                                                {{ event.title }}
+                                            </span>
+                                        {% endfor %}
+
+                                        {% if cell.events|length > 3 %}
+                                            <small>+{{ cell.events|length|add:'-3' }} more</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+
+            <section class="role-upcoming-card">
+                <div class="role-card-heading">
+                    <h2>Upcoming Events</h2>
+                    <span>{{ upcoming_events|length }} shown</span>
+                </div>
+
+                <div class="role-upcoming-list">
+                    {% for event in upcoming_events %}
+                        <article class="role-upcoming-item">
+                            <time>
+                                <strong>{{ event.start_date|date:"d" }}</strong>
+                                <span>{{ event.start_date|date:"M" }}</span>
+                            </time>
+
+                            <div class="role-upcoming-content">
+                                <div>
+                                    <strong>{{ event.title }}</strong>
+                                    {% if not event.is_editable %}<i class="bi bi-lock-fill"></i>{% endif %}
+                                </div>
+
+                                <span>
+                                    {{ event.event_type_label }}
+                                    {% if event.classroom %} · {{ event.classroom.subject }} {{ event.classroom.section }}{% endif %}
+                                </span>
+
+                                {% if event.description %}
+                                    <small>{{ event.description|truncatechars:100 }}</small>
+                                {% endif %}
+                            </div>
+
+                            {% if request.user.role == "teacher" and event.is_editable %}
+                                <div class="role-event-actions">
+                                    <a href="?edit_event={{ event.event_id }}&classroom_id={{ event.classroom.pk }}"
+                                       aria-label="Edit class event">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+
+                                    <form method="post"
+                                          action="{% url 'classroom:calendar_event_cancel' event.event_id %}"
+                                          onsubmit="return confirm('Cancel this class event? Students and Parents will be notified.');">
+                                        {% csrf_token %}
+                                        <button type="submit" aria-label="Cancel event">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            {% endif %}
+                        </article>
+                    {% empty %}
+                        <div class="role-calendar-empty">
+                            <i class="bi bi-calendar2-check"></i>
+                            <strong>No upcoming events</strong>
+                            <span>New school and class dates will appear here.</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+
+        {% if request.user.role == "teacher" %}
+            <aside class="role-event-form-card">
+                <h2>{% if editing_event %}Edit Class Event{% else %}Add Class Event{% endif %}</h2>
+                <p>This event will appear only in the selected class.</p>
+
+                {% if selected_classroom %}
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="classroom_id" value="{{ selected_classroom.pk }}">
+                        {% if editing_event %}
+                            <input type="hidden" name="event_id" value="{{ editing_event.pk }}">
+                        {% endif %}
+
+                        {% for field in event_form %}
+                            <div class="role-form-field">
+                                {% if field.field.widget.input_type == "checkbox" %}
+                                    <div class="form-check">
+                                        {{ field }}
+                                        <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                    </div>
+                                {% else %}
+                                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                    {{ field }}
+                                {% endif %}
+
+                                {% for error in field.errors %}
+                                    <small class="role-field-error">{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+
+                        <button class="btn btn-primary w-100" type="submit">
+                            <i class="bi bi-check-lg me-1"></i>
+                            {% if editing_event %}Update Class Event{% else %}Add Class Event{% endif %}
+                        </button>
+
+                        {% if editing_event %}
+                            <a class="btn btn-outline-secondary w-100" href="{% url 'classroom:calendar' %}?classroom_id={{ selected_classroom.pk }}">
+                                Cancel editing
+                            </a>
+                        {% endif %}
+                    </form>
+                {% else %}
+                    <div class="role-calendar-empty compact">
+                        <strong>No class selected</strong>
+                        <span>Create a class before adding an event.</span>
+                    </div>
+                {% endif %}
+            </aside>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,486 @@
+html {
+    color-scheme: light;
+}
+
+html[data-theme="dark"] {
+    color-scheme: dark;
+
+    --classroom-navy: #e7eefc;
+    --classroom-background: #0d1524;
+    --classroom-border: #2b3950;
+    --classroom-muted: #a7b2c4;
+    --classroom-blue-light: #172f54;
+}
+
+html[data-theme="dark"] body.classroom-body {
+    background: #0d1524;
+    color: #e7eefc;
+}
+
+html[data-theme="dark"] .classroom-header,
+html[data-theme="dark"] .learning-dock,
+html[data-theme="dark"] .mobile-tab-navigation,
+html[data-theme="dark"] .dropdown-menu,
+html[data-theme="dark"] .account-sidebar,
+html[data-theme="dark"] .account-card,
+html[data-theme="dark"] .class-chip,
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .modal-content {
+    background: #131f32;
+    border-color: #2b3950;
+    color: #e7eefc;
+}
+
+html[data-theme="dark"] .dropdown-item,
+html[data-theme="dark"] .account-nav-link,
+html[data-theme="dark"] .dock-link,
+html[data-theme="dark"] .mobile-tab,
+html[data-theme="dark"] .header-icon {
+    color: #cbd6e8;
+}
+
+html[data-theme="dark"] .dropdown-item:hover,
+html[data-theme="dark"] .account-nav-link:hover {
+    background: #1b2b43;
+    color: #78aefc;
+}
+
+html[data-theme="dark"] .account-nav-link.active,
+html[data-theme="dark"] .dock-link.active {
+    background: #172f54;
+    color: #78aefc;
+}
+
+html[data-theme="dark"] .account-page-header h1,
+html[data-theme="dark"] .account-sidebar h2,
+html[data-theme="dark"] .account-card h2,
+html[data-theme="dark"] .enrollment-section h3,
+html[data-theme="dark"] .field-heading label,
+html[data-theme="dark"] .setting-row strong,
+html[data-theme="dark"] .settings-select-grid label,
+html[data-theme="dark"] .password-form label {
+    color: #e7eefc;
+}
+
+html[data-theme="dark"] .readonly-field,
+html[data-theme="dark"] .required-notification-item,
+html[data-theme="dark"] .enrollment-item {
+    background: #19273b;
+    border-color: #34445c;
+    color: #dce6f5;
+}
+
+html[data-theme="dark"] .form-control,
+html[data-theme="dark"] .form-select {
+    background-color: #19273b;
+    border-color: #34445c;
+    color: #e7eefc;
+}
+
+html[data-theme="dark"] .form-control:focus,
+html[data-theme="dark"] .form-select:focus {
+    background-color: #1b2b43;
+    color: #ffffff;
+}
+
+html[data-theme="dark"] .registered-number,
+html[data-theme="dark"] .settings-heading-icon {
+    background: #172f54;
+}
+
+html[data-theme="dark"] .setting-row,
+html[data-theme="dark"] .enrollment-section {
+    border-color: #2b3950;
+}
+
+html[data-theme="dark"] .security-card details summary {
+    border-color: #34445c;
+    color: #e7eefc;
+}
+
+html[data-theme="dark"] .account-secondary-button {
+    background: #19273b;
+}
+
+html[data-text-size="small"] body.classroom-body {
+    font-size: 14px;
+}
+
+html[data-text-size="default"] body.classroom-body {
+    font-size: 16px;
+}
+
+html[data-text-size="large"] body.classroom-body {
+    font-size: 18px;
+}
+
+html[data-text-size="large"] .account-page {
+    max-width: 1500px;
+}
+
+html[data-text-size="large"] .account-field,
+html[data-text-size="large"] .setting-row,
+html[data-text-size="large"] .account-nav-link {
+    font-size: 1.05em;
+}
+
+/* NEW */
+.notification-menu {
+    position: relative;
+}
+
+.user-avatar {
+    overflow: hidden;
+}
+
+.user-avatar img {
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+}
+
+.notification-bell {
+    background: transparent;
+    border: 0;
+    position: relative;
+}
+
+.notification-count {
+    align-items: center;
+    background: #dc3545;
+    border: 2px solid #ffffff;
+    border-radius: 20px;
+    color: #ffffff;
+    display: flex;
+    font-size: 0.62rem;
+    font-weight: 700;
+    height: 19px;
+    justify-content: center;
+    min-width: 19px;
+    padding: 0 4px;
+    position: absolute;
+    right: -2px;
+    top: -1px;
+}
+
+.notification-dropdown {
+    border: 1px solid var(--classroom-border);
+    border-radius: 15px;
+    box-shadow: 0 15px 40px rgba(21, 36, 63, 0.15);
+    margin-top: 10px !important;
+    overflow: hidden;
+    padding: 0;
+    width: min(390px, calc(100vw - 24px));
+}
+
+.notification-dropdown-header {
+    align-items: center;
+    border-bottom: 1px solid var(--classroom-border);
+    display: flex;
+    justify-content: space-between;
+    padding: 15px 16px;
+}
+
+.notification-dropdown-header strong,
+.notification-dropdown-header small {
+    display: block;
+}
+
+.notification-dropdown-header small {
+    color: var(--classroom-muted);
+    font-size: 0.72rem;
+    margin-top: 2px;
+}
+
+.notification-read-all {
+    background: transparent;
+    border: 0;
+    color: var(--classroom-blue);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.notification-dropdown-list {
+    max-height: 390px;
+    overflow-y: auto;
+}
+
+.notification-dropdown-list form {
+    margin: 0;
+}
+
+.notification-dropdown-item {
+    align-items: flex-start;
+    background: #ffffff;
+    border: 0;
+    border-bottom: 1px solid var(--classroom-border);
+    color: var(--classroom-navy);
+    display: flex;
+    gap: 11px;
+    padding: 13px 15px;
+    text-align: left;
+    width: 100%;
+}
+
+.notification-dropdown-item:hover {
+    background: #f7f9fc;
+}
+
+.notification-dropdown-item.unread {
+    background: #eef5ff;
+}
+
+.notification-type-icon {
+    align-items: center;
+    background: #eaf3ff;
+    border-radius: 50%;
+    color: var(--classroom-blue);
+    display: flex;
+    flex: 0 0 38px;
+    height: 38px;
+    justify-content: center;
+}
+
+.notification-dropdown-content {
+    display: block;
+    min-width: 0;
+}
+
+.notification-dropdown-content strong,
+.notification-dropdown-content span,
+.notification-dropdown-content small {
+    display: block;
+}
+
+.notification-dropdown-content strong {
+    font-size: 0.82rem;
+}
+
+.notification-dropdown-content span {
+    color: var(--classroom-muted);
+    font-size: 0.75rem;
+    margin-top: 3px;
+}
+
+.notification-dropdown-content small {
+    color: #8b97a8;
+    font-size: 0.68rem;
+    margin-top: 5px;
+}
+
+.notification-unread-dot {
+    background: var(--classroom-blue);
+    border-radius: 50%;
+    flex: 0 0 7px;
+    height: 7px;
+    margin-left: auto;
+    margin-top: 5px;
+}
+
+.notification-empty {
+    align-items: center;
+    color: var(--classroom-muted);
+    display: flex;
+    flex-direction: column;
+    padding: 35px 20px;
+    text-align: center;
+}
+
+.notification-empty i {
+    color: var(--classroom-blue);
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+}
+
+.notification-empty strong,
+.notification-empty span {
+    display: block;
+}
+
+.notification-empty span {
+    font-size: 0.75rem;
+    margin-top: 3px;
+}
+
+.notification-view-all {
+    color: var(--classroom-blue);
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 12px;
+    text-align: center;
+    text-decoration: none;
+}
+
+.notifications-page {
+    margin: 0 auto;
+    max-width: 900px;
+}
+
+.notifications-page-header {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 22px;
+}
+
+.notifications-page-header h1 {
+    font-size: 1.8rem;
+    margin: 0 0 4px;
+}
+
+.notifications-page-header p {
+    color: var(--classroom-muted);
+    margin: 0;
+}
+
+.notifications-list {
+    display: grid;
+    gap: 10px;
+}
+
+.notifications-list form {
+    margin: 0;
+}
+
+.notification-card {
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid var(--classroom-border);
+    border-radius: 13px;
+    color: var(--classroom-navy);
+    display: flex;
+    gap: 14px;
+    padding: 16px;
+    text-align: left;
+    width: 100%;
+}
+
+.notification-card:hover {
+    border-color: var(--classroom-blue);
+}
+
+.notification-card.unread {
+    background: #eef5ff;
+    border-color: #bad5ff;
+}
+
+.notification-card-content {
+    display: block;
+    flex: 1;
+}
+
+.notification-card-title {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+}
+
+.notification-card-title > span {
+    background: var(--classroom-blue);
+    border-radius: 20px;
+    color: #ffffff;
+    font-size: 0.62rem;
+    padding: 3px 7px;
+}
+
+.notification-message {
+    color: var(--classroom-muted);
+    display: block;
+    font-size: 0.84rem;
+    margin: 4px 0 7px;
+}
+
+.notification-card-content small {
+    color: #8b97a8;
+    font-size: 0.72rem;
+}
+
+.notification-page-empty {
+    background: #ffffff;
+    border: 1px solid var(--classroom-border);
+    border-radius: 16px;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.notification-page-empty i {
+    color: var(--classroom-blue);
+    font-size: 2rem;
+}
+
+.notification-page-empty h2 {
+    font-size: 1rem;
+    margin: 12px 0 5px;
+}
+
+.notification-page-empty p {
+    color: var(--classroom-muted);
+    margin: 0;
+}
+
+.notification-live-toast {
+    background: #ffffff;
+    border: 1px solid var(--classroom-border);
+    border-radius: 13px;
+    bottom: 24px;
+    box-shadow: 0 12px 40px rgba(20, 36, 64, 0.2);
+    max-width: 350px;
+    padding: 15px;
+    position: fixed;
+    right: 24px;
+    z-index: 2000;
+}
+
+.notification-live-toast strong,
+.notification-live-toast span {
+    display: block;
+}
+
+.notification-live-toast span {
+    color: var(--classroom-muted);
+    font-size: 0.8rem;
+    margin-top: 5px;
+}
+
+html[data-theme="dark"] .notification-dropdown-item,
+html[data-theme="dark"] .notification-card,
+html[data-theme="dark"] .notification-page-empty,
+html[data-theme="dark"] .notification-live-toast {
+    background: #131f32;
+    border-color: #2b3950;
+    color: #e7eefc;
+}
+
+html[data-theme="dark"] .notification-dropdown-item.unread,
+html[data-theme="dark"] .notification-card.unread {
+    background: #172f54;
+}
+
+html[data-theme="dark"] .notification-count {
+    border-color: #131f32;
+}
+
+@media (max-width: 600px) {
+    .notification-dropdown {
+        position: fixed !important;
+        left: 12px !important;
+        right: 12px !important;
+        top: 66px !important;
+        transform: none !important;
+        width: auto;
+    }
+
+    .notifications-page-header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 14px;
+    }
+
+    .notification-live-toast {
+        bottom: 85px;
+        left: 12px;
+        right: 12px;
+        max-width: none;
+    }
+}

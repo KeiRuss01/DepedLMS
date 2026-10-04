@@ -1,0 +1,80 @@
+<article class="task-card">
+    <div class="task-icon">
+        <i class="bi bi-file-earmark-text"></i>
+    </div>
+
+    <div class="task-card-content">
+        <div class="task-title-row">
+            <h3>{{ task.module.title }}</h3>
+
+            <span class="task-type-badge">
+                Module
+            </span>
+        </div>
+
+        <p>
+            {{ task.module.classroom.subject }} ·
+            {{ task.module.classroom.grade_level }}
+            {{ task.module.classroom.section }}
+        </p>
+
+        <div class="task-meta">
+            {% if task.module.due_at %}
+                <span class="{% if task.is_overdue %}overdue{% endif %}">
+                    <i class="bi bi-calendar3"></i>
+
+                    {% if task.is_overdue %}
+                        Overdue
+                    {% else %}
+                        Due
+                    {% endif %}
+
+                    {{ task.module.due_at|date:"M d, Y g:i A" }}
+                </span>
+            {% else %}
+                <span>
+                    <i class="bi bi-calendar3"></i>
+                    No deadline
+                </span>
+            {% endif %}
+
+            <span class="task-status status-{{ task.status }}">
+                {% if task.status == "completed" %}
+                    <i class="bi bi-check-circle"></i>
+
+                {% elif task.status == "returned" %}
+                    <i class="bi bi-arrow-return-left"></i>
+
+                {% elif task.status == "submitted" %}
+                    <i class="bi bi-send-check"></i>
+
+                {% elif task.status == "in_progress" %}
+                    <i class="bi bi-circle-half"></i>
+
+                {% else %}
+                    <i class="bi bi-circle"></i>
+                {% endif %}
+
+                {{ task.status_label }}
+            </span>
+
+            {% if task.submission.score is not None %}
+                <span>
+                    Score:
+                    {{ task.submission.score|floatformat:2 }}
+                    /
+                    {{ task.module.total_points }}
+                </span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if not read_only %}
+        <a
+            class="{% if task.status == 'completed' or task.status == 'submitted' %}task-secondary-button{% else %}task-primary-button{% endif %}"
+            href="{{ task.url }}"
+        >
+            {{ task.action_label }}
+        </a>
+    {% endif %}
+</article>

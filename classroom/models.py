@@ -2,7 +2,7 @@ from django.db import models
 from django.utils.crypto import get_random_string
 from django.core.validators import MinValueValidator, MaxValueValidator
 
-from accounts.models import Student, Teacher, User
+from accounts.models import School, Student, Teacher, User
 
 from .module_storage import (
     learning_storage,
@@ -312,11 +312,15 @@ class Module(models.Model):
     )
 
     max_score = models.PositiveIntegerField(
-        default=10,
+        default=0,
         validators=[
-            MinValueValidator(1),
+            MinValueValidator(0),
             MaxValueValidator(10000),
         ],
+        help_text=(
+            "Set this after reviewing the uploaded Module PDF. "
+            "A value of 0 means the score has not been set yet."
+        ),
     )
 
     due_at = models.DateTimeField(
@@ -356,11 +360,15 @@ class Module(models.Model):
 
     @property
     def total_points(self):
-        return sum(
+        section_total = sum(
             section.max_score
             for section in self.answer_sections.all()
             if section.include_in_grade
         )
+        # New Modules are answered directly on the PDF and use one Teacher-set
+        # total. Keep the section total only for older Modules that already
+        # contain legacy answer sections.
+        return section_total or self.max_score
 
 
 # =========================================================
@@ -619,6 +627,35 @@ class ModuleSubmission(models.Model):
         blank=True,
     )
 
+    # The final flattened Student Module generated from PDF.js annotations,
+    # answer pages, drawings, and uploaded outputs. The original is untouched.
+    answered_pdf = models.FileField(
+        upload_to=submission_file_path,
+        storage=learning_storage,
+        blank=True,
+    )
+
+    pdf_saved_at = models.DateTimeField(
+        blank=True,
+        null=True,
+    )
+
+    # Answers created by the custom PDF.js annotation layer. Coordinates are
+    # stored proportionally so marks remain aligned at different screen sizes.
+    annotation_data = models.JSONField(
+        default=list,
+        blank=True,
+    )
+
+    current_page = models.PositiveIntegerField(
+        default=1,
+    )
+
+    draft_saved_at = models.DateTimeField(
+        blank=True,
+        null=True,
+    )
+
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
@@ -685,6 +722,80 @@ class ModuleSubmission(models.Model):
         )
         self.score = sum(response.score for response in graded_responses)
         self.save(update_fields=["score", "updated_at"])
+
+
+# =========================================================
+# MODULE SUBMISSION EXTRA PAGE
+# =========================================================
+
+class SubmissionExtraPage(models.Model):
+
+    class PageType(models.TextChoices):
+        ESSAY = "essay", "Written Answer"
+        DRAWING = "drawing", "Blank Drawing Page"
+        UPLOAD = "upload", "Uploaded Output"
+
+    extra_page_id = models.AutoField(primary_key=True)
+
+    submission = models.ForeignKey(
+        ModuleSubmission,
+        on_delete=models.CASCADE,
+        related_name="extra_pages",
+    )
+
+    page_type = models.CharField(
+        max_length=20,
+        choices=PageType.choices,
+    )
+
+    title = models.CharField(max_length=150)
+
+    related_pdf_page = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(1)],
+    )
+
+    position = models.PositiveIntegerField(default=1)
+
+    essay_text = models.TextField(blank=True)
+
+    drawing_data = models.JSONField(
+        default=list,
+        blank=True,
+    )
+
+    uploaded_file = models.FileField(
+        upload_to=submission_file_path,
+        storage=learning_storage,
+        blank=True,
+    )
+
+    original_name = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+
+    caption = models.CharField(
+        max_length=500,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "submission_extra_page"
+        ordering = ["position", "extra_page_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["submission", "position"],
+                name="unique_submission_extra_page_position",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.submission.student} - {self.title}"
 
 
 class SectionResponse(models.Model):
@@ -1020,3 +1131,185 @@ class AttendanceRecord(models.Model):
 
     def __str__(self):
         return f"{self.student} - {self.attendance_day.date} - {self.status}"
+
+# =========================================================
+# ACADEMIC TERM
+# =========================================================
+
+class AcademicTerm(models.Model):
+    class Term(models.TextChoices):
+        FIRST = "1", "Term 1"
+        SECOND = "2", "Term 2"
+        THIRD = "3", "Term 3"
+
+    school_year = models.CharField(
+        max_length=20,
+        help_text="Example: 2026-2027",
+    )
+
+    term = models.CharField(
+        max_length=1,
+        choices=Term.choices,
+    )
+
+    start_date = models.DateField()
+    end_date = models.DateField()
+
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="created_academic_terms",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "academic_term"
+        ordering = ["school_year", "term"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["school_year", "term"],
+                name="unique_school_year_term",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.school_year} - {self.get_term_display()}"
+
+
+# =========================================================
+# CALENDAR EVENT
+# =========================================================
+
+class CalendarEvent(models.Model):
+    class Level(models.TextChoices):
+        DISTRICT = "district", "District Official Event"
+        SCHOOL = "school", "School Event"
+        CLASSROOM = "classroom", "Class Event"
+
+    class EventType(models.TextChoices):
+        ACADEMIC = "academic", "Academic Schedule"
+        HOLIDAY = "holiday", "Holiday"
+        NO_CLASS = "no_class", "No Classes"
+        GRADING = "grading", "Grading Schedule"
+        ACTIVITY = "activity", "Activity"
+        MEETING = "meeting", "Meeting"
+        DEADLINE = "deadline", "Deadline"
+        OTHER = "other", "Other"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        PUBLISHED = "published", "Published"
+        CANCELLED = "cancelled", "Cancelled"
+
+    event_id = models.AutoField(primary_key=True)
+
+    title = models.CharField(max_length=150)
+
+    description = models.TextField(
+        blank=True,
+    )
+
+    school_year = models.CharField(
+        max_length=20,
+        help_text="Example: 2026-2027",
+    )
+
+    level = models.CharField(
+        max_length=20,
+        choices=Level.choices,
+    )
+
+    event_type = models.CharField(
+        max_length=20,
+        choices=EventType.choices,
+        default=EventType.ACTIVITY,
+    )
+
+    start_at = models.DateTimeField()
+
+    end_at = models.DateTimeField(
+        blank=True,
+        null=True,
+    )
+
+    all_day = models.BooleanField(
+        default=True,
+    )
+
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="created_calendar_events",
+    )
+
+    # Used for events created by a Principal.
+    school = models.ForeignKey(
+        School,
+        on_delete=models.CASCADE,
+        related_name="calendar_events",
+        blank=True,
+        null=True,
+    )
+
+    # Used for events created by a Teacher.
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name="calendar_events",
+        blank=True,
+        null=True,
+    )
+
+    # A Supervisor can publish an event to every school
+    # or only selected schools.
+    applies_to_all_schools = models.BooleanField(
+        default=False,
+    )
+
+    target_schools = models.ManyToManyField(
+        School,
+        related_name="district_calendar_events",
+        blank=True,
+    )
+
+    # Reference for official DepEd or Division events.
+    source = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Example: DepEd Order No. 009, s. 2026",
+    )
+
+    source_file = models.FileField(
+        upload_to="calendar_sources/",
+        blank=True,
+        null=True,
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PUBLISHED,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "calendar_event"
+        ordering = ["start_at", "title"]
+
+    def __str__(self):
+        return f"{self.title} - {self.get_level_display()}"
+
+    @property
+    def is_official(self):
+        return self.level in {
+            self.Level.DISTRICT,
+            self.Level.SCHOOL,
+        }
+
+    @property
+    def can_be_edited_by_teacher(self):
+        return self.level == self.Level.CLASSROOM

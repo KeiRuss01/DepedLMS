@@ -3,6 +3,30 @@ from django.contrib.auth import authenticate
 from django.db import transaction
 
 from accounts.models import Principal, School, Teacher, User
+from classroom.models import AcademicTerm, CalendarEvent
+from .models import SchoolAnnouncement
+
+
+class SchoolAnnouncementForm(forms.ModelForm):
+    class Meta:
+        model = SchoolAnnouncement
+        fields = ("title", "content", "priority")
+        widgets = {
+            "title": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Announcement title",
+                }
+            ),
+            "content": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": "Write the school announcement...",
+                }
+            ),
+            "priority": forms.Select(attrs={"class": "form-select"}),
+        }
 
 
 class AdministrationLoginForm(forms.Form):
@@ -253,3 +277,316 @@ class TeacherAccountForm(forms.Form):
             specialization=None,
         )
         return teacher
+
+# =========================================================
+# CALENDAR FORM HELPERS
+# =========================================================
+
+class CalendarDateValidationMixin:
+    def clean(self):
+        cleaned_data = super().clean()
+
+        start_at = cleaned_data.get("start_at")
+        end_at = cleaned_data.get("end_at")
+
+        if start_at and end_at and end_at < start_at:
+            self.add_error(
+                "end_at",
+                "The end date cannot be earlier than the start date.",
+            )
+
+        return cleaned_data
+
+
+# =========================================================
+# ACADEMIC TERM FORM
+# Supervisor only
+# =========================================================
+
+class AcademicTermForm(forms.ModelForm):
+    class Meta:
+        model = AcademicTerm
+        fields = [
+            "school_year",
+            "term",
+            "start_date",
+            "end_date",
+        ]
+
+        widgets = {
+            "school_year": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Example: 2026-2027",
+                }
+            ),
+            "term": forms.Select(
+                attrs={"class": "form-select"}
+            ),
+            "start_date": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                }
+            ),
+            "end_date": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                }
+            ),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        start_date = cleaned_data.get("start_date")
+        end_date = cleaned_data.get("end_date")
+
+        if start_date and end_date and end_date < start_date:
+            self.add_error(
+                "end_date",
+                "The end date cannot be earlier than the start date.",
+            )
+
+        return cleaned_data
+
+
+# =========================================================
+# DISTRICT CALENDAR EVENT FORM
+# Supervisor only
+# =========================================================
+
+class DistrictCalendarEventForm(
+    CalendarDateValidationMixin,
+    forms.ModelForm,
+):
+    class Meta:
+        model = CalendarEvent
+
+        fields = [
+            "title",
+            "description",
+            "school_year",
+            "event_type",
+            "start_at",
+            "end_at",
+            "all_day",
+            "applies_to_all_schools",
+            "target_schools",
+            "source",
+            "source_file",
+            "status",
+        ]
+
+        widgets = {
+            "title": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Example: Term 1 Assessment Period",
+                }
+            ),
+            "description": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Optional event description",
+                }
+            ),
+            "school_year": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Example: 2026-2027",
+                }
+            ),
+            "event_type": forms.Select(
+                attrs={"class": "form-select"}
+            ),
+            "start_at": forms.DateTimeInput(
+                format="%Y-%m-%dT%H:%M",
+                attrs={
+                    "class": "form-control",
+                    "type": "datetime-local",
+                },
+            ),
+            "end_at": forms.DateTimeInput(
+                format="%Y-%m-%dT%H:%M",
+                attrs={
+                    "class": "form-control",
+                    "type": "datetime-local",
+                },
+            ),
+            "all_day": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "applies_to_all_schools": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "target_schools": forms.CheckboxSelectMultiple(),
+            "source": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": (
+                        "Example: DepEd Order No. 009, s. 2026"
+                    ),
+                }
+            ),
+            "source_file": forms.ClearableFileInput(
+                attrs={"class": "form-control"}
+            ),
+            "status": forms.Select(
+                attrs={"class": "form-select"}
+            ),
+        }
+
+    def __init__(self, *args, supervisor=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["start_at"].input_formats = [
+            "%Y-%m-%dT%H:%M"
+        ]
+        self.fields["end_at"].input_formats = [
+            "%Y-%m-%dT%H:%M"
+        ]
+
+        schools = School.objects.order_by("school_name")
+
+        # Only show schools from the Supervisor's district.
+        if supervisor and supervisor.district:
+            schools = schools.filter(
+                district__iexact=supervisor.district
+            )
+
+        self.fields["target_schools"].queryset = schools
+        self.fields["target_schools"].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        applies_to_all = cleaned_data.get(
+            "applies_to_all_schools"
+        )
+        target_schools = cleaned_data.get("target_schools")
+
+        if (
+            not applies_to_all
+            and target_schools is not None
+            and not target_schools.exists()
+        ):
+            self.add_error(
+                "target_schools",
+                "Select at least one school or choose all schools.",
+            )
+
+        return cleaned_data
+
+
+# =========================================================
+# SCHOOL CALENDAR EVENT FORM
+# Principal only
+# =========================================================
+
+class SchoolCalendarEventForm(
+    CalendarDateValidationMixin,
+    forms.ModelForm,
+):
+    class Meta:
+        model = CalendarEvent
+
+        fields = [
+            "title",
+            "description",
+            "school_year",
+            "event_type",
+            "start_at",
+            "end_at",
+            "all_day",
+            "status",
+        ]
+
+        widgets = {
+            "title": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Example: School Intramurals",
+                }
+            ),
+            "description": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Optional event description",
+                }
+            ),
+            "school_year": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Example: 2026-2027",
+                }
+            ),
+            "event_type": forms.Select(
+                attrs={"class": "form-select"}
+            ),
+            "start_at": forms.DateTimeInput(
+                format="%Y-%m-%dT%H:%M",
+                attrs={
+                    "class": "form-control",
+                    "type": "datetime-local",
+                },
+            ),
+            "end_at": forms.DateTimeInput(
+                format="%Y-%m-%dT%H:%M",
+                attrs={
+                    "class": "form-control",
+                    "type": "datetime-local",
+                },
+            ),
+            "all_day": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "status": forms.Select(
+                attrs={"class": "form-select"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["start_at"].input_formats = [
+            "%Y-%m-%dT%H:%M"
+        ]
+        self.fields["end_at"].input_formats = [
+            "%Y-%m-%dT%H:%M"
+        ]
+
+        # Principals should not create classroom deadlines.
+        self.fields["event_type"].choices = [
+            (
+                CalendarEvent.EventType.ACADEMIC,
+                "Academic Schedule",
+            ),
+            (
+                CalendarEvent.EventType.HOLIDAY,
+                "Holiday",
+            ),
+            (
+                CalendarEvent.EventType.NO_CLASS,
+                "No Classes",
+            ),
+            (
+                CalendarEvent.EventType.GRADING,
+                "Grading Schedule",
+            ),
+            (
+                CalendarEvent.EventType.ACTIVITY,
+                "School Activity",
+            ),
+            (
+                CalendarEvent.EventType.MEETING,
+                "Meeting",
+            ),
+            (
+                CalendarEvent.EventType.OTHER,
+                "Other",
+            ),
+        ]

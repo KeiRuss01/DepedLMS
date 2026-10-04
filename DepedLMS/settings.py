@@ -10,10 +10,22 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load simple KEY=VALUE entries from the local .env file. Existing system
+# environment variables keep priority, which is useful when the app is hosted.
+ENV_FILE = BASE_DIR / ".env"
+if ENV_FILE.exists():
+    for raw_line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip("'\""))
 
 
 # Quick-start development settings - unsuitable for production
@@ -65,6 +77,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'accounts.context_processors.notification_data',
             ],
         },
     },
@@ -112,7 +125,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Manila'
 
 USE_I18N = True
 
@@ -148,3 +161,5 @@ AUTHENTICATION_BACKENDS = [
 
 
 PRIVATE_LEARNING_ROOT = BASE_DIR.parent / "DepedLMS-private"
+
+DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024

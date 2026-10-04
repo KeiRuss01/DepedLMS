@@ -3,47 +3,61 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
 
 from accounts.models import ParentStudentLink, Student, User
 
 from .forms import (
     AnnouncementForm,
+    ClassCalendarEventForm,
     ClassroomForm,
     InviteStudentForm,
     JoinClassForm,
     StudentLinkRequestForm,
 )
-from .models import Announcement, Classroom, ClassEnrollment
+from .models import Announcement, CalendarEvent, Classroom, ClassEnrollment
 
 from pathlib import Path
 from decimal import Decimal, InvalidOperation
-from datetime import date
+from datetime import date, timedelta
 import calendar as month_calendar
+import json
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.http import FileResponse, Http404
-from django.views.decorators.http import require_http_methods
+from django.db.models import Count, Max, Q
+from django.http import FileResponse, Http404, JsonResponse
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from .models import (
     Module,
     ModuleAnswerSection,
     SectionQuestion,
     ModuleSubmission,
+    SubmissionExtraPage,
     SectionResponse,
     SectionAnswer,
     SubmissionAttachment,
 )
+from .module_validators import validate_answer_file
 
 from .module_forms import (
     ModuleCreateForm,
+    ModuleScoreForm,
     AnswerSectionForm,
     SectionQuestionFormSet,
     SectionResponseForm,
     SectionGradeForm,
+    SubmissionGradeForm,
 )
 from .module_pdf_processor import build_student_pdf
+from .submission_pdf import build_final_submission_pdf
+from .notification_services import (
+    notify_calendar_event,
+    notify_class_announcement,
+    notify_join_request,
+    notify_module_published,
+    notify_submission,
+)
 from .gradebook import (
     build_summary,
     build_term_record,
@@ -647,11 +661,13 @@ def join_class_view(request):
             ).first()
 
             if enrollment is None:
-                ClassEnrollment.objects.create(
+                enrollment = ClassEnrollment.objects.create(
                     classroom=classroom,
                     student=student,
                     status=ClassEnrollment.Status.PENDING_TEACHER,
                 )
+
+                notify_join_request(enrollment)
 
                 messages.success(
                     request,
@@ -697,6 +713,8 @@ def join_class_view(request):
             enrollment.save(
                 update_fields=["status", "enrolled_at"]
             )
+
+            notify_join_request(enrollment)
 
             messages.success(
                 request,
@@ -981,6 +999,7 @@ def announcement_create_view(request, classroom_id):
         announcement.classroom = classroom
         announcement.posted_by = request.user
         announcement.save()
+        notify_class_announcement(announcement)
         messages.success(request, "Announcement posted to the Class Stream.")
     else:
         messages.error(request, "Complete the announcement title and message.")
@@ -1315,7 +1334,7 @@ def module_create_view(request, classroom_id):
         else:
             messages.success(
                 request,
-                "Draft created. Add only the answer sections that exist in this module.",
+                "Draft created. Students will answer directly on the Module PDF.",
             )
             return redirect("classroom:module_manage", module_id=module.pk)
 
@@ -1340,14 +1359,39 @@ def module_manage_view(request, module_id):
     if not is_teacher:
         raise PermissionDenied("Only the Teacher can manage modules.")
 
+    score_form = ModuleScoreForm(instance=module)
+
     if request.method == "POST":
-        if request.POST.get("action") != "publish":
+        action = request.POST.get("action")
+        if action == "save_score":
+            score_form = ModuleScoreForm(request.POST, instance=module)
+            if score_form.is_valid():
+                score_form.save()
+                sync_module_grade_item(module)
+                messages.success(request, "Maximum Module score saved.")
+                return redirect("classroom:module_manage", module_id=module.pk)
+        elif action == "publish":
+            if module.total_points < 1:
+                messages.error(
+                    request,
+                    "Review the PDF and set the maximum score before publishing.",
+                )
+            else:
+                was_already_published = (
+                    module.status == Module.Status.PUBLISHED
+                )
+                module.status = Module.Status.PUBLISHED
+                module.published_at = timezone.now()
+                module.save(update_fields=["status", "published_at"])
+                sync_module_grade_item(module)
+
+                if not was_already_published:
+                    notify_module_published(module)
+
+                messages.success(request, "Module published to enrolled Students.")
+                return redirect("classroom:module_manage", module_id=module.pk)
+        else:
             raise PermissionDenied("Invalid action.")
-        module.status = Module.Status.PUBLISHED
-        module.published_at = timezone.now()
-        module.save(update_fields=["status", "published_at"])
-        messages.success(request, "Module published to enrolled Students.")
-        return redirect("classroom:module_manage", module_id=module.pk)
 
     sections = module.answer_sections.prefetch_related("questions")
     return render(
@@ -1357,6 +1401,7 @@ def module_manage_view(request, module_id):
             "classroom": classroom,
             "module": module,
             "sections": sections,
+            "score_form": score_form,
             "is_teacher": True,
         },
     )
@@ -1453,14 +1498,24 @@ def module_work_view(request, module_id):
             messages.error(request, "This module has already been submitted.")
         elif deadline_closed:
             messages.error(request, "The deadline has passed and late submissions are closed.")
-        else:
+        elif module.answer_sections.exists() and not (
+            submission.annotation_data or submission.extra_pages.exists()
+        ):
+            # Backward compatibility for Modules prepared with the older
+            # answer-section workflow. Newly created Modules use the PDF path.
             missing = []
             for section in module.answer_sections.filter(required=True):
-                response = submission.section_responses.filter(section=section, is_complete=True).first()
+                response = submission.section_responses.filter(
+                    section=section,
+                    is_complete=True,
+                ).first()
                 if not response:
                     missing.append(section.title)
             if missing:
-                messages.error(request, "Complete these required sections first: " + ", ".join(missing))
+                messages.error(
+                    request,
+                    "Complete these required sections first: " + ", ".join(missing),
+                )
             else:
                 submission.status = ModuleSubmission.Status.SUBMITTED
                 submission.submitted_at = timezone.now()
@@ -1469,13 +1524,35 @@ def module_work_view(request, module_id):
                     section__required=True,
                     section__include_in_grade=True,
                 )
-                if graded_required.exists() and not graded_required.filter(score__isnull=True).exists():
+                if graded_required.exists() and not graded_required.filter(
+                    score__isnull=True,
+                ).exists():
                     submission.update_total_score()
                     sync_module_grade_score(submission)
                     submission.status = ModuleSubmission.Status.GRADED
                     submission.graded_at = timezone.now()
                     submission.save(update_fields=["status", "graded_at", "updated_at"])
+                notify_submission(submission)
                 messages.success(request, "Complete module submitted to your Teacher.")
+                return redirect("classroom:module_work", module_id=module.pk)
+        elif not (
+            submission.annotation_data or submission.extra_pages.exists()
+        ):
+            messages.error(
+                request,
+                "Add an answer, drawing, or uploaded output before submitting.",
+            )
+        else:
+            try:
+                build_final_submission_pdf(submission)
+            except ValidationError as error:
+                messages.error(request, "; ".join(error.messages))
+            else:
+                submission.status = ModuleSubmission.Status.SUBMITTED
+                submission.submitted_at = timezone.now()
+                submission.save(update_fields=["status", "submitted_at", "updated_at"])
+                notify_submission(submission)
+                messages.success(request, "Complete answered Module submitted to your Teacher.")
                 return redirect("classroom:module_work", module_id=module.pk)
 
     responses = {}
@@ -1486,6 +1563,10 @@ def module_work_view(request, module_id):
         for section in module.answer_sections.all()
     ]
     can_edit = not is_teacher and not locked and not deadline_closed
+    if submission and locked and submission.answered_pdf:
+        pdf_url = reverse("classroom:submission_pdf", args=[submission.pk])
+    else:
+        pdf_url = reverse("classroom:module_pdf", args=[module.pk])
 
     return render(
         request,
@@ -1498,7 +1579,435 @@ def module_work_view(request, module_id):
             "is_teacher": is_teacher,
             "can_edit": can_edit,
             "deadline_closed": deadline_closed,
+            "pdf_url": pdf_url,
         },
+    )
+
+
+MOBILE_ANNOTATION_TOOLS = {
+    "type",
+    "draw",
+    "check",
+    "circle",
+    "highlight",
+}
+
+
+def _mobile_draft_error(module, submission):
+    if submission.status != ModuleSubmission.Status.DRAFT:
+        return "This Module has already been submitted.", 409
+
+    if module.due_at and timezone.now() > module.due_at and not module.allow_late:
+        return "The Module deadline has passed.", 403
+
+    return None
+
+
+def _clean_mobile_annotations(value):
+    """Validate and reduce mobile annotation JSON to supported fields."""
+    if not isinstance(value, list):
+        raise ValidationError("Annotations must be provided as a list.")
+    if len(value) > 3000:
+        raise ValidationError("This Module contains too many annotations.")
+    if len(json.dumps(value)) > 2_000_000:
+        raise ValidationError("The annotation draft is too large.")
+
+    cleaned_annotations = []
+    for raw_annotation in value:
+        if not isinstance(raw_annotation, dict):
+            raise ValidationError("An annotation has an invalid format.")
+
+        tool = raw_annotation.get("tool")
+        if tool not in MOBILE_ANNOTATION_TOOLS:
+            raise ValidationError("An annotation contains an unsupported tool.")
+
+        try:
+            page_number = int(raw_annotation.get("page"))
+        except (TypeError, ValueError):
+            raise ValidationError("An annotation contains an invalid page.")
+        if not 1 <= page_number <= 500:
+            raise ValidationError("An annotation contains an invalid page.")
+
+        annotation_id = str(raw_annotation.get("id", ""))[:64]
+        if not annotation_id:
+            raise ValidationError("Every annotation must have an ID.")
+
+        cleaned = {
+            "id": annotation_id,
+            "page": page_number,
+            "tool": tool,
+        }
+
+        for field_name in ["x", "y", "width", "height", "size", "opacity"]:
+            if field_name not in raw_annotation:
+                continue
+            raw_value = raw_annotation[field_name]
+            if isinstance(raw_value, bool) or not isinstance(raw_value, (int, float)):
+                raise ValidationError(f"Invalid annotation value: {field_name}.")
+            cleaned[field_name] = float(raw_value)
+
+        if "text" in raw_annotation:
+            text = raw_annotation["text"]
+            if not isinstance(text, str):
+                raise ValidationError("Annotation text is invalid.")
+            cleaned["text"] = text[:5000]
+
+        if "color" in raw_annotation:
+            color = raw_annotation["color"]
+            if not isinstance(color, str) or len(color) > 20:
+                raise ValidationError("Annotation color is invalid.")
+            cleaned["color"] = color
+
+        if "points" in raw_annotation:
+            raw_points = raw_annotation["points"]
+            if not isinstance(raw_points, list) or len(raw_points) > 5000:
+                raise ValidationError("Annotation drawing points are invalid.")
+            cleaned_points = []
+            for raw_point in raw_points:
+                if not isinstance(raw_point, dict):
+                    raise ValidationError("A drawing point is invalid.")
+                x = raw_point.get("x")
+                y = raw_point.get("y")
+                if (
+                    isinstance(x, bool)
+                    or isinstance(y, bool)
+                    or not isinstance(x, (int, float))
+                    or not isinstance(y, (int, float))
+                ):
+                    raise ValidationError("A drawing point is invalid.")
+                cleaned_points.append({"x": float(x), "y": float(y)})
+            cleaned["points"] = cleaned_points
+
+        cleaned_annotations.append(cleaned)
+
+    return cleaned_annotations
+
+
+def _serialize_extra_page(extra_page):
+    file_url = ""
+    if extra_page.uploaded_file:
+        file_url = reverse("classroom:module_extra_page_file", args=[extra_page.pk])
+
+    return {
+        "id": extra_page.pk,
+        "page_type": extra_page.page_type,
+        "page_type_label": extra_page.get_page_type_display(),
+        "title": extra_page.title,
+        "related_pdf_page": extra_page.related_pdf_page,
+        "position": extra_page.position,
+        "essay_text": extra_page.essay_text,
+        "drawing_data": extra_page.drawing_data,
+        "original_name": extra_page.original_name,
+        "caption": extra_page.caption,
+        "file_url": file_url,
+        "update_url": reverse("classroom:module_extra_page_update", args=[extra_page.pk]),
+        "delete_url": reverse("classroom:module_extra_page_delete", args=[extra_page.pk]),
+    }
+
+
+def _get_student_extra_page_access(request, extra_page_id):
+    extra_page = get_object_or_404(
+        SubmissionExtraPage.objects.select_related(
+            "submission__module",
+            "submission__student",
+        ),
+        pk=extra_page_id,
+    )
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        extra_page.submission.module_id,
+    )
+    if is_teacher:
+        raise PermissionDenied("The Teacher cannot modify Student draft pages.")
+    if extra_page.submission.student_id != student.pk:
+        raise PermissionDenied("You cannot access another Student's draft.")
+    return extra_page, extra_page.submission, module, classroom, student
+
+
+@login_required(login_url="accounts:login")
+@require_GET
+def module_mobile_draft_view(request, module_id):
+    module, classroom, is_teacher, student = _get_module_access(request, module_id)
+    if is_teacher:
+        raise PermissionDenied("The Teacher preview does not have a Student draft.")
+
+    submission, _ = ModuleSubmission.objects.get_or_create(
+        module=module,
+        student=student,
+    )
+    return JsonResponse({
+        "submission_id": submission.pk,
+        "status": submission.status,
+        "editable": _mobile_draft_error(module, submission) is None,
+        "current_page": submission.current_page,
+        "annotations": submission.annotation_data,
+        "extra_pages": [
+            _serialize_extra_page(extra_page)
+            for extra_page in submission.extra_pages.all()
+        ],
+        "draft_saved_at": (
+            submission.draft_saved_at.isoformat()
+            if submission.draft_saved_at else None
+        ),
+    })
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def module_mobile_annotations_save_view(request, module_id):
+    module, classroom, is_teacher, student = _get_module_access(request, module_id)
+    if is_teacher:
+        raise PermissionDenied("The Teacher preview cannot save Student answers.")
+
+    submission, _ = ModuleSubmission.objects.get_or_create(
+        module=module,
+        student=student,
+    )
+    draft_error = _mobile_draft_error(module, submission)
+    if draft_error:
+        message, status_code = draft_error
+        return JsonResponse({"error": message}, status=status_code)
+
+    try:
+        data = json.loads(request.body or b"{}")
+        annotations = _clean_mobile_annotations(data.get("annotations", []))
+        current_page = int(data.get("current_page", 1))
+        if not 1 <= current_page <= 500:
+            raise ValidationError("The current PDF page is invalid.")
+    except (json.JSONDecodeError, TypeError, ValueError, ValidationError) as error:
+        message = (
+            "; ".join(error.messages)
+            if isinstance(error, ValidationError)
+            else "The annotation draft is invalid."
+        )
+        return JsonResponse({"error": message}, status=400)
+
+    submission.annotation_data = annotations
+    submission.current_page = current_page
+    submission.draft_saved_at = timezone.now()
+    submission.save(update_fields=[
+        "annotation_data",
+        "current_page",
+        "draft_saved_at",
+        "updated_at",
+    ])
+    return JsonResponse({
+        "saved": True,
+        "annotation_count": len(annotations),
+        "current_page": current_page,
+        "saved_at": submission.draft_saved_at.isoformat(),
+    })
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def module_extra_page_create_view(request, module_id):
+    module, classroom, is_teacher, student = _get_module_access(request, module_id)
+    if is_teacher:
+        raise PermissionDenied("The Teacher cannot add Student answer pages.")
+
+    submission, _ = ModuleSubmission.objects.get_or_create(
+        module=module,
+        student=student,
+    )
+    draft_error = _mobile_draft_error(module, submission)
+    if draft_error:
+        message, status_code = draft_error
+        return JsonResponse({"error": message}, status=status_code)
+
+    page_type = request.POST.get("page_type", "").strip()
+    valid_page_types = {
+        SubmissionExtraPage.PageType.ESSAY,
+        SubmissionExtraPage.PageType.DRAWING,
+        SubmissionExtraPage.PageType.UPLOAD,
+    }
+    if page_type not in valid_page_types:
+        return JsonResponse({"error": "Select a valid answer-page type."}, status=400)
+
+    default_titles = {
+        SubmissionExtraPage.PageType.ESSAY: "Written Answer",
+        SubmissionExtraPage.PageType.DRAWING: "Blank Drawing Page",
+        SubmissionExtraPage.PageType.UPLOAD: "Uploaded Output",
+    }
+    title = request.POST.get("title", "").strip()[:150] or default_titles[page_type]
+    caption = request.POST.get("caption", "").strip()[:500]
+    related_pdf_page = request.POST.get("related_pdf_page", "").strip()
+    if related_pdf_page:
+        try:
+            related_pdf_page = int(related_pdf_page)
+            if related_pdf_page < 1:
+                raise ValueError
+        except ValueError:
+            return JsonResponse({"error": "The related Module page is invalid."}, status=400)
+    else:
+        related_pdf_page = None
+
+    uploaded_file = request.FILES.get("file")
+    if page_type == SubmissionExtraPage.PageType.UPLOAD:
+        if uploaded_file is None:
+            return JsonResponse({"error": "Choose an image or PDF to upload."}, status=400)
+        try:
+            validate_answer_file(uploaded_file)
+        except ValidationError as error:
+            return JsonResponse({"error": "; ".join(error.messages)}, status=400)
+    elif uploaded_file is not None:
+        return JsonResponse(
+            {"error": "Files can only be added to an Uploaded Output page."},
+            status=400,
+        )
+
+    with transaction.atomic():
+        highest_position = submission.extra_pages.aggregate(
+            highest=Max("position")
+        )["highest"] or 0
+        extra_page = SubmissionExtraPage(
+            submission=submission,
+            page_type=page_type,
+            title=title,
+            related_pdf_page=related_pdf_page,
+            position=highest_position + 1,
+            caption=caption,
+        )
+        if uploaded_file:
+            extra_page.uploaded_file = uploaded_file
+            extra_page.original_name = Path(uploaded_file.name).name[:255]
+        extra_page.full_clean()
+        extra_page.save()
+
+    return JsonResponse(
+        {"created": True, "page": _serialize_extra_page(extra_page)},
+        status=201,
+    )
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def module_extra_page_update_view(request, extra_page_id):
+    extra_page, submission, module, classroom, student = _get_student_extra_page_access(
+        request,
+        extra_page_id,
+    )
+    draft_error = _mobile_draft_error(module, submission)
+    if draft_error:
+        message, status_code = draft_error
+        return JsonResponse({"error": message}, status=status_code)
+
+    try:
+        data = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "The answer-page data is invalid."}, status=400)
+
+    if "title" in data:
+        title = str(data["title"]).strip()[:150]
+        if not title:
+            return JsonResponse({"error": "The page title is required."}, status=400)
+        extra_page.title = title
+
+    if "caption" in data:
+        extra_page.caption = str(data["caption"]).strip()[:500]
+
+    if "related_pdf_page" in data:
+        related_pdf_page = data["related_pdf_page"]
+        if related_pdf_page in ["", None]:
+            extra_page.related_pdf_page = None
+        else:
+            try:
+                related_pdf_page = int(related_pdf_page)
+                if related_pdf_page < 1:
+                    raise ValueError
+            except (TypeError, ValueError):
+                return JsonResponse({"error": "The related Module page is invalid."}, status=400)
+            extra_page.related_pdf_page = related_pdf_page
+
+    if extra_page.page_type == SubmissionExtraPage.PageType.ESSAY and "essay_text" in data:
+        essay_text = data["essay_text"]
+        if not isinstance(essay_text, str):
+            return JsonResponse({"error": "The written answer is invalid."}, status=400)
+        extra_page.essay_text = essay_text[:50000]
+
+    if extra_page.page_type == SubmissionExtraPage.PageType.DRAWING and "drawing_data" in data:
+        drawing_data = data["drawing_data"]
+        if not isinstance(drawing_data, list):
+            return JsonResponse({"error": "The drawing data is invalid."}, status=400)
+        if len(json.dumps(drawing_data)) > 2_000_000:
+            return JsonResponse({"error": "The drawing is too large."}, status=400)
+        extra_page.drawing_data = drawing_data
+
+    extra_page.full_clean()
+    extra_page.save()
+    submission.draft_saved_at = timezone.now()
+    submission.save(update_fields=["draft_saved_at", "updated_at"])
+    return JsonResponse({
+        "saved": True,
+        "page": _serialize_extra_page(extra_page),
+        "saved_at": submission.draft_saved_at.isoformat(),
+    })
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def module_extra_page_delete_view(request, extra_page_id):
+    extra_page, submission, module, classroom, student = _get_student_extra_page_access(
+        request,
+        extra_page_id,
+    )
+    draft_error = _mobile_draft_error(module, submission)
+    if draft_error:
+        message, status_code = draft_error
+        return JsonResponse({"error": message}, status=status_code)
+
+    if extra_page.uploaded_file:
+        extra_page.uploaded_file.delete(save=False)
+    extra_page.delete()
+
+    for position, remaining_page in enumerate(submission.extra_pages.all(), start=1):
+        if remaining_page.position != position:
+            remaining_page.position = position
+            remaining_page.save(update_fields=["position", "updated_at"])
+
+    submission.draft_saved_at = timezone.now()
+    submission.save(update_fields=["draft_saved_at", "updated_at"])
+    return JsonResponse({
+        "deleted": True,
+        "extra_page_id": extra_page_id,
+        "saved_at": submission.draft_saved_at.isoformat(),
+    })
+
+
+@login_required(login_url="accounts:login")
+def module_extra_page_file_view(request, extra_page_id):
+    extra_page = get_object_or_404(
+        SubmissionExtraPage.objects.select_related(
+            "submission__module",
+            "submission__student",
+        ),
+        pk=extra_page_id,
+    )
+    submission = extra_page.submission
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        submission.module_id,
+    )
+    if is_teacher:
+        if submission.status == ModuleSubmission.Status.DRAFT:
+            raise PermissionDenied("Student drafts are private.")
+    elif submission.student_id != student.pk:
+        raise PermissionDenied("You cannot open another Student's output.")
+
+    if not extra_page.uploaded_file:
+        raise Http404("Uploaded output not found.")
+
+    extension = Path(extra_page.uploaded_file.name).suffix.lower()
+    content_types = {
+        ".pdf": "application/pdf",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+    }
+    return _private_file_response(
+        extra_page.uploaded_file,
+        extra_page.original_name or "student-output",
+        content_types.get(extension, "application/octet-stream"),
     )
 
 
@@ -1636,6 +2145,42 @@ def module_review_view(request, submission_id):
 
     if not is_teacher:
         raise PermissionDenied("Only the Teacher can grade submissions.")
+
+    if submission.answered_pdf:
+        grade_form = SubmissionGradeForm(
+            module,
+            request.POST or None,
+            instance=submission,
+        )
+        if request.method == "POST" and grade_form.is_valid():
+            graded = grade_form.save(commit=False)
+            graded.status = ModuleSubmission.Status.GRADED
+            graded.graded_at = timezone.now()
+            graded.save(update_fields=[
+                "score", "feedback", "status", "graded_at", "updated_at",
+            ])
+            sync_module_grade_score(graded)
+            messages.success(request, "Module score and feedback saved.")
+            return redirect("classroom:module_review", submission_id=submission.pk)
+
+        return render(
+            request,
+            "classroom/modules/live_review.html",
+            {
+                "classroom": classroom,
+                "module": module,
+                "submission": submission,
+                "submission_grade_form": grade_form,
+                "direct_pdf_submission": True,
+                "pdf_url": reverse(
+                    "classroom:submission_pdf",
+                    args=[submission.pk],
+                ),
+                "can_edit": False,
+                "deadline_closed": False,
+                "is_teacher": True,
+            },
+        )
 
     responses = submission.section_responses.select_related("section").prefetch_related(
         "answers__question", "attachments"
@@ -2131,7 +2676,881 @@ def attendance_view(request, classroom_id):
         "monthly_rows": monthly_rows,
     })
 
-def _private_file_response(field, filename, content_type):
+# =========================================================
+# ROLE-BASED CLASSROOM CALENDAR
+# =========================================================
+
+def _calendar_date(value):
+    """Return a date using the project's local timezone."""
+    if timezone.is_aware(value):
+        return timezone.localtime(value).date()
+    return value.date()
+
+
+def _calendar_item_from_event(event):
+    start_date = _calendar_date(event.start_at)
+    end_date = _calendar_date(event.end_at) if event.end_at else start_date
+
+    return {
+        "event_id": event.pk,
+        "title": event.title,
+        "description": event.description,
+        "start_date": start_date,
+        "end_date": end_date,
+        "event_type": event.event_type,
+        "event_type_label": event.get_event_type_display(),
+        "level": event.level,
+        "level_label": event.get_level_display(),
+        "classroom": event.classroom,
+        "source": event.source,
+        "is_editable": event.level == CalendarEvent.Level.CLASSROOM,
+        "is_module_deadline": False,
+    }
+
+
+def _calendar_item_from_module(module):
+    due_date = _calendar_date(module.due_at)
+
+    return {
+        "event_id": None,
+        "title": f"{module.title} Due",
+        "description": module.instructions,
+        "start_date": due_date,
+        "end_date": due_date,
+        "event_type": CalendarEvent.EventType.DEADLINE,
+        "event_type_label": "Module deadline",
+        "level": "module",
+        "level_label": "Module deadline",
+        "classroom": module.classroom,
+        "source": "",
+        "is_editable": False,
+        "is_module_deadline": True,
+    }
+
+
+def _collect_calendar_items(school, classrooms):
+    """Collect official, school, class, and module events."""
+    classrooms = list(classrooms)
+
+    district_events = (
+        CalendarEvent.objects
+        .filter(
+            level=CalendarEvent.Level.DISTRICT,
+            status=CalendarEvent.Status.PUBLISHED,
+        )
+        .filter(
+            Q(applies_to_all_schools=True)
+            | Q(target_schools=school)
+        )
+        .distinct()
+    )
+
+    school_events = CalendarEvent.objects.filter(
+        level=CalendarEvent.Level.SCHOOL,
+        school=school,
+        status=CalendarEvent.Status.PUBLISHED,
+    )
+
+    class_events = CalendarEvent.objects.filter(
+        level=CalendarEvent.Level.CLASSROOM,
+        classroom__in=classrooms,
+        status=CalendarEvent.Status.PUBLISHED,
+    ).select_related("classroom")
+
+    modules = Module.objects.filter(
+        classroom__in=classrooms,
+        status=Module.Status.PUBLISHED,
+        due_at__isnull=False,
+    ).select_related("classroom")
+
+    items = [
+        _calendar_item_from_event(event)
+        for event in list(district_events)
+        + list(school_events)
+        + list(class_events)
+    ]
+
+    items.extend(
+        _calendar_item_from_module(module)
+        for module in modules
+    )
+
+    return items
+
+
+def _class_event_conflicts_with_no_class(event, school):
+    """Return True when a class event overlaps an official non-class day."""
+    official_events = (
+        CalendarEvent.objects
+        .filter(
+            status=CalendarEvent.Status.PUBLISHED,
+            event_type__in=[
+                CalendarEvent.EventType.HOLIDAY,
+                CalendarEvent.EventType.NO_CLASS,
+            ],
+        )
+        .filter(
+            Q(
+                level=CalendarEvent.Level.DISTRICT,
+                applies_to_all_schools=True,
+            )
+            | Q(
+                level=CalendarEvent.Level.DISTRICT,
+                target_schools=school,
+            )
+            | Q(
+                level=CalendarEvent.Level.SCHOOL,
+                school=school,
+            )
+        )
+        .distinct()
+    )
+
+    candidate_start = _calendar_date(event.start_at)
+    candidate_end = (
+        _calendar_date(event.end_at)
+        if event.end_at
+        else candidate_start
+    )
+
+    for official_event in official_events:
+        official_start = _calendar_date(official_event.start_at)
+        official_end = (
+            _calendar_date(official_event.end_at)
+            if official_event.end_at
+            else official_start
+        )
+        if candidate_start <= official_end and candidate_end >= official_start:
+            return True
+
+    return False
+
+
+def _build_classroom_calendar_month(request, items):
+    today = timezone.localdate()
+
+    try:
+        selected_year = int(request.GET.get("year", today.year))
+        selected_month = int(request.GET.get("month", today.month))
+        if selected_month not in range(1, 13):
+            raise ValueError
+    except (TypeError, ValueError):
+        selected_year = today.year
+        selected_month = today.month
+
+    weeks = []
+    month_dates = month_calendar.Calendar(
+        firstweekday=6
+    ).monthdatescalendar(selected_year, selected_month)
+
+    for week in month_dates:
+        cells = []
+        for day in week:
+            day_items = [
+                item
+                for item in items
+                if item["start_date"] <= day <= item["end_date"]
+            ]
+            cells.append({
+                "date": day,
+                "is_current_month": day.month == selected_month,
+                "is_today": day == today,
+                "is_weekend": day.weekday() >= 5,
+                "events": day_items,
+            })
+        weeks.append(cells)
+
+    if selected_month == 1:
+        previous_year, previous_month = selected_year - 1, 12
+    else:
+        previous_year, previous_month = selected_year, selected_month - 1
+
+    if selected_month == 12:
+        next_year, next_month = selected_year + 1, 1
+    else:
+        next_year, next_month = selected_year, selected_month + 1
+
+    return {
+        "calendar_weeks": weeks,
+        "calendar_month_name": month_calendar.month_name[selected_month],
+        "calendar_year": selected_year,
+        "previous_year": previous_year,
+        "previous_month": previous_month,
+        "next_year": next_year,
+        "next_month": next_month,
+    }
+
+def _build_student_module_tasks(student, classroom_id=None):
+    """
+    Build task cards from published Modules and the Student's submissions.
+    This does not create another database table.
+    """
+
+    approved_classrooms = Classroom.objects.filter(
+        enrollments__student=student,
+        enrollments__status=ClassEnrollment.Status.APPROVED,
+        is_archived=False,
+    ).distinct()
+
+    if classroom_id:
+        approved_classrooms = approved_classrooms.filter(
+            pk=classroom_id,
+        )
+
+    modules = (
+        Module.objects.filter(
+            classroom__in=approved_classrooms,
+            status=Module.Status.PUBLISHED,
+        )
+        .select_related("classroom")
+        .order_by("due_at", "-published_at", "-created_at")
+    )
+
+    submissions = {
+        submission.module_id: submission
+        for submission in ModuleSubmission.objects.filter(
+            student=student,
+            module__in=modules,
+        ).select_related("module")
+    }
+
+    now = timezone.now()
+    due_soon_limit = now + timedelta(days=7)
+    tasks = []
+
+    for module in modules:
+        submission = submissions.get(module.pk)
+
+        if submission is None:
+            status = "to_do"
+            status_label = "To Do"
+            action_label = "Start"
+
+        elif submission.status == ModuleSubmission.Status.DRAFT:
+            status = "in_progress"
+            status_label = "In Progress"
+            action_label = "Continue"
+
+        elif submission.status == ModuleSubmission.Status.SUBMITTED:
+            status = "submitted"
+            status_label = "Submitted"
+            action_label = "View Submission"
+
+        elif submission.status == ModuleSubmission.Status.RETURNED:
+            status = "returned"
+            status_label = "Returned"
+            action_label = "Revise"
+
+        else:
+            status = "completed"
+            status_label = "Completed"
+            action_label = "View Result"
+
+        is_overdue = bool(
+            module.due_at
+            and module.due_at < now
+            and status in {
+                "to_do",
+                "in_progress",
+                "returned",
+            }
+        )
+
+        is_due_soon = bool(
+            module.due_at
+            and now <= module.due_at <= due_soon_limit
+            and status not in {
+                "submitted",
+                "completed",
+            }
+        )
+
+        tasks.append({
+            "module": module,
+            "submission": submission,
+            "status": status,
+            "status_label": status_label,
+            "action_label": action_label,
+            "is_due_soon": is_due_soon,
+            "is_overdue": is_overdue,
+            "url": reverse(
+                "classroom:module_work",
+                args=[module.pk],
+            ),
+        })
+
+    return tasks
+
+def _build_task_overview(tasks):
+    """
+    Calculate the weekly deadlines and Student task progress.
+    """
+
+    status_counts = {
+        "to_do": 0,
+        "in_progress": 0,
+        "submitted": 0,
+        "returned": 0,
+        "completed": 0,
+    }
+
+    for task in tasks:
+        status = task["status"]
+
+        if status in status_counts:
+            status_counts[status] += 1
+
+    total_tasks = len(tasks)
+    completed_tasks = status_counts["completed"]
+
+    if total_tasks:
+        progress_percent = round(
+            (completed_tasks / total_tasks) * 100
+        )
+    else:
+        progress_percent = 0
+
+    week_tasks = sorted(
+        [
+            task
+            for task in tasks
+            if task["is_due_soon"]
+        ],
+        key=lambda task: task["module"].due_at,
+    )[:5]
+
+    return {
+        "status_counts": status_counts,
+        "total_tasks": total_tasks,
+        "completed_tasks": completed_tasks,
+        "progress_percent": progress_percent,
+        "week_tasks": week_tasks,
+    }
+
+@login_required(login_url="accounts:login")
+def tasks_view(request):
+    user = request.user
+    selected_status = request.GET.get("status", "all")
+    selected_classroom_id = request.GET.get("classroom")
+
+    valid_statuses = {
+        "all",
+        "to_do",
+        "in_progress",
+        "submitted",
+        "returned",
+        "completed",
+    }
+
+    if selected_status not in valid_statuses:
+        selected_status = "all"
+
+    # =====================================================
+    # TEACHER TASKS
+    # =====================================================
+
+    if user.role == User.Role.TEACHER:
+        teacher = getattr(user, "teacher_profile", None)
+
+        if teacher is None:
+            messages.error(
+                request,
+                "Your Teacher profile was not found.",
+            )
+            return redirect("classroom:dashboard")
+
+        classrooms = Classroom.objects.filter(
+            teacher=teacher,
+            is_archived=False,
+        )
+
+        modules = Module.objects.filter(
+            classroom__teacher=teacher,
+            classroom__is_archived=False,
+        )
+
+        if selected_classroom_id:
+            if classrooms.filter(pk=selected_classroom_id).exists():
+                modules = modules.filter(
+                    classroom_id=selected_classroom_id,
+                )
+            else:
+                selected_classroom_id = None
+
+        modules = modules.select_related(
+            "classroom",
+        ).annotate(
+            review_count=Count(
+                "submissions",
+                filter=Q(
+                    submissions__status=(
+                        ModuleSubmission.Status.SUBMITTED
+                    )
+                ),
+            )
+        )
+
+        now = timezone.now()
+        due_soon_limit = now + timedelta(days=7)
+
+        review_modules = modules.filter(
+            review_count__gt=0,
+        ).order_by("-review_count", "due_at")
+
+        draft_modules = modules.filter(
+            status=Module.Status.DRAFT,
+        ).order_by("-created_at")
+
+        due_modules = modules.filter(
+            status=Module.Status.PUBLISHED,
+            due_at__gte=now,
+            due_at__lte=due_soon_limit,
+        ).order_by("due_at")
+
+        teacher_summary = {
+            "needs_review": sum(
+                module.review_count
+                for module in review_modules
+            ),
+            "due_soon": due_modules.count(),
+            "drafts": draft_modules.count(),
+            "published": modules.filter(
+                status=Module.Status.PUBLISHED,
+            ).count(),
+        }
+
+        return render(
+            request,
+            "classroom/tasks.html",
+            {
+                "role_view": "teacher",
+                "classrooms": classrooms,
+                "selected_classroom_id": selected_classroom_id,
+                "review_modules": review_modules,
+                "draft_modules": draft_modules,
+                "due_modules": due_modules,
+                "task_summary": teacher_summary,
+            },
+        )
+
+    # =====================================================
+    # STUDENT TASKS
+    # =====================================================
+
+    if user.role == User.Role.STUDENT:
+        student = getattr(user, "student_profile", None)
+
+        if student is None:
+            messages.error(
+                request,
+                "Your Student profile was not found.",
+            )
+            return redirect("classroom:dashboard")
+
+        classrooms = Classroom.objects.filter(
+            enrollments__student=student,
+            enrollments__status=ClassEnrollment.Status.APPROVED,
+            is_archived=False,
+        ).distinct()
+
+        if (
+            selected_classroom_id
+            and not classrooms.filter(
+                pk=selected_classroom_id,
+            ).exists()
+        ):
+            selected_classroom_id = None
+
+        tasks = _build_student_module_tasks(
+            student,
+            selected_classroom_id,
+        )
+
+        task_overview = _build_task_overview(tasks)
+
+        task_summary = {
+            "to_do": sum(
+                task["status"] == "to_do"
+                for task in tasks
+            ),
+            "due_soon": sum(
+                task["is_due_soon"]
+                for task in tasks
+            ),
+            "returned": sum(
+                task["status"] == "returned"
+                for task in tasks
+            ),
+            "completed": sum(
+                task["status"] == "completed"
+                for task in tasks
+            ),
+        }
+
+        if selected_status != "all":
+            visible_tasks = [
+                task
+                for task in tasks
+                if task["status"] == selected_status
+            ]
+        else:
+            visible_tasks = tasks
+
+        due_soon_tasks = [
+            task
+            for task in visible_tasks
+            if task["is_due_soon"] or task["is_overdue"]
+        ]
+
+        later_tasks = [
+            task
+            for task in visible_tasks
+            if task not in due_soon_tasks
+        ]
+
+        return render(
+            request,
+            "classroom/tasks.html",
+            {
+                "role_view": "student",
+                "read_only": False,
+                "classrooms": classrooms,
+                "selected_classroom_id": selected_classroom_id,
+                "selected_status": selected_status,
+                "task_summary": task_summary,
+                "due_soon_tasks": due_soon_tasks,
+                "later_tasks": later_tasks,
+            },
+        )
+
+    # =====================================================
+    # PARENT TASK MONITORING
+    # =====================================================
+
+    if user.role == User.Role.PARENT:
+        parent = getattr(user, "parent_profile", None)
+
+        if parent is None:
+            messages.error(
+                request,
+                "Your Parent profile was not found.",
+            )
+            return redirect("classroom:dashboard")
+
+        linked_students = ParentStudentLink.objects.filter(
+            parent=parent,
+            status=ParentStudentLink.Status.APPROVED,
+        ).select_related(
+            "student",
+            "student__user",
+        )
+
+        selected_learner_id = request.GET.get("learner")
+        selected_link = None
+
+        if selected_learner_id:
+            selected_link = linked_students.filter(
+                student_id=selected_learner_id,
+            ).first()
+
+        if selected_link is None:
+            selected_link = linked_students.first()
+
+        selected_student = (
+            selected_link.student
+            if selected_link
+            else None
+        )
+
+        tasks = []
+
+        if selected_student:
+            tasks = _build_student_module_tasks(
+                selected_student,
+                selected_classroom_id,
+            )
+
+            task_overview = _build_task_overview(tasks)
+
+        task_summary = {
+            "to_do": sum(
+                task["status"] == "to_do"
+                for task in tasks
+            ),
+            "due_soon": sum(
+                task["is_due_soon"]
+                for task in tasks
+            ),
+            "returned": sum(
+                task["status"] == "returned"
+                for task in tasks
+            ),
+            "completed": sum(
+                task["status"] == "completed"
+                for task in tasks
+            ),
+        }
+
+        if selected_status != "all":
+            visible_tasks = [
+                task
+                for task in tasks
+                if task["status"] == selected_status
+            ]
+        else:
+            visible_tasks = tasks
+
+        due_soon_tasks = [
+            task
+            for task in visible_tasks
+            if task["is_due_soon"] or task["is_overdue"]
+        ]
+
+        later_tasks = [
+            task
+            for task in visible_tasks
+            if task not in due_soon_tasks
+        ]
+
+        return render(
+            request,
+            "classroom/tasks.html",
+            {
+                "role_view": "parent",
+                "read_only": True,
+                "linked_students": linked_students,
+                "selected_student": selected_student,
+                "selected_status": selected_status,
+                "task_summary": task_summary,
+                "due_soon_tasks": due_soon_tasks,
+                "later_tasks": later_tasks,
+                "task_overview": task_overview,
+            },
+        )
+
+    return redirect("classroom:dashboard")
+
+@login_required(login_url="accounts:login")
+def calendar_view(request):
+    user = request.user
+    event_form = None
+    selected_classroom = None
+    selected_learner = None
+    editing_event = None
+    linked_students = []
+    calendar_title = "My Calendar"
+    calendar_subtitle = "View your schedules and important dates."
+    read_only = True
+
+    if user.role == User.Role.TEACHER:
+        teacher = getattr(user, "teacher_profile", None)
+        if teacher is None:
+            messages.error(request, "Your Teacher profile was not found.")
+            return redirect("classroom:dashboard")
+
+        available_classrooms = Classroom.objects.filter(
+            teacher=teacher,
+            is_archived=False,
+        ).order_by("subject", "section")
+
+        edit_event_id = request.POST.get("event_id") or request.GET.get("edit_event")
+        if edit_event_id:
+            editing_event = get_object_or_404(
+                CalendarEvent.objects.exclude(status=CalendarEvent.Status.CANCELLED),
+                pk=edit_event_id,
+                level=CalendarEvent.Level.CLASSROOM,
+                classroom__teacher=teacher,
+            )
+            selected_classroom = editing_event.classroom
+        else:
+            selected_id = request.POST.get("classroom_id") or request.GET.get("classroom_id")
+            if selected_id:
+                selected_classroom = available_classrooms.filter(pk=selected_id).first()
+            if selected_classroom is None:
+                selected_classroom = available_classrooms.first()
+
+        classrooms = [selected_classroom] if selected_classroom else []
+        school = teacher.school
+        calendar_title = "Class Calendar"
+        calendar_subtitle = "Manage class events and view locked official dates."
+        read_only = False
+        event_form = ClassCalendarEventForm(
+            request.POST or None,
+            instance=editing_event,
+        )
+
+        if request.method == "POST":
+            if selected_classroom is None:
+                messages.error(request, "Create or select a class first.")
+            elif event_form.is_valid():
+                is_new = event_form.instance.pk is None
+                event = event_form.save(commit=False)
+                event.level = CalendarEvent.Level.CLASSROOM
+                event.classroom = selected_classroom
+                event.school = None
+                event.school_year = selected_classroom.school_year
+                if is_new:
+                    event.created_by = user
+                event.status = CalendarEvent.Status.PUBLISHED
+                event.applies_to_all_schools = False
+
+                event_date = timezone.localtime(event.start_at).date()
+
+                if event_date.weekday() >= 5:
+                    event_form.add_error(
+                        "start_at",
+                        "Saturday and Sunday are default no-class days.",
+                    )
+                elif _class_event_conflicts_with_no_class(event, teacher.school):
+                    event_form.add_error(
+                        "start_at",
+                        "This date is an official holiday or no-class day.",
+                    )
+                else:
+                    event.save()
+                    notify_calendar_event(
+                        event,
+                        "created" if is_new else "updated",
+                    )
+
+                    messages.success(
+                        request,
+                        "The class event was added." if is_new else "The class event was updated.",
+                    )
+                    return redirect(
+                        f"{reverse('classroom:calendar')}?classroom_id={selected_classroom.pk}"
+                    )
+
+    elif user.role == User.Role.STUDENT:
+        student = getattr(user, "student_profile", None)
+        if student is None:
+            messages.error(request, "Your Student profile was not found.")
+            return redirect("classroom:dashboard")
+
+        available_classrooms = Classroom.objects.filter(
+            enrollments__student=student,
+            enrollments__status=ClassEnrollment.Status.APPROVED,
+            is_archived=False,
+        ).distinct().order_by("subject", "section")
+        classrooms = list(available_classrooms)
+        school = student.school
+        calendar_title = "My Calendar"
+        calendar_subtitle = "View school events, class activities, and module deadlines."
+
+    elif user.role == User.Role.PARENT:
+        parent = getattr(user, "parent_profile", None)
+        if parent is None:
+            messages.error(request, "Your Parent profile was not found.")
+            return redirect("classroom:dashboard")
+
+        linked_students = list(
+            Student.objects.filter(
+                parent_links__parent=parent,
+                parent_links__status=ParentStudentLink.Status.APPROVED,
+            ).select_related("school").distinct().order_by("lastname", "firstname")
+        )
+
+        learner_id = request.GET.get("learner_id")
+        if learner_id:
+            selected_learner = next(
+                (student for student in linked_students if str(student.pk) == learner_id),
+                None,
+            )
+        if selected_learner is None and linked_students:
+            selected_learner = linked_students[0]
+
+        if selected_learner:
+            available_classrooms = Classroom.objects.filter(
+                enrollments__student=selected_learner,
+                enrollments__status=ClassEnrollment.Status.APPROVED,
+                is_archived=False,
+            ).distinct().order_by("subject", "section")
+            classrooms = list(available_classrooms)
+            school = selected_learner.school
+        else:
+            available_classrooms = Classroom.objects.none()
+            classrooms = []
+            school = None
+
+        calendar_title = "Learner Calendar"
+        calendar_subtitle = "View the schedule of your connected learner."
+
+    else:
+        messages.error(request, "This calendar belongs to the Classroom Portal.")
+        return redirect("classroom:dashboard")
+
+    items = _collect_calendar_items(school, classrooms) if school else []
+
+    selected_filter = request.GET.get("filter", "all")
+    if selected_filter not in {"all", "school", "classes", "deadlines"}:
+        selected_filter = "all"
+
+    if selected_filter == "school":
+        items = [item for item in items if item["level"] in {"district", "school"}]
+    elif selected_filter == "classes":
+        items = [item for item in items if item["level"] == "classroom"]
+    elif selected_filter == "deadlines":
+        items = [item for item in items if item["event_type"] == "deadline"]
+
+    today = timezone.localdate()
+    upcoming_events = sorted(
+        [item for item in items if item["end_date"] >= today],
+        key=lambda item: (item["start_date"], item["title"]),
+    )[:8]
+
+    calendar_context = _build_classroom_calendar_month(request, items)
+
+    return render(request, "classroom/calendar.html", {
+        "calendar_title": calendar_title,
+        "calendar_subtitle": calendar_subtitle,
+        "read_only": read_only,
+        "event_form": event_form,
+        "available_classrooms": available_classrooms,
+        "selected_classroom": selected_classroom,
+        "linked_students": linked_students,
+        "selected_learner": selected_learner,
+        "editing_event": editing_event,
+        "selected_filter": selected_filter,
+        "calendar_items": items,
+        "upcoming_events": upcoming_events,
+        **calendar_context,
+    })
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def class_calendar_event_cancel_view(request, event_id):
+    if request.user.role != User.Role.TEACHER:
+        raise PermissionDenied("Only Teachers can cancel class events.")
+
+    teacher = getattr(request.user, "teacher_profile", None)
+    if teacher is None:
+        raise PermissionDenied("Teacher profile not found.")
+
+    event = get_object_or_404(
+        CalendarEvent,
+        pk=event_id,
+        level=CalendarEvent.Level.CLASSROOM,
+        classroom__teacher=teacher,
+    )
+    classroom_id = event.classroom_id
+    event.status = CalendarEvent.Status.CANCELLED
+    event.save(update_fields=["status", "updated_at"])
+    notify_calendar_event(event, "cancelled")
+
+    messages.success(request, "The class event was cancelled.")
+    return redirect(
+        f"{reverse('classroom:calendar')}?classroom_id={classroom_id}"
+    )
+
+
+def _private_file_response(
+    field,
+    filename,
+    content_type,
+    *,
+    as_attachment=True,
+):
     if not field:
         raise Http404("File not found.")
 
@@ -2142,7 +3561,7 @@ def _private_file_response(field, filename, content_type):
 
     response = FileResponse(
         file,
-        as_attachment=True,
+        as_attachment=as_attachment,
         filename=filename,
         content_type=content_type,
     )
@@ -2165,6 +3584,7 @@ def module_pdf_view(request, module_id):
         pdf_file,
         "module.pdf",
         "application/pdf",
+        as_attachment=False,
     )
 
 
@@ -2207,6 +3627,31 @@ def module_attachment_view(request, submission_id):
             extension,
             "application/octet-stream",
         ),
+    )
+
+
+@login_required(login_url="accounts:login")
+def submission_pdf_view(request, submission_id):
+    submission = get_object_or_404(
+        ModuleSubmission.objects.select_related("module", "student"),
+        pk=submission_id,
+    )
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        submission.module_id,
+    )
+    if is_teacher:
+        if submission.status == ModuleSubmission.Status.DRAFT:
+            raise PermissionDenied("Student drafts are private.")
+    elif submission.student_id != student.pk:
+        raise PermissionDenied("You cannot open another Student's Module.")
+    if not submission.answered_pdf:
+        raise Http404("Answered PDF not found.")
+    return _private_file_response(
+        submission.answered_pdf,
+        f"{module.title}-answered.pdf",
+        "application/pdf",
+        as_attachment=False,
     )
 
 

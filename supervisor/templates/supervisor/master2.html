@@ -71,6 +71,9 @@
         {% if request.user.role == 'supervisor' %}
         <a class="sv-nav-link {% block nav_schools %}{% endblock %}" href="{% url 'supervisor:schools' %}"><i class="bi bi-building"></i> Schools</a>
         <a class="sv-nav-link {% block nav_principals %}{% endblock %}" href="{% url 'supervisor:principals' %}"><i class="bi bi-person-badge"></i> Principals</a>
+        <a class="sv-nav-link {% block nav_district_calendar %}{% endblock %}" href="{% url 'supervisor:district_calendar' %}">
+            <i class="bi bi-calendar3"></i> District Calendar
+        </a>
         <a class="sv-nav-link disabled" href="#"><i class="bi bi-person-workspace"></i> Teachers</a>
         <a class="sv-nav-link disabled" href="#"><i class="bi bi-mortarboard"></i> Students</a>
         <a class="sv-nav-link disabled" href="#"><i class="bi bi-people"></i> Parents</a>
@@ -87,6 +90,9 @@
         <a class="sv-nav-link {% block nav_teachers %}{% endblock %}" href="{% url 'supervisor:teachers' %}"><i class="bi bi-person-workspace"></i> Teachers</a>
         <a class="sv-nav-link {% block nav_students %}{% endblock %}" href="{% url 'supervisor:students' %}"><i class="bi bi-mortarboard"></i> Students</a>
         <a class="sv-nav-link {% block nav_classes %}{% endblock %}" href="{% url 'supervisor:classes' %}"><i class="bi bi-journal-bookmark"></i> Classes</a>
+        <a class="sv-nav-link {% block nav_school_calendar %}{% endblock %}" href="{% url 'supervisor:principal_calendar' %}">
+            <i class="bi bi-calendar3"></i> School Calendar
+        </a>
         {% endif %}
 
         <div class="sv-nav-section">System</div>

@@ -2,7 +2,7 @@ from django import forms
 
 from accounts.models import ParentStudentLink
 
-from .models import Announcement, Classroom
+from .models import Announcement, CalendarEvent, Classroom
 
 
 class AnnouncementForm(forms.ModelForm):
@@ -128,3 +128,101 @@ class StudentLinkRequestForm(forms.Form):
 
     def clean_lrn(self):
         return self.cleaned_data["lrn"].strip()
+
+# =========================================================
+# CLASS CALENDAR EVENT FORM
+# Teacher only
+# =========================================================
+
+class ClassCalendarEventForm(forms.ModelForm):
+    class Meta:
+        model = CalendarEvent
+
+        fields = [
+            "title",
+            "description",
+            "event_type",
+            "start_at",
+            "end_at",
+            "all_day",
+        ]
+
+        widgets = {
+            "title": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Example: Performance Task",
+                }
+            ),
+            "description": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Optional instructions",
+                }
+            ),
+            "event_type": forms.Select(
+                attrs={"class": "form-select"}
+            ),
+            "start_at": forms.DateTimeInput(
+                format="%Y-%m-%dT%H:%M",
+                attrs={
+                    "class": "form-control",
+                    "type": "datetime-local",
+                },
+            ),
+            "end_at": forms.DateTimeInput(
+                format="%Y-%m-%dT%H:%M",
+                attrs={
+                    "class": "form-control",
+                    "type": "datetime-local",
+                },
+            ),
+            "all_day": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.fields["start_at"].input_formats = [
+            "%Y-%m-%dT%H:%M"
+        ]
+        self.fields["end_at"].input_formats = [
+            "%Y-%m-%dT%H:%M"
+        ]
+
+        # These are the only event types Teachers need.
+        self.fields["event_type"].choices = [
+            (
+                CalendarEvent.EventType.ACTIVITY,
+                "Class Activity",
+            ),
+            (
+                CalendarEvent.EventType.DEADLINE,
+                "Deadline",
+            ),
+            (
+                CalendarEvent.EventType.MEETING,
+                "Meeting",
+            ),
+            (
+                CalendarEvent.EventType.OTHER,
+                "Other",
+            ),
+        ]
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        start_at = cleaned_data.get("start_at")
+        end_at = cleaned_data.get("end_at")
+
+        if start_at and end_at and end_at < start_at:
+            self.add_error(
+                "end_at",
+                "The end date cannot be earlier than the start date.",
+            )
+
+        return cleaned_data

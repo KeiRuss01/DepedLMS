@@ -1,8 +1,17 @@
 from django import forms
 from django.contrib.auth import authenticate
+from django.contrib.auth.forms import PasswordChangeForm
 from django.db import transaction
 
-from .models import Parent, Principal, School, Student, Teacher, User
+from .models import (
+    Parent,
+    Principal,
+    School,
+    Student,
+    Teacher,
+    User,
+    UserPreference,
+)
 
 
 class AccountLoginForm(forms.Form):
@@ -197,3 +206,169 @@ class AccountSignupForm(forms.Form):
             )
 
         return user
+
+class ProfileUpdateForm(forms.ModelForm):
+    phone_number = forms.CharField(
+        max_length=13,
+        required=True,
+        label="Mobile number",
+        help_text="Enter an active Philippine mobile number.",
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "09XXXXXXXXX",
+                "inputmode": "numeric",
+            }
+        ),
+    )
+
+    profile_picture = forms.ImageField(
+        required=False,
+        label="Profile picture",
+        widget=forms.ClearableFileInput(
+            attrs={
+                "class": "form-control",
+                "accept": ".jpg,.jpeg,.png,.webp",
+            }
+        ),
+    )
+
+    class Meta:
+        model = User
+        fields = [
+            "profile_picture",
+            "phone_number",
+        ]
+
+    def clean_phone_number(self):
+        phone_number = self.cleaned_data["phone_number"].strip()
+
+        # Remove commonly entered separators.
+        phone_number = (
+            phone_number
+            .replace(" ", "")
+            .replace("-", "")
+        )
+
+        # Convert +639XXXXXXXXX into 09XXXXXXXXX.
+        if phone_number.startswith("+63"):
+            phone_number = "0" + phone_number[3:]
+
+        if not phone_number.isdigit():
+            raise forms.ValidationError(
+                "The mobile number must contain numbers only."
+            )
+
+        if len(phone_number) != 11 or not phone_number.startswith("09"):
+            raise forms.ValidationError(
+                "Enter a valid number using the format 09XXXXXXXXX."
+            )
+
+        return phone_number
+
+    def clean_profile_picture(self):
+        picture = self.cleaned_data.get("profile_picture")
+
+        if not picture:
+            return picture
+
+        maximum_size = 2 * 1024 * 1024
+
+        if picture.size > maximum_size:
+            raise forms.ValidationError(
+                "The profile picture must not exceed 2 MB."
+            )
+
+        return picture
+
+class UserPreferenceForm(forms.ModelForm):
+    class Meta:
+        model = UserPreference
+
+        fields = [
+            "theme",
+            "text_size",
+            "sound_enabled",
+            "vibration_enabled",
+            "new_submission_alerts",
+            "pending_join_request_alerts",
+            "deadline_reminder_alerts",
+            "default_term",
+            "default_grading_component",
+        ]
+
+        labels = {
+            "theme": "Theme",
+            "text_size": "Text size",
+            "sound_enabled": "Sound",
+            "vibration_enabled": "Vibration",
+            "new_submission_alerts": "New student submissions",
+            "pending_join_request_alerts": "Pending join requests",
+            "deadline_reminder_alerts": "Submission deadline reminders",
+            "default_term": "Default term",
+            "default_grading_component": "Default grading component",
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.user = user
+
+        select_fields = [
+            "theme",
+            "text_size",
+            "default_term",
+            "default_grading_component",
+        ]
+
+        for field_name in select_fields:
+            if field_name in self.fields:
+                self.fields[field_name].widget.attrs.update(
+                    {"class": "form-select"}
+                )
+
+        checkbox_fields = [
+            "sound_enabled",
+            "vibration_enabled",
+            "new_submission_alerts",
+            "pending_join_request_alerts",
+            "deadline_reminder_alerts",
+        ]
+
+        for field_name in checkbox_fields:
+            if field_name in self.fields:
+                self.fields[field_name].widget.attrs.update(
+                    {
+                        "class": "form-check-input settings-switch",
+                        "role": "switch",
+                    }
+                )
+
+        # Student accounts do not need Teacher-only settings.
+        if user and user.role != User.Role.TEACHER:
+            teacher_only_fields = [
+                "new_submission_alerts",
+                "pending_join_request_alerts",
+                "deadline_reminder_alerts",
+                "default_term",
+                "default_grading_component",
+            ]
+
+            for field_name in teacher_only_fields:
+                self.fields.pop(field_name, None)
+
+class AccountPasswordChangeForm(PasswordChangeForm):
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(user, *args, **kwargs)
+
+        for field in self.fields.values():
+            field.widget.attrs.update(
+                {
+                    "class": "form-control",
+                    "autocomplete": "new-password",
+                }
+            )
+
+        self.fields["old_password"].widget.attrs[
+            "autocomplete"
+        ] = "current-password"

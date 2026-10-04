@@ -1,0 +1,845 @@
+/* =========================================================
+   TASKS PAGE
+   ========================================================= */
+
+.tasks-page {
+    color: #10233f;
+}
+
+.tasks-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.4rem;
+}
+
+.tasks-header h1 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 800;
+}
+
+.tasks-header p {
+    margin: 0.3rem 0 0;
+    color: #64748b;
+}
+
+.tasks-read-only {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.75rem;
+    color: #475569;
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
+    border-radius: 999px;
+    background: #eef2f7;
+}
+
+
+/* =========================================================
+   SUMMARY CARDS
+   ========================================================= */
+
+.task-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.3rem;
+}
+
+.task-summary-card {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid #dbe3ed;
+    border-radius: 0.85rem;
+    background: #ffffff;
+}
+
+.task-summary-card > i {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    place-items: center;
+    color: #0969f9;
+    font-size: 1.35rem;
+    border: 1px solid #cfe0fa;
+    border-radius: 0.7rem;
+}
+
+.task-summary-card div {
+    display: grid;
+    gap: 0.15rem;
+}
+
+.task-summary-card span {
+    color: #475569;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.task-summary-card strong {
+    color: #10233f;
+    font-size: 1.55rem;
+    line-height: 1;
+}
+
+
+/* =========================================================
+   CLASS AND LEARNER FILTERS
+   ========================================================= */
+
+.task-class-filter,
+.task-learner-filter {
+    display: grid;
+    grid-template-columns: auto minmax(220px, 380px);
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.task-class-filter label,
+.task-learner-filter label {
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.task-filter-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.task-status-filters {
+    display: flex;
+    min-width: 0;
+    gap: 0.45rem;
+    overflow-x: auto;
+    padding-bottom: 0.2rem;
+    scrollbar-width: thin;
+}
+
+.task-status-filters a {
+    padding: 0.45rem 0.8rem;
+    color: #475569;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+    text-decoration: none;
+    border: 1px solid #d7e0ea;
+    border-radius: 999px;
+    background: #ffffff;
+}
+
+.task-status-filters a:hover {
+    color: #0969f9;
+    border-color: #9ec4ff;
+}
+
+.task-status-filters a.active {
+    color: #ffffff;
+    border-color: #0969f9;
+    background: #0969f9;
+}
+
+.task-class-select {
+    width: min(100%, 280px);
+    flex: 0 0 280px;
+}
+
+
+/* =========================================================
+   TEACHER LAYOUT
+   ========================================================= */
+
+.teacher-task-layout {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.25rem;
+}
+
+.teacher-task-layout .task-list-section:first-child {
+    grid-column: 1 / -1;
+}
+
+
+/* =========================================================
+   TASK SECTIONS
+   ========================================================= */
+
+.task-list-section {
+    margin-bottom: 1.5rem;
+}
+
+.teacher-task-layout .task-list-section {
+    margin-bottom: 0;
+}
+
+.task-section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.task-section-heading > div {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.task-section-heading i {
+    color: #0969f9;
+}
+
+.task-section-heading h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.task-section-heading > span {
+    color: #64748b;
+    font-size: 0.75rem;
+}
+
+.task-card-list {
+    display: grid;
+    gap: 0.7rem;
+}
+
+
+/* =========================================================
+   TASK CARDS
+   ========================================================= */
+
+.task-card {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid #dbe3ed;
+    border-radius: 0.8rem;
+    background: #ffffff;
+}
+
+.task-card:hover {
+    border-color: #b9cce5;
+}
+
+.task-icon {
+    display: grid;
+    width: 46px;
+    height: 46px;
+    place-items: center;
+    color: #0969f9;
+    font-size: 1.25rem;
+    border: 1px solid #cfe0fa;
+    border-radius: 0.65rem;
+    background: #ffffff;
+}
+
+.task-card-content {
+    min-width: 0;
+}
+
+.task-title-row {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.task-title-row h3 {
+    overflow: hidden;
+    margin: 0;
+    color: #10233f;
+    font-size: 0.95rem;
+    font-weight: 800;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.task-type-badge {
+    flex: 0 0 auto;
+    padding: 0.2rem 0.45rem;
+    color: #31547c;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border-radius: 999px;
+    background: #edf2f7;
+}
+
+.task-card-content > p {
+    margin: 0.2rem 0 0;
+    color: #64748b;
+    font-size: 0.78rem;
+}
+
+.task-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 0.45rem;
+    color: #64748b;
+    font-size: 0.72rem;
+}
+
+.task-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.task-meta .overdue,
+.task-status.status-returned {
+    color: #c62828;
+}
+
+.task-status.status-in_progress {
+    color: #0969f9;
+}
+
+.task-status.status-submitted {
+    color: #475569;
+}
+
+.task-status.status-completed {
+    color: #087f5b;
+}
+
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.task-primary-button,
+.task-secondary-button {
+    display: inline-flex;
+    min-width: 100px;
+    min-height: 38px;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-decoration: none;
+    border-radius: 0.55rem;
+}
+
+.task-primary-button {
+    color: #ffffff;
+    border: 1px solid #0969f9;
+    background: #0969f9;
+}
+
+.task-primary-button:hover {
+    color: #ffffff;
+    background: #075fdc;
+}
+
+.task-secondary-button {
+    color: #0969f9;
+    border: 1px solid #0969f9;
+    background: #ffffff;
+}
+
+.task-secondary-button:hover {
+    color: #075fdc;
+    background: #f5f9ff;
+}
+
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+.tasks-empty {
+    display: grid;
+    justify-items: center;
+    gap: 0.25rem;
+    padding: 2rem 1rem;
+    color: #64748b;
+    text-align: center;
+    border: 1px dashed #d4dde8;
+    border-radius: 0.8rem;
+    background: #ffffff;
+}
+
+.tasks-empty i {
+    margin-bottom: 0.25rem;
+    color: #0969f9;
+    font-size: 1.7rem;
+}
+
+.tasks-empty strong {
+    color: #10233f;
+    font-size: 0.9rem;
+}
+
+.tasks-empty p {
+    margin: 0;
+    font-size: 0.76rem;
+}
+
+.tasks-empty.compact {
+    min-height: 150px;
+    align-content: center;
+    padding: 1rem;
+}
+
+
+/* =========================================================
+   DARK MODE
+   ========================================================= */
+
+html[data-theme="dark"] .tasks-page,
+html[data-theme="dark"] .tasks-header h1,
+html[data-theme="dark"] .task-summary-card strong,
+html[data-theme="dark"] .task-title-row h3,
+html[data-theme="dark"] .tasks-empty strong {
+    color: #e8eef8;
+}
+
+html[data-theme="dark"] .task-summary-card,
+html[data-theme="dark"] .task-card,
+html[data-theme="dark"] .tasks-empty,
+html[data-theme="dark"] .task-status-filters a,
+html[data-theme="dark"] .task-icon,
+html[data-theme="dark"] .task-secondary-button {
+    border-color: #334155;
+    background: #172033;
+}
+
+html[data-theme="dark"] .task-summary-card > i {
+    border-color: #334155;
+}
+
+html[data-theme="dark"] .task-type-badge,
+html[data-theme="dark"] .tasks-read-only {
+    color: #cbd5e1;
+    background: #273449;
+}
+
+html[data-theme="dark"] .task-status-filters a.active {
+    color: #ffffff;
+    border-color: #0969f9;
+    background: #0969f9;
+}
+
+/* =========================================================
+   STUDENT TASK OVERVIEW
+   ========================================================= */
+
+.student-task-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.student-task-main {
+    min-width: 0;
+}
+
+.task-overview-sidebar {
+    position: sticky;
+    top: 95px;
+    display: grid;
+    gap: 1rem;
+}
+
+.task-overview-card {
+    padding: 1rem;
+    border: 1px solid #dbe3ed;
+    border-radius: 0.8rem;
+    background: #ffffff;
+}
+
+.task-overview-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+
+.task-overview-heading h2 {
+    margin: 0;
+    color: #10233f;
+    font-size: 0.95rem;
+    font-weight: 800;
+}
+
+.task-overview-heading a {
+    color: #0969f9;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+
+/* This week */
+
+.week-task-list {
+    display: grid;
+}
+
+.week-task {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 0.7rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid #e6ebf1;
+}
+
+.week-task:first-child {
+    padding-top: 0;
+}
+
+.week-task:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.week-task time {
+    display: grid;
+    height: 52px;
+    place-items: center;
+    align-content: center;
+    color: #10233f;
+    line-height: 1;
+    border: 1px solid #dbe3ed;
+    border-radius: 0.55rem;
+}
+
+.week-task time span {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.week-task time strong {
+    margin-top: 0.2rem;
+    font-size: 1rem;
+}
+
+.week-task > div {
+    min-width: 0;
+}
+
+.week-task > div > strong,
+.week-task > div > span,
+.week-task > div > small {
+    display: block;
+}
+
+.week-task > div > strong {
+    overflow: hidden;
+    color: #10233f;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.week-task > div > span {
+    margin-top: 0.15rem;
+    color: #64748b;
+    font-size: 0.68rem;
+}
+
+.week-task > div > small {
+    width: max-content;
+    margin-top: 0.3rem;
+    padding: 0.18rem 0.4rem;
+    color: #475569;
+    font-size: 0.62rem;
+    font-weight: 700;
+    border-radius: 999px;
+    background: #eef2f7;
+}
+
+
+/* Progress */
+
+.progress-summary > div:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    color: #64748b;
+    font-size: 0.72rem;
+}
+
+.progress-summary strong {
+    color: #10233f;
+}
+
+.task-progress-track {
+    display: block;
+    width: 100%;
+    height: 7px;
+    margin-top: 0.55rem;
+    overflow: hidden;
+    appearance: none;
+    border: 0;
+    border-radius: 999px;
+    background: #e5eaf0;
+}
+
+.task-progress-track::-webkit-progress-bar {
+    border-radius: 999px;
+    background: #e5eaf0;
+}
+
+.task-progress-track::-webkit-progress-value {
+    border-radius: 999px;
+    background: #0969f9;
+}
+
+.task-progress-track::-moz-progress-bar {
+    border-radius: 999px;
+    background: #0969f9;
+}
+
+.progress-status-list {
+    display: grid;
+    gap: 0.45rem;
+    margin: 0.9rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.progress-status-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    color: #475569;
+    font-size: 0.72rem;
+}
+
+.progress-status-list li > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.status-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #8a9aae;
+}
+
+.status-dot.returned {
+    background: #c62828;
+}
+
+.status-dot.completed {
+    background: #087f5b;
+}
+
+
+/* Empty weekly state */
+
+.overview-empty {
+    display: grid;
+    justify-items: center;
+    gap: 0.25rem;
+    padding: 1.25rem 0.5rem;
+    color: #64748b;
+    text-align: center;
+}
+
+.overview-empty i {
+    color: #0969f9;
+    font-size: 1.5rem;
+}
+
+.overview-empty strong {
+    color: #10233f;
+    font-size: 0.78rem;
+}
+
+.overview-empty span {
+    font-size: 0.68rem;
+}
+
+
+/* Dark theme */
+
+html[data-theme="dark"] .task-overview-card {
+    border-color: #334155;
+    background: #172033;
+}
+
+html[data-theme="dark"] .task-overview-heading h2,
+html[data-theme="dark"] .week-task time,
+html[data-theme="dark"] .week-task > div > strong,
+html[data-theme="dark"] .progress-summary strong,
+html[data-theme="dark"] .overview-empty strong {
+    color: #e8eef8;
+}
+
+html[data-theme="dark"] .week-task {
+    border-bottom-color: #334155;
+}
+
+html[data-theme="dark"] .week-task time {
+    border-color: #334155;
+}
+
+html[data-theme="dark"] .week-task > div > small {
+    color: #cbd5e1;
+    background: #273449;
+}
+
+
+/* Responsive */
+
+@media (max-width: 1050px) {
+    .student-task-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .task-overview-sidebar {
+        position: static;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 650px) {
+    .task-overview-sidebar {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* =========================================================
+   RESPONSIVE DESIGN
+   ========================================================= */
+
+@media (max-width: 950px) {
+    .teacher-task-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .teacher-task-layout .task-list-section:first-child {
+        grid-column: auto;
+    }
+}
+
+@media (max-width: 800px) {
+    .task-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .task-filter-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .task-class-select {
+        width: 100%;
+        flex-basis: auto;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .tasks-header {
+        align-items: flex-start;
+    }
+
+    .tasks-header h1 {
+        font-size: 1.55rem;
+    }
+
+    .tasks-header p {
+        font-size: 0.85rem;
+    }
+
+    .tasks-read-only {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.7rem;
+    }
+
+    .task-summary-grid {
+        gap: 0.65rem;
+    }
+
+    .task-summary-card {
+        gap: 0.65rem;
+        padding: 0.75rem;
+    }
+
+    .task-summary-card > i {
+        width: 36px;
+        height: 36px;
+        flex-basis: 36px;
+        font-size: 1rem;
+    }
+
+    .task-summary-card span {
+        font-size: 0.68rem;
+    }
+
+    .task-summary-card strong {
+        font-size: 1.25rem;
+    }
+
+    .task-class-filter,
+    .task-learner-filter {
+        grid-template-columns: 1fr;
+        gap: 0.3rem;
+    }
+
+    .task-status-filters {
+        margin-right: -12px;
+        padding-right: 12px;
+    }
+
+    .task-card {
+        grid-template-columns: 38px minmax(0, 1fr);
+        gap: 0.7rem;
+        padding: 0.8rem;
+    }
+
+    .task-icon {
+        width: 38px;
+        height: 38px;
+        font-size: 1rem;
+    }
+
+    .task-title-row {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .task-title-row h3 {
+        width: 100%;
+        white-space: normal;
+    }
+
+    .task-primary-button,
+    .task-secondary-button {
+        width: 100%;
+        grid-column: 1 / -1;
+    }
+
+    .task-meta {
+        gap: 0.45rem;
+        flex-direction: column;
+    }
+}

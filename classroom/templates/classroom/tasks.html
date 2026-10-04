@@ -1,0 +1,699 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block title %}Tasks | District 1 Classroom{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'classroom/css/tasks.css' %}?v=3"
+>
+{% endblock %}
+
+{% block content %}
+<section class="tasks-page">
+
+    <!-- =================================================
+         PAGE HEADER
+         ================================================= -->
+    <header class="tasks-header">
+        <div>
+            <h1>
+                {% if role_view == "teacher" %}
+                    Teaching Tasks
+                {% elif role_view == "parent" %}
+                    Learner Tasks
+                {% else %}
+                    My Tasks
+                {% endif %}
+            </h1>
+
+            <p>
+                {% if role_view == "teacher" %}
+                    Review submissions and manage work across your classes.
+                {% elif role_view == "parent" %}
+                    Monitor your learner's schoolwork and progress.
+                {% else %}
+                    Track work across all your classes.
+                {% endif %}
+            </p>
+        </div>
+
+        {% if read_only %}
+            <span class="tasks-read-only">
+                <i class="bi bi-lock-fill"></i>
+                Read only
+            </span>
+        {% endif %}
+    </header>
+
+
+    <!-- =================================================
+         TEACHER TASKS
+         ================================================= -->
+    {% if role_view == "teacher" %}
+
+        <div class="task-summary-grid">
+            <article class="task-summary-card">
+                <i class="bi bi-inbox"></i>
+
+                <div>
+                    <span>Needs Checking</span>
+                    <strong>{{ task_summary.needs_review }}</strong>
+                </div>
+            </article>
+
+            <article class="task-summary-card">
+                <i class="bi bi-clock"></i>
+
+                <div>
+                    <span>Due Soon</span>
+                    <strong>{{ task_summary.due_soon }}</strong>
+                </div>
+            </article>
+
+            <article class="task-summary-card">
+                <i class="bi bi-file-earmark"></i>
+
+                <div>
+                    <span>Drafts</span>
+                    <strong>{{ task_summary.drafts }}</strong>
+                </div>
+            </article>
+
+            <article class="task-summary-card">
+                <i class="bi bi-check-circle"></i>
+
+                <div>
+                    <span>Published</span>
+                    <strong>{{ task_summary.published }}</strong>
+                </div>
+            </article>
+        </div>
+
+
+        <!-- Teacher class filter -->
+        <form class="task-class-filter" method="get">
+            <label for="classroom-filter">
+                Class
+            </label>
+
+            <select
+                id="classroom-filter"
+                name="classroom"
+                class="form-select"
+                onchange="this.form.submit()"
+            >
+                <option value="">All Classes</option>
+
+                {% for classroom in classrooms %}
+                    <option
+                        value="{{ classroom.pk }}"
+                        {% if selected_classroom_id|stringformat:"s" == classroom.pk|stringformat:"s" %}
+                            selected
+                        {% endif %}
+                    >
+                        {{ classroom.subject }} -
+                        {{ classroom.grade_level }}
+                        {{ classroom.section }}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+
+
+        <div class="teacher-task-layout">
+
+            <!-- Submissions waiting for checking -->
+            <section class="task-list-section">
+                <header class="task-section-heading">
+                    <div>
+                        <i class="bi bi-inbox"></i>
+
+                        <h2>Needs Checking</h2>
+                    </div>
+
+                    <span>
+                        {{ task_summary.needs_review }}
+                        submission{{ task_summary.needs_review|pluralize }}
+                    </span>
+                </header>
+
+                <div class="task-card-list">
+                    {% for module in review_modules %}
+                        <article class="task-card">
+                            <div class="task-icon">
+                                <i class="bi bi-file-earmark-text"></i>
+                            </div>
+
+                            <div class="task-card-content">
+                                <div class="task-title-row">
+                                    <h3>{{ module.title }}</h3>
+
+                                    <span class="task-type-badge">
+                                        Module
+                                    </span>
+                                </div>
+
+                                <p>
+                                    {{ module.classroom.subject }} ·
+                                    {{ module.classroom.grade_level }}
+                                    {{ module.classroom.section }}
+                                </p>
+
+                                <div class="task-meta">
+                                    <span>
+                                        <i class="bi bi-person-check"></i>
+
+                                        {{ module.review_count }}
+                                        waiting for checking
+                                    </span>
+
+                                    {% if module.due_at %}
+                                        <span>
+                                            <i class="bi bi-calendar3"></i>
+                                            Due {{ module.due_at|date:"M d, Y" }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <a
+                                class="task-primary-button"
+                                href="{% url 'classroom:module_submissions' module.pk %}"
+                            >
+                                Review
+                            </a>
+                        </article>
+
+                    {% empty %}
+                        <div class="tasks-empty">
+                            <i class="bi bi-check2-circle"></i>
+
+                            <strong>No submissions waiting</strong>
+
+                            <p>
+                                Submitted Modules requiring checking will
+                                appear here.
+                            </p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+
+            <!-- Due soon -->
+            <section class="task-list-section">
+                <header class="task-section-heading">
+                    <div>
+                        <i class="bi bi-clock"></i>
+                        <h2>Due Soon</h2>
+                    </div>
+                </header>
+
+                <div class="task-card-list">
+                    {% for module in due_modules %}
+                        <article class="task-card compact">
+                            <div class="task-icon">
+                                <i class="bi bi-file-earmark-text"></i>
+                            </div>
+
+                            <div class="task-card-content">
+                                <div class="task-title-row">
+                                    <h3>{{ module.title }}</h3>
+
+                                    <span class="task-type-badge">
+                                        Module
+                                    </span>
+                                </div>
+
+                                <p>
+                                    {{ module.classroom.subject }} ·
+                                    {{ module.classroom.section }}
+                                </p>
+
+                                <div class="task-meta">
+                                    <span>
+                                        <i class="bi bi-calendar3"></i>
+                                        Due {{ module.due_at|date:"M d, Y g:i A" }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <a
+                                class="task-secondary-button"
+                                href="{% url 'classroom:module_manage' module.pk %}"
+                            >
+                                Open
+                            </a>
+                        </article>
+
+                    {% empty %}
+                        <div class="tasks-empty compact">
+                            <strong>No approaching deadlines</strong>
+
+                            <p>
+                                Published Modules due within seven days
+                                will appear here.
+                            </p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+
+            <!-- Draft Modules -->
+            <section class="task-list-section">
+                <header class="task-section-heading">
+                    <div>
+                        <i class="bi bi-file-earmark"></i>
+                        <h2>Draft Modules</h2>
+                    </div>
+                </header>
+
+                <div class="task-card-list">
+                    {% for module in draft_modules %}
+                        <article class="task-card compact">
+                            <div class="task-icon">
+                                <i class="bi bi-file-earmark"></i>
+                            </div>
+
+                            <div class="task-card-content">
+                                <div class="task-title-row">
+                                    <h3>{{ module.title }}</h3>
+
+                                    <span class="task-type-badge">
+                                        Draft
+                                    </span>
+                                </div>
+
+                                <p>
+                                    {{ module.classroom.subject }} ·
+                                    {{ module.classroom.section }}
+                                </p>
+
+                                <div class="task-meta">
+                                    <span>
+                                        Created
+                                        {{ module.created_at|date:"M d, Y" }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <a
+                                class="task-secondary-button"
+                                href="{% url 'classroom:module_manage' module.pk %}"
+                            >
+                                Continue
+                            </a>
+                        </article>
+
+                    {% empty %}
+                        <div class="tasks-empty compact">
+                            <strong>No draft Modules</strong>
+
+                            <p>
+                                Unpublished Modules will appear here.
+                            </p>
+                        </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+        </div>
+
+
+    <!-- =================================================
+         STUDENT AND PARENT TASKS
+         ================================================= -->
+    {% else %}
+
+        <!-- Parent learner selector -->
+        {% if role_view == "parent" %}
+            <form class="task-learner-filter" method="get">
+                <label for="learner-filter">
+                    Learner
+                </label>
+
+                <select
+                    id="learner-filter"
+                    name="learner"
+                    class="form-select"
+                    onchange="this.form.submit()"
+                >
+                    {% for link in linked_students %}
+                        <option
+                            value="{{ link.student.pk }}"
+                            {% if selected_student.pk == link.student.pk %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ link.student.user.get_full_name|default:link.student.user.email }}
+                        </option>
+                    {% empty %}
+                        <option value="">
+                            No connected learners
+                        </option>
+                    {% endfor %}
+                </select>
+            </form>
+        {% endif %}
+
+
+        <!-- Summary cards -->
+        <div class="task-summary-grid">
+            <article class="task-summary-card">
+                <i class="bi bi-file-earmark-text"></i>
+
+                <div>
+                    <span>To Do</span>
+                    <strong>{{ task_summary.to_do }}</strong>
+                </div>
+            </article>
+
+            <article class="task-summary-card">
+                <i class="bi bi-clock"></i>
+
+                <div>
+                    <span>Due Soon</span>
+                    <strong>{{ task_summary.due_soon }}</strong>
+                </div>
+            </article>
+
+            <article class="task-summary-card">
+                <i class="bi bi-arrow-return-left"></i>
+
+                <div>
+                    <span>Returned</span>
+                    <strong>{{ task_summary.returned }}</strong>
+                </div>
+            </article>
+
+            <article class="task-summary-card">
+                <i class="bi bi-check-circle"></i>
+
+                <div>
+                    <span>Completed</span>
+                    <strong>{{ task_summary.completed }}</strong>
+                </div>
+            </article>
+        </div>
+
+
+        <!-- Filters -->
+        <div class="task-filter-row">
+            <nav
+                class="task-status-filters"
+                aria-label="Task status filters"
+            >
+                <a
+                    class="{% if selected_status == 'all' %}active{% endif %}"
+                    href="?status=all{% if selected_classroom_id %}&classroom={{ selected_classroom_id }}{% endif %}{% if selected_student %}&learner={{ selected_student.pk }}{% endif %}"
+                >
+                    All
+                </a>
+
+                <a
+                    class="{% if selected_status == 'to_do' %}active{% endif %}"
+                    href="?status=to_do{% if selected_classroom_id %}&classroom={{ selected_classroom_id }}{% endif %}{% if selected_student %}&learner={{ selected_student.pk }}{% endif %}"
+                >
+                    To Do
+                </a>
+
+                <a
+                    class="{% if selected_status == 'in_progress' %}active{% endif %}"
+                    href="?status=in_progress{% if selected_classroom_id %}&classroom={{ selected_classroom_id }}{% endif %}{% if selected_student %}&learner={{ selected_student.pk }}{% endif %}"
+                >
+                    In Progress
+                </a>
+
+                <a
+                    class="{% if selected_status == 'submitted' %}active{% endif %}"
+                    href="?status=submitted{% if selected_classroom_id %}&classroom={{ selected_classroom_id }}{% endif %}{% if selected_student %}&learner={{ selected_student.pk }}{% endif %}"
+                >
+                    Submitted
+                </a>
+
+                <a
+                    class="{% if selected_status == 'returned' %}active{% endif %}"
+                    href="?status=returned{% if selected_classroom_id %}&classroom={{ selected_classroom_id }}{% endif %}{% if selected_student %}&learner={{ selected_student.pk }}{% endif %}"
+                >
+                    Returned
+                </a>
+
+                <a
+                    class="{% if selected_status == 'completed' %}active{% endif %}"
+                    href="?status=completed{% if selected_classroom_id %}&classroom={{ selected_classroom_id }}{% endif %}{% if selected_student %}&learner={{ selected_student.pk }}{% endif %}"
+                >
+                    Completed
+                </a>
+            </nav>
+
+
+            <!-- Student class filter -->
+            {% if role_view == "student" %}
+                <form class="task-class-select" method="get">
+                    <input
+                        type="hidden"
+                        name="status"
+                        value="{{ selected_status }}"
+                    >
+
+                    <select
+                        name="classroom"
+                        class="form-select"
+                        aria-label="Filter tasks by class"
+                        onchange="this.form.submit()"
+                    >
+                        <option value="">All Classes</option>
+
+                        {% for classroom in classrooms %}
+                            <option
+                                value="{{ classroom.pk }}"
+                                {% if selected_classroom_id|stringformat:"s" == classroom.pk|stringformat:"s" %}
+                                    selected
+                                {% endif %}
+                            >
+                                {{ classroom.subject }} -
+                                {{ classroom.section }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </form>
+            {% endif %}
+        </div>
+
+
+        <!-- Due soon and overdue -->
+        <div class="student-task-layout">
+            <!-- Main task lists -->
+            <main class="student-task-main">
+
+                <!-- Due soon and overdue -->
+                <section class="task-list-section">
+                    <header class="task-section-heading">
+                        <div>
+                            <i class="bi bi-clock"></i>
+                            <h2>Due Soon</h2>
+                        </div>
+                    </header>
+
+                    <div class="task-card-list">
+                        {% for task in due_soon_tasks %}
+                            {% include "classroom/_task_card.html" %}
+                        {% empty %}
+                            <div class="tasks-empty">
+                                <i class="bi bi-check2-circle"></i>
+
+                                <strong>No urgent tasks</strong>
+
+                                <p>
+                                    Approaching and overdue tasks will appear here.
+                                </p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+
+                <!-- Remaining tasks -->
+                <section class="task-list-section">
+                    <header class="task-section-heading">
+                        <div>
+                            <i class="bi bi-list-task"></i>
+                            <h2>Later</h2>
+                        </div>
+                    </header>
+
+                    <div class="task-card-list">
+                        {% for task in later_tasks %}
+                            {% include "classroom/_task_card.html" %}
+                        {% empty %}
+                            <div class="tasks-empty">
+                                <i class="bi bi-clipboard-check"></i>
+
+                                <strong>No other tasks</strong>
+
+                                <p>
+                                    Tasks matching the selected filter will
+                                    appear here.
+                                </p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+            </main>
+
+
+            <!-- Right-side overview -->
+            <aside class="task-overview-sidebar">
+
+                <!-- This week -->
+                <section class="task-overview-card">
+                    <header class="task-overview-heading">
+                        <h2>This Week</h2>
+
+                        <a href="{% url 'classroom:calendar' %}">
+                            View Calendar
+                        </a>
+                    </header>
+
+                    <div class="week-task-list">
+                        {% for task in task_overview.week_tasks %}
+                            <article class="week-task">
+                                <time datetime="{{ task.module.due_at|date:'c' }}">
+                                    <span>
+                                        {{ task.module.due_at|date:"M" }}
+                                    </span>
+
+                                    <strong>
+                                        {{ task.module.due_at|date:"d" }}
+                                    </strong>
+                                </time>
+
+                                <div>
+                                    <strong>
+                                        {{ task.module.title }}
+                                    </strong>
+
+                                    <span>
+                                        {{ task.module.classroom.subject }}
+                                    </span>
+
+                                    <small>
+                                        Due {{ task.module.due_at|timeuntil }}
+                                    </small>
+                                </div>
+                            </article>
+
+                        {% empty %}
+                            <div class="overview-empty">
+                                <i class="bi bi-calendar-check"></i>
+
+                                <strong>No deadlines this week</strong>
+
+                                <span>
+                                    Upcoming deadlines will appear here.
+                                </span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </section>
+
+
+                <!-- Progress -->
+                <section class="task-overview-card">
+                    <header class="task-overview-heading">
+                        <h2>My Progress</h2>
+                    </header>
+
+                    <div class="progress-summary">
+                        <div>
+                            <span>
+                                {{ task_overview.completed_tasks }}
+                                of
+                                {{ task_overview.total_tasks }}
+                                tasks completed
+                            </span>
+
+                            <strong>
+                                {{ task_overview.progress_percent }}%
+                            </strong>
+                        </div>
+
+                        <progress
+                            class="task-progress-track"
+                            value="{{ task_overview.progress_percent }}"
+                            max="100"
+                        >
+                            {{ task_overview.progress_percent }}%
+                        </progress>
+                    </div>
+
+                    <ul class="progress-status-list">
+                        <li>
+                            <span>
+                                <i class="status-dot"></i>
+                                To Do
+                            </span>
+
+                            <strong>
+                                {{ task_overview.status_counts.to_do }}
+                            </strong>
+                        </li>
+
+                        <li>
+                            <span>
+                                <i class="status-dot"></i>
+                                In Progress
+                            </span>
+
+                            <strong>
+                                {{ task_overview.status_counts.in_progress }}
+                            </strong>
+                        </li>
+
+                        <li>
+                            <span>
+                                <i class="status-dot"></i>
+                                Submitted
+                            </span>
+
+                            <strong>
+                                {{ task_overview.status_counts.submitted }}
+                            </strong>
+                        </li>
+
+                        <li>
+                            <span>
+                                <i class="status-dot returned"></i>
+                                Returned
+                            </span>
+
+                            <strong>
+                                {{ task_overview.status_counts.returned }}
+                            </strong>
+                        </li>
+
+                        <li>
+                            <span>
+                                <i class="status-dot completed"></i>
+                                Completed
+                            </span>
+
+                            <strong>
+                                {{ task_overview.status_counts.completed }}
+                            </strong>
+                        </li>
+                    </ul>
+                </section>
+
+            </aside>
+
+        </div>
+
+    {% endif %}
+
+</section>
+{% endblock %}

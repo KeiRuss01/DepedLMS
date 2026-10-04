@@ -1,8 +1,51 @@
 {% extends "classroom/modules/live_base.html" %}
+{% load static %}
 {% block title %}Review submission{% endblock %}
+{% block extra_css %}
+{{ block.super }}
+<link
+  rel="stylesheet"
+  href="{% static 'classroom/css/mobile_module_editor.css' %}?v=20260922-1"
+>
+{% endblock %}
 {% block module_content %}
-<h1 class="h3">{{ submission.student }}</h1>
-<p class="text-muted">{{ module.title }} · Current total: {{ submission.score|default_if_none:"Not fully graded" }} / {{ module.total_points }}</p>
+<div class="d-flex flex-wrap justify-content-between gap-3 mb-3">
+  <div><h1 class="h3 mb-1">{{ submission.student }}</h1><p class="text-muted mb-0">{{ module.title }} &middot; {{ module.total_points }} total points</p></div>
+  <span class="badge text-bg-{% if submission.status == 'graded' %}success{% else %}primary{% endif %} align-self-start">{{ submission.get_status_display }}</span>
+</div>
+
+{% if direct_pdf_submission %}
+<div class="row g-4">
+  <div class="col-xl-8">
+    <div class="d-flex justify-content-end mb-2">
+      <a
+        class="btn btn-sm btn-outline-primary"
+        href="{% url 'classroom:submission_pdf' submission.pk %}"
+        target="_blank"
+        rel="noopener"
+      >
+        <i class="bi bi-box-arrow-up-right"></i>
+        Open combined PDF
+      </a>
+    </div>
+    {% include "classroom/modules/mobile_pdf_editor.html" %}
+  </div>
+  <div class="col-xl-4">
+    <form method="post" class="card sticky-xl-top module-grade-card">
+      {% csrf_token %}
+      <div class="card-header"><strong>Grade complete Module</strong></div>
+      <div class="card-body">
+        <p class="small text-muted">Review the Student's writing and markings on the PDF, then enter one score for the complete worksheet.</p>
+        {{ submission_grade_form.non_field_errors }}
+        {% for field in submission_grade_form %}
+        <div class="mb-3"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}<div class="text-danger small">{{ field.errors }}</div></div>
+        {% endfor %}
+        <button class="btn btn-primary w-100">Save Module grade</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% else %}
 <div class="row g-4">
   <div class="col-lg-7">
     {% for row in response_forms %}
@@ -10,30 +53,27 @@
       <div class="card-header d-flex justify-content-between"><strong>{{ row.response.section.title }}</strong><span>{{ row.response.section.max_score }} points</span></div>
       <div class="card-body">
         {% if row.response.section.answer_method == "structured" %}
-          {% for answer in row.response.answers.all %}
-          <div class="border-bottom py-2"><strong>{{ answer.question.position }}. {{ answer.question.prompt }}</strong><div>{{ answer.answer_text|default:"No answer"|linebreaksbr }}</div>{% if answer.is_correct != None %}<small class="{% if answer.is_correct %}text-success{% else %}text-danger{% endif %}">{% if answer.is_correct %}Correct{% else %}Incorrect{% endif %} · {{ answer.awarded_points }} / {{ answer.question.points }}</small>{% endif %}</div>
-          {% endfor %}
-        {% elif row.response.section.answer_method == "written" %}
-          {{ row.response.written_answer|default:"No answer"|linebreaks }}
-        {% elif row.response.section.answer_method == "file" %}
-          {% for attachment in row.response.attachments.all %}<a class="btn btn-sm btn-outline-primary me-2 mb-2" href="{% url 'classroom:section_attachment' attachment.pk %}">{{ attachment.original_name }}</a>{% empty %}<span class="text-muted">No files</span>{% endfor %}
-        {% else %}<span class="text-muted">No answer required.</span>{% endif %}
+          {% for answer in row.response.answers.all %}<div class="border-bottom py-2"><strong>{{ answer.question.position }}. {{ answer.question.prompt }}</strong><div>{{ answer.answer_text|default:"No answer"|linebreaksbr }}</div></div>{% endfor %}
+        {% elif row.response.section.answer_method == "written" %}{{ row.response.written_answer|default:"No answer"|linebreaks }}
+        {% elif row.response.section.answer_method == "file" %}{% for attachment in row.response.attachments.all %}<a class="btn btn-sm btn-outline-primary me-2 mb-2" href="{% url 'classroom:section_attachment' attachment.pk %}">{{ attachment.original_name }}</a>{% empty %}<span class="text-muted">No files</span>{% endfor %}
+        {% endif %}
       </div>
     </section>
     {% empty %}<div class="alert alert-warning">No completed answer sections were found.</div>{% endfor %}
-    {% include "classroom/modules/pdf_reader.html" %}
   </div>
   <div class="col-lg-5">
-    {% for row in response_forms %}
-    <form method="post" class="card mb-3">{% csrf_token %}<input type="hidden" name="response_id" value="{{ row.response.pk }}">
-      <div class="card-body"><h2 class="h6">Grade: {{ row.response.section.title }}</h2>
-        {% if row.response.auto_score %}<p class="small text-muted">Automatically checked points: {{ row.response.auto_score }}</p>{% endif %}
-        {{ row.form.non_field_errors }}
-        {% for field in row.form %}<div class="mb-3"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}<div class="text-danger small">{{ field.errors }}</div></div>{% endfor %}
-        <button class="btn btn-primary w-100">Save section grade</button>
-      </div>
-    </form>
-    {% endfor %}
+    {% for row in response_forms %}<form method="post" class="card mb-3">{% csrf_token %}<input type="hidden" name="response_id" value="{{ row.response.pk }}"><div class="card-body"><h2 class="h6">Grade: {{ row.response.section.title }}</h2>{% for field in row.form %}<div class="mb-3"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}<div class="text-danger small">{{ field.errors }}</div></div>{% endfor %}<button class="btn btn-primary w-100">Save section grade</button></div></form>{% endfor %}
   </div>
 </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+{% if direct_pdf_submission %}
+<script
+  type="module"
+  src="{% static 'classroom/js/mobile_module_editor.js' %}?v=20260922-2"
+></script>
+{% endif %}
 {% endblock %}

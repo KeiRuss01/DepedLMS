@@ -1,0 +1,357 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block title %}Settings | District 1 Classroom{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet"
+      href="{% static 'accounts/css/account-pages.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="account-page">
+
+    <aside class="account-sidebar">
+        <h2>Account</h2>
+
+        <nav class="account-navigation">
+            <a href="{% url 'accounts:profile' %}"
+               class="account-nav-link">
+                <i class="bi bi-person"></i>
+                <span>My Profile</span>
+            </a>
+
+            <a href="{% url 'accounts:settings' %}"
+               class="account-nav-link active">
+                <i class="bi bi-gear"></i>
+                <span>Settings</span>
+            </a>
+        </nav>
+    </aside>
+
+    <section class="account-content">
+
+        <header class="account-page-header">
+            <div>
+                <h1>Settings</h1>
+                <p>
+                    Manage your notification, appearance,
+                    and security preferences.
+                </p>
+            </div>
+        </header>
+
+        <div class="settings-layout">
+
+            <form method="post"
+                  id="preference-form"
+                  class="settings-form">
+
+                {% csrf_token %}
+
+                <input type="hidden"
+                       name="action"
+                       value="save_preferences">
+
+                <article class="account-card">
+                    <div class="settings-card-heading">
+                        <span class="settings-heading-icon required-icon">
+                            <i class="bi bi-shield-check"></i>
+                        </span>
+
+                        <div>
+                            <h2>Required SMS Notifications</h2>
+                            <p>
+                                These important messages are always sent
+                                to your registered mobile number.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="required-notification-list">
+                        {% for item in mandatory_sms_items %}
+                            <div class="required-notification-item">
+                                <i class="bi bi-check-circle-fill"></i>
+                                <span>{{ item }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="registered-number">
+                        <div>
+                            <small>Sent to</small>
+                            <strong>{{ masked_phone }}</strong>
+                        </div>
+
+                        <a href="{% url 'accounts:profile' %}">
+                            Update number in My Profile
+                        </a>
+                    </div>
+                </article>
+
+                <article class="account-card">
+                    <div class="settings-card-heading">
+                        <span class="settings-heading-icon">
+                            <i class="bi bi-bell"></i>
+                        </span>
+
+                        <div>
+                            <h2>Optional In-app Preferences</h2>
+                            <p>
+                                Choose how notifications behave
+                                while using the LMS.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="setting-rows">
+
+                        <label class="setting-row">
+                            <span>
+                                <strong>Sound</strong>
+                                <small>
+                                    Play a sound for new in-app notifications.
+                                </small>
+                            </span>
+
+                            <span class="form-check form-switch">
+                                {{ preference_form.sound_enabled }}
+                            </span>
+                        </label>
+
+                        <label class="setting-row">
+                            <span>
+                                <strong>Vibration</strong>
+                                <small>
+                                    Vibrate on supported mobile devices.
+                                </small>
+                            </span>
+
+                            <span class="form-check form-switch">
+                                {{ preference_form.vibration_enabled }}
+                            </span>
+                        </label>
+
+                        {% if request.user.role == "teacher" %}
+
+                            <label class="setting-row">
+                                <span>
+                                    <strong>New student submissions</strong>
+                                    <small>
+                                        Notify me when a learner submits work.
+                                    </small>
+                                </span>
+
+                                <span class="form-check form-switch">
+                                    {{ preference_form.new_submission_alerts }}
+                                </span>
+                            </label>
+
+                            <label class="setting-row">
+                                <span>
+                                    <strong>Pending join requests</strong>
+                                    <small>
+                                        Notify me about new class requests.
+                                    </small>
+                                </span>
+
+                                <span class="form-check form-switch">
+                                    {{ preference_form.pending_join_request_alerts }}
+                                </span>
+                            </label>
+
+                            <label class="setting-row">
+                                <span>
+                                    <strong>Submission deadline reminders</strong>
+                                    <small>
+                                        Show reminders about upcoming deadlines.
+                                    </small>
+                                </span>
+
+                                <span class="form-check form-switch">
+                                    {{ preference_form.deadline_reminder_alerts }}
+                                </span>
+                            </label>
+
+                        {% endif %}
+                    </div>
+                </article>
+
+                {% if request.user.role == "teacher" %}
+                    <article class="account-card">
+                        <div class="settings-card-heading">
+                            <span class="settings-heading-icon">
+                                <i class="bi bi-journal-bookmark"></i>
+                            </span>
+
+                            <div>
+                                <h2>Class Defaults</h2>
+                                <p>
+                                    Use these selections as the initial values
+                                    when creating classroom content.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="settings-select-grid">
+
+                            <div class="account-field">
+                                <label for="{{ preference_form.default_term.id_for_label }}">
+                                    Default term
+                                </label>
+
+                                {{ preference_form.default_term }}
+                            </div>
+
+                            <div class="account-field">
+                                <label for="{{ preference_form.default_grading_component.id_for_label }}">
+                                    Default grading component
+                                </label>
+
+                                {{ preference_form.default_grading_component }}
+                            </div>
+
+                        </div>
+                    </article>
+                {% endif %}
+
+                <article class="account-card">
+                    <div class="settings-card-heading">
+                        <span class="settings-heading-icon">
+                            <i class="bi bi-palette"></i>
+                        </span>
+
+                        <div>
+                            <h2>Appearance</h2>
+                            <p>
+                                Adjust how the Classroom appears
+                                on this account.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="settings-select-grid">
+
+                        <div class="account-field">
+                            <label for="{{ preference_form.theme.id_for_label }}">
+                                Theme
+                            </label>
+
+                            {{ preference_form.theme }}
+                        </div>
+
+                        <div class="account-field">
+                            <label for="{{ preference_form.text_size.id_for_label }}">
+                                Text size
+                            </label>
+
+                            {{ preference_form.text_size }}
+                        </div>
+
+                    </div>
+                </article>
+
+                {% if preference_form.errors %}
+                    <div class="alert alert-danger">
+                        Please review the settings that you entered.
+
+                        {% for field in preference_form %}
+                            {% for error in field.errors %}
+                                <div>{{ field.label }}: {{ error }}</div>
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="account-form-actions">
+                    <button type="submit"
+                            class="account-primary-button">
+                        <i class="bi bi-check2"></i>
+                        Save Settings
+                    </button>
+                </div>
+            </form>
+
+            <article class="account-card security-card">
+                <div class="settings-card-heading">
+                    <span class="settings-heading-icon">
+                        <i class="bi bi-lock"></i>
+                    </span>
+
+                    <div>
+                        <h2>Security</h2>
+                        <p>Update your account password.</p>
+                    </div>
+                </div>
+
+                <details {% if password_form.errors %}open{% endif %}>
+                    <summary>
+                        <span>
+                            <i class="bi bi-key"></i>
+                            Change password
+                        </span>
+
+                        <i class="bi bi-chevron-down"></i>
+                    </summary>
+
+                    <form method="post"
+                          class="password-form">
+
+                        {% csrf_token %}
+
+                        <input type="hidden"
+                               name="action"
+                               value="change_password">
+
+                        <div class="account-field">
+                            <label for="{{ password_form.old_password.id_for_label }}">
+                                Current password
+                            </label>
+
+                            {{ password_form.old_password }}
+
+                            {% for error in password_form.old_password.errors %}
+                                <span class="field-error">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+
+                        <div class="account-field">
+                            <label for="{{ password_form.new_password1.id_for_label }}">
+                                New password
+                            </label>
+
+                            {{ password_form.new_password1 }}
+
+                            {% for error in password_form.new_password1.errors %}
+                                <span class="field-error">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+
+                        <div class="account-field">
+                            <label for="{{ password_form.new_password2.id_for_label }}">
+                                Confirm new password
+                            </label>
+
+                            {{ password_form.new_password2 }}
+
+                            {% for error in password_form.new_password2.errors %}
+                                <span class="field-error">{{ error }}</span>
+                            {% endfor %}
+                        </div>
+
+                        <button type="submit"
+                                class="account-secondary-button">
+                            Change Password
+                        </button>
+                    </form>
+                </details>
+            </article>
+
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'accounts/js/account-settings.js' %}"></script>
+{% endblock %}

@@ -26,4 +26,52 @@
         <a class="btn btn-primary" href="{% url 'supervisor:school_detail' school.school_id %}">Open School Overview</a>
     </div>
 </div>
+
+<div class="row g-4 mt-1">
+    <div class="col-lg-6">
+        <div class="sv-card h-100">
+            <h2 class="h6 fw-bold mb-3">Post School Announcement</h2>
+
+            <form method="post"
+                  action="{% url 'supervisor:school_announcement_create' %}">
+                {% csrf_token %}
+                {{ announcement_form.as_p }}
+
+                <button class="btn btn-primary" type="submit">
+                    <i class="bi bi-megaphone me-2"></i>
+                    Post Announcement
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="sv-card h-100">
+            <h2 class="h6 fw-bold mb-3">Recent School Announcements</h2>
+
+            {% for announcement in school_announcements %}
+                <article class="border-bottom pb-3 mb-3">
+                    <div class="d-flex justify-content-between gap-3">
+                        <strong>{{ announcement.title }}</strong>
+                        <span class="badge text-bg-light">
+                            {{ announcement.get_priority_display }}
+                        </span>
+                    </div>
+
+                    <p class="small text-muted mb-1 mt-2">
+                        {{ announcement.content|truncatechars:140 }}
+                    </p>
+
+                    <small class="text-muted">
+                        {{ announcement.created_at|date:"M d, Y g:i A" }}
+                    </small>
+                </article>
+            {% empty %}
+                <p class="text-muted mb-0">
+                    No school announcements have been posted.
+                </p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
 {% endblock %}

@@ -1,0 +1,361 @@
+{% load static %}
+
+<section
+    id="mobileModuleEditor"
+    class="mobile-module-editor"
+    data-pdf-url="{% if direct_pdf_submission or submission.status == 'submitted' or submission.status == 'graded' %}{% url 'classroom:submission_pdf' submission.pk %}{% else %}{% url 'classroom:module_pdf' module.pk %}{% endif %}"
+    data-library="{% static 'vendor/pdfjs/build/pdf.min.mjs' %}"
+    data-worker="{% static 'vendor/pdfjs/build/pdf.worker.min.mjs' %}"
+    data-assets="{% static 'vendor/pdfjs/' %}"
+    data-editable="{% if can_edit %}true{% else %}false{% endif %}"
+    data-draft-state-url="{% url 'classroom:module_mobile_draft' module.pk %}"
+    data-annotation-save-url="{% url 'classroom:module_mobile_annotations_save' module.pk %}"
+    data-extra-page-create-url="{% url 'classroom:module_extra_page_create' module.pk %}"
+    data-csrf-token="{{ csrf_token }}"
+>
+    <header class="mobile-editor-header">
+        <div>
+            <strong>{{ module.title }}</strong>
+
+            <small>
+                {% if can_edit %}
+                    Student answering workspace
+                {% else %}
+                    Read-only Module
+                {% endif %}
+            </small>
+        </div>
+
+        <span id="mobileDraftStatus" class="mobile-save-status">
+            {% if can_edit %}
+                Not saved yet
+            {% else %}
+                Read only
+            {% endif %}
+        </span>
+    </header>
+
+    <nav class="mobile-page-navigation" aria-label="PDF page navigation">
+        <button
+            id="mobilePdfPrevious"
+            type="button"
+            class="mobile-page-button"
+            aria-label="Previous page"
+        >
+            <i class="bi bi-chevron-left"></i>
+        </button>
+
+        <strong id="mobilePdfPageLabel">Loading Module...</strong>
+
+        <button
+            id="mobilePdfNext"
+            type="button"
+            class="mobile-page-button"
+            aria-label="Next page"
+        >
+            <i class="bi bi-chevron-right"></i>
+        </button>
+    </nav>
+
+    <div id="mobilePdfError" class="alert alert-danger m-3" hidden></div>
+
+    <div id="mobilePdfStage" class="mobile-pdf-stage">
+        <div id="mobilePdfPage" class="mobile-pdf-page">
+            <canvas id="mobilePdfCanvas"></canvas>
+
+            <canvas
+                id="mobileAnnotationCanvas"
+                aria-label="Student answer layer"
+            ></canvas>
+        </div>
+    </div>
+
+    {% if can_edit %}
+    <section class="mobile-action-sheet">
+        <div class="mobile-action-handle"></div>
+
+        <div class="mobile-action-heading">
+            <div>
+                <h2>What do you want to do?</h2>
+                <p>Select an action, then tap the Module.</p>
+            </div>
+
+            <button
+                id="mobileUndo"
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                disabled
+            >
+                <i class="bi bi-arrow-counterclockwise"></i>
+                Undo
+            </button>
+        </div>
+
+        <div class="mobile-tool-grid" role="toolbar" aria-label="Answer tools">
+            <button
+                type="button"
+                class="mobile-tool-button is-selected"
+                data-mobile-tool="type"
+                aria-pressed="true"
+            >
+                <i class="bi bi-fonts"></i>
+                <span>Type Answer</span>
+            </button>
+
+            <button
+                type="button"
+                class="mobile-tool-button"
+                data-mobile-tool="draw"
+                aria-pressed="false"
+            >
+                <i class="bi bi-pencil"></i>
+                <span>Draw</span>
+            </button>
+
+            <button
+                type="button"
+                class="mobile-tool-button"
+                data-mobile-tool="check"
+                aria-pressed="false"
+            >
+                <i class="bi bi-check-lg"></i>
+                <span>Check Mark</span>
+            </button>
+
+            <button
+                type="button"
+                class="mobile-tool-button"
+                data-mobile-tool="circle"
+                aria-pressed="false"
+            >
+                <i class="bi bi-circle"></i>
+                <span>Circle</span>
+            </button>
+
+            <button
+                type="button"
+                class="mobile-tool-button"
+                data-mobile-tool="highlight"
+                aria-pressed="false"
+            >
+                <i class="bi bi-highlighter"></i>
+                <span>Highlight</span>
+            </button>
+
+            <button
+                type="button"
+                class="mobile-tool-button"
+                data-mobile-tool="move"
+                aria-pressed="false"
+            >
+                <i class="bi bi-arrows-move"></i>
+                <span>Move</span>
+            </button>
+
+            <button
+                type="button"
+                class="mobile-tool-button"
+                data-mobile-tool="erase"
+                aria-pressed="false"
+            >
+                <i class="bi bi-eraser"></i>
+                <span>Erase</span>
+            </button>
+        </div>
+
+        <div id="mobileToolInstruction" class="mobile-tool-instruction">
+            <i class="bi bi-info-circle-fill"></i>
+
+            <span>
+                Tap the answer space in the Module.
+            </span>
+        </div>
+
+        <div class="mobile-output-actions">
+            <button
+                id="openAnswerPageDialog"
+                type="button"
+                class="btn btn-outline-primary"
+            >
+                <i class="bi bi-file-earmark-plus"></i>
+                Add Answer Page
+            </button>
+
+            <label class="btn btn-outline-primary mb-0">
+                <i class="bi bi-camera"></i>
+                Upload Output
+
+                <input
+                    id="mobileOutputUpload"
+                    type="file"
+                    accept="image/jpeg,image/png,application/pdf"
+                    capture="environment"
+                    hidden
+                >
+            </label>
+        </div>
+
+        <div id="mobileExtraPageList" class="mobile-extra-page-list"></div>
+
+        <div class="alert alert-info small mt-3 mb-3">
+            <i class="bi bi-cloud-check"></i>
+            Your answers, drawings, and added pages are saved automatically.
+        </div>
+
+        <div class="mobile-text-controls">
+            <label for="mobileTextSize">Text size</label>
+
+            <select id="mobileTextSize" class="form-select">
+                <option value="0.020">Small</option>
+                <option value="0.026" selected>Normal</option>
+                <option value="0.034">Large</option>
+                <option value="0.044">Extra large</option>
+            </select>
+
+            <small>
+                Choose Move and tap existing text before changing its size.
+            </small>
+        </div>
+
+    </section>
+
+    <dialog id="answerPageDialog" class="answer-page-dialog">
+        <form method="dialog">
+            <div class="answer-page-dialog-header">
+                <div>
+                    <h2>Add Answer Page</h2>
+                    <p>Choose what the additional page will be used for.</p>
+                </div>
+
+                <button
+                    type="submit"
+                    value="cancel"
+                    class="dialog-close-button"
+                    aria-label="Close"
+                >
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="answer-page-options">
+                <button
+                    type="button"
+                    class="answer-page-option"
+                    data-extra-page="essay"
+                >
+                    <i class="bi bi-file-text"></i>
+
+                    <span>
+                        <strong>Written Answer</strong>
+                        <small>For essays, reflections and explanations</small>
+                    </span>
+                </button>
+
+                <button
+                    type="button"
+                    class="answer-page-option"
+                    data-extra-page="drawing"
+                >
+                    <i class="bi bi-brush"></i>
+
+                    <span>
+                        <strong>Blank Drawing Page</strong>
+                        <small>For diagrams and simple digital drawings</small>
+                    </span>
+                </button>
+
+                <label class="answer-page-option">
+                    <i class="bi bi-camera"></i>
+
+                    <span>
+                        <strong>Upload Output</strong>
+                        <small>For handwritten or hands-on activities</small>
+                    </span>
+
+                    <input
+                        id="dialogOutputUpload"
+                        type="file"
+                        accept="image/jpeg,image/png,application/pdf"
+                        capture="environment"
+                        hidden
+                    >
+                </label>
+            </div>
+
+            <button
+                type="submit"
+                value="cancel"
+                class="btn btn-light w-100 mt-3"
+            >
+                Cancel
+            </button>
+        </form>
+    </dialog>
+
+    <dialog
+        id="extraPageEditorDialog"
+        class="extra-page-editor-dialog"
+    >
+        <section class="extra-page-editor-shell">
+            <header class="extra-page-editor-header">
+                <div>
+                    <h2 id="extraPageEditorTitle">Answer Page</h2>
+                    <small>Changes are saved automatically.</small>
+                </div>
+
+                <button
+                    id="closeExtraPageEditor"
+                    type="button"
+                    class="dialog-close-button"
+                    aria-label="Close answer-page editor"
+                >
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </header>
+
+            <textarea
+                id="extraPageEssayEditor"
+                class="extra-page-essay-editor"
+                maxlength="50000"
+                placeholder="Write your answer here..."
+                hidden
+            ></textarea>
+
+            <section
+                id="extraPageDrawingEditor"
+                class="extra-page-drawing-editor"
+                hidden
+            >
+                <div class="extra-page-drawing-toolbar">
+                    <span>
+                        <i class="bi bi-pencil"></i>
+                        Draw using your finger
+                    </span>
+
+                    <button
+                        id="clearExtraPageDrawing"
+                        type="button"
+                        class="btn btn-sm btn-outline-danger"
+                    >
+                        <i class="bi bi-trash"></i>
+                        Clear
+                    </button>
+                </div>
+
+                <canvas
+                    id="extraPageDrawingCanvas"
+                    aria-label="Blank drawing page"
+                ></canvas>
+            </section>
+        </section>
+    </dialog>
+    {% else %}
+    <div class="mobile-read-only-message">
+        <i class="bi bi-lock"></i>
+
+        <span>
+            This Module is read only.
+        </span>
+    </div>
+    {% endif %}
+</section>

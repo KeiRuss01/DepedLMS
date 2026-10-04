@@ -114,6 +114,14 @@ class User(AbstractBaseUser, PermissionsMixin):
     # NOTE: `password` field (max_length=128) is provided by AbstractBaseUser.
     role = models.CharField(max_length=20, choices=Role.choices)
     phone_number = models.CharField(max_length=11, blank=True, null=True)
+    profile_picture = models.ImageField(
+        upload_to="profile_pictures/",
+        blank=True,
+        null=True,
+        validators=[
+            FileExtensionValidator(["jpg", "jpeg", "png", "webp"])
+        ],
+    )
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.ACTIVE
     )
@@ -272,6 +280,11 @@ class Teacher(models.Model):
     lastname = models.CharField(max_length=100)
     suffix = models.CharField(max_length=20, blank=True, null=True)
     specialization = models.CharField(max_length=100, blank=True, null=True)
+    designation = models.CharField(
+        max_length=100,
+        blank=True,
+        default="Teacher",
+    )
 
     class Meta:
         db_table = "teacher"
@@ -469,3 +482,138 @@ class Supervisor(models.Model):
 
     def __str__(self):
         return f"{self.firstname} {self.lastname}"
+
+# ---------------------------------------------------------------------------
+# User interface and notification preferences
+# ---------------------------------------------------------------------------
+class UserPreference(models.Model):
+    class Theme(models.TextChoices):
+        LIGHT = "light", "Light"
+        DARK = "dark", "Dark"
+
+    class TextSize(models.TextChoices):
+        SMALL = "small", "Small"
+        DEFAULT = "default", "Default"
+        LARGE = "large", "Large"
+    
+    class DefaultTerm(models.TextChoices):
+        FIRST = "1", "Term 1"
+        SECOND = "2", "Term 2"
+        THIRD = "3", "Term 3"
+
+    class DefaultGradingComponent(models.TextChoices):
+        WRITTEN_WORK = "written_work", "Written Works"
+        PERFORMANCE_TASK = "performance_task", "Performance Tasks"
+        ASSESSMENT = "assessment", "Quarterly Assessment"
+
+    preference_id = models.AutoField(primary_key=True)
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="preferences",
+        db_column="user_id",
+    )
+
+    theme = models.CharField(
+        max_length=10,
+        choices=Theme.choices,
+        default=Theme.LIGHT,
+    )
+
+    text_size = models.CharField(
+        max_length=10,
+        choices=TextSize.choices,
+        default=TextSize.DEFAULT,
+    )
+
+    # Optional device/interface preferences
+    sound_enabled = models.BooleanField(default=True)
+    vibration_enabled = models.BooleanField(default=True)
+
+    # Optional Teacher in-app notifications
+    new_submission_alerts = models.BooleanField(default=True)
+    pending_join_request_alerts = models.BooleanField(default=True)
+    deadline_reminder_alerts = models.BooleanField(default=True)
+
+    default_term = models.CharField(
+        max_length=1,
+        choices=DefaultTerm.choices,
+        default=DefaultTerm.FIRST,
+    )
+
+    default_grading_component = models.CharField(
+        max_length=30,
+        choices=DefaultGradingComponent.choices,
+        default=DefaultGradingComponent.WRITTEN_WORK,
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "user_preference"
+
+    def __str__(self):
+        return f"Preferences of {self.user.email}"
+
+# ---------------------------------------------------------------------------
+# Notifications displayed through the notification bell
+# ---------------------------------------------------------------------------
+class Notification(models.Model):
+    class Type(models.TextChoices):
+        MODULE = "module", "New Module"
+        DEADLINE = "deadline", "Deadline Reminder"
+        CLASS_ANNOUNCEMENT = (
+            "class_announcement",
+            "Class Announcement",
+        )
+        SCHOOL_ANNOUNCEMENT = (
+            "school_announcement",
+            "School Announcement",
+        )
+        SUBMISSION = "submission", "New Submission"
+        JOIN_REQUEST = "join_request", "Join Request"
+        GENERAL = "general", "General"
+
+    notification_id = models.AutoField(primary_key=True)
+
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        db_column="recipient_id",
+    )
+
+    notification_type = models.CharField(
+        max_length=30,
+        choices=Type.choices,
+        default=Type.GENERAL,
+    )
+
+    title = models.CharField(max_length=150)
+    message = models.TextField()
+
+    # Internal page opened when the notification is selected.
+    # Example: /classroom/modules/12/
+    target_url = models.CharField(
+        max_length=500,
+        blank=True,
+    )
+
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "notification"
+        ordering = ["-created_at"]
+
+        indexes = [
+            models.Index(
+                fields=["recipient", "is_read", "created_at"],
+                name="notification_lookup_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.title} — {self.recipient.email}"

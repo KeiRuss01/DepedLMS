@@ -145,7 +145,7 @@ Contains the role-based Teacher, Student, and Parent classroom experience:
 - Joins a Class using its class code.
 - Waits for Teacher approval after requesting to join.
 - Accepts or rejects Teacher invitations.
-- Reads Modules and completes answer sections inside the LMS.
+- Reads and answers directly on a private Module PDF inside the LMS.
 - Approves or rejects Parent connection requests.
 - Sees only their own recorded activity and Module scores.
 - Does not see the Teacher's complete class record.
@@ -210,13 +210,13 @@ The Module feature is the current core of the study.
 
 One uploaded DepEd Module is one complete worksheet and one Written Work gradebook item.
 
-The Teacher does not recreate or edit the whole PDF. The unchanged Module remains the reading/reference material. The Teacher adds only the answerable sections that actually exist in that Module.
+The Teacher does not recreate the worksheet or manually encode its questions. The Teacher uploads the DepEd Module and deadline, reviews the PDF, sets its total points, and publishes it. Students answer through the system's self-hosted PDF.js editor.
 
 ### Deadline rule
 
 - One Module has one deadline.
-- Every answer section inside that Module follows the Module deadline.
-- Individual answer-section deadlines are intentionally not used.
+- The entire answered PDF follows that Module deadline.
+- Individual question or page deadlines are intentionally not used.
 
 ### Term rule
 
@@ -224,64 +224,46 @@ The Teacher does not recreate or edit the whole PDF. The unchanged Module remain
 - The term belongs to the Module and gradebook record, not to Class creation.
 - The system currently has three terms.
 
-### Module answer sections
+### Direct PDF answer method
 
-A Module may contain zero, one, or many answer sections. Section names are not forced to be "Activity 1" or "Activity 2." The Teacher uses the heading found in the PDF, for example:
-
-- What I Know
-- What's In
-- Assessment
-- Additional Activities
-- Reflection
-- Performance Task
-
-Not every Module contains every section.
-
-Available answer methods:
-
-1. Structured answer sheet
-   - Multiple choice
-   - True or false
-   - Identification
-   - Short answer
-   - Long answer
-2. Written workspace
-3. File or photo submission
-4. No answer required
-
-Objective questions may be automatically scored when a correct answer is supplied. Essays, long answers, and uploaded work are checked manually by the Teacher. The Teacher defines the total points for manually graded responses.
+- On ordinary or scanned PDFs, Students can place free text over answer spaces.
+- Students can control text size and move typed answers or markings.
+- Students can draw, add check marks, circle, highlight, erase, and undo directly on the page.
+- Annotation coordinates and the current page are saved automatically as a private Django draft.
+- Students can add essay pages, drawing pages, and uploaded JPG, PNG, or PDF outputs.
+- On submission, Django flattens the annotations over the original Module and appends all extra pages and uploads into one final PDF.
+- The Teacher's original PDF is never overwritten.
+- A Student cannot access another Student's answered PDF.
+- Teacher access to a Student PDF begins only after submission; drafts remain private.
+- Legacy answer-section models remain temporarily for compatibility with existing data, but they are no longer the primary interface.
 
 ### Module score rule
 
-- Answer-section maximum scores sum into the Module's highest possible score.
-- A Student's answer-section scores sum into one Module score.
-- Answer sections are not separate gradebook columns.
+- The Teacher reviews the uploaded PDF first, then sets one maximum score for the complete Module before publishing.
+- The Teacher reviews the answered PDF and enters one Module score and feedback.
 - A Module is always one Written Work gradebook column.
 
 ### Teacher Module experience
 
 - Teacher uploads a PDF.
 - A student-safe PDF can exclude Teacher-only pages such as an answer key.
-- Teacher sees the PDF on the left and the answer-section editor on the right.
-- Both panels stay within the screen; the editor scrolls internally.
-- Text fields expand as needed instead of reserving excessive space.
+- Teacher sets the Module title, instructions, term, week, and deadline during upload, then reviews the PDF and sets the total score before publishing.
 - Published Modules remain editable.
-- Teachers can add, edit, or remove answer sections after publication.
+- Teacher reviews the Student's completed PDF beside one grading form.
 
 ### Student Module experience
 
-- Student reads the Module inside the LMS PDF reader.
-- Student completes each required answer section.
-- Work can be saved as a draft.
+- Student opens the original worksheet inside the self-hosted PDF.js editor.
+- Student types or draws directly over the answer spaces.
+- Django automatically saves the Student's annotation and extra-page draft.
 - The complete Module is submitted once.
-- A submitted Module can be automatically marked graded when all required responses have scores.
-- Otherwise the Teacher grades the manual responses.
+- Submission generates and stores one combined PDF for Teacher review.
+- Submission locks further editing.
+- The Teacher manually reviews and grades the complete worksheet.
 
 ### PDF scope decision
 
-Automatic PDF question scanning and full PDF editing were removed from the current scope. They are future enhancements because reliable extraction of arbitrary DepEd Module questions is complex and inconsistent across scanned and text PDFs.
-
-"Answer directly on the PDF" is also a future enhancement.
+Automatic question extraction and answer-key recognition remain outside the current scope because arbitrary DepEd Modules vary between scanned and text PDFs. Direct answering now uses the locally hosted PDF.js library and does not depend on Adobe credentials or Adobe's viewer service.
 
 ## 9. Module-related models
 
@@ -291,6 +273,7 @@ Current important models in `classroom/models.py`:
 - `ModuleAnswerSection`
 - `SectionQuestion`
 - `ModuleSubmission`
+- `SubmissionExtraPage`
 - `SectionResponse`
 - `SectionAnswer`
 - `SubmissionAttachment`
@@ -524,8 +507,8 @@ Future enhancements intentionally deferred:
 
 - Automatic question extraction from arbitrary PDFs
 - OCR for scanned Modules
-- Editing the PDF itself inside the browser
-- Typing, drawing, circling, or placing marks directly over a PDF
+- Automatic checking of answers written on the PDF
+- Full offline caching and later synchronization of PDF drafts
 
 ## 16. Suggested next development order
 
@@ -592,8 +575,8 @@ Estimated readiness for final production/deployment: lower, because security har
 - Explain database and view changes so the project owners can learn the flow.
 - Preserve the three-term decision unless the study requirements change.
 - Preserve the rule that one Module equals one complete worksheet and one Written Work grade item.
-- Do not turn every answer section into a separate gradebook column.
-- Preserve the single Module deadline for all its answer sections.
+- Keep one complete Module as one gradebook column.
+- Preserve the single deadline and single total score for the complete Module.
 - Keep published Modules editable unless a new locking policy is intentionally introduced.
 - Do not show the full class gradebook to Students.
 - Do not expose a Quarterly Grade before the Teacher releases it.
@@ -602,7 +585,8 @@ Estimated readiness for final production/deployment: lower, because security har
 - One Class belongs to one Teacher.
 - A Parent connection is currently approved by the Student.
 - Do not reintroduce automatic PDF scanning as a current feature without explicit approval.
-- Do not delete legacy Module models without a careful data migration.
+- Preserve private per-Student answered PDFs and never overwrite the Teacher original.
+- Do not delete legacy answer-section models without a careful data migration.
 - Inspect existing files and migrations before writing replacement code.
 - Preserve unrelated local changes in the working tree.
 - Run `python manage.py check` and the relevant tests after implementation.

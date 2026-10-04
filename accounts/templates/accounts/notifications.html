@@ -1,0 +1,106 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block title %}Notifications | District 1 Classroom{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet"
+      href="{% static 'accounts/css/account-pages.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="notifications-page">
+
+    <header class="notifications-page-header">
+        <div>
+            <h1>Notifications</h1>
+            <p>
+                View your latest classroom and school updates.
+            </p>
+        </div>
+
+        {% if unread_notification_count %}
+            <form method="post"
+                  action="{% url 'accounts:mark_all_notifications_read' %}">
+                {% csrf_token %}
+
+                <button type="submit"
+                        class="account-secondary-button">
+                    <i class="bi bi-check2-all"></i>
+                    Mark all as read
+                </button>
+            </form>
+        {% endif %}
+    </header>
+
+    <div class="notifications-list">
+
+        {% for notification in notifications %}
+
+            <form method="post"
+                  action="{% url 'accounts:open_notification' notification.notification_id %}">
+
+                {% csrf_token %}
+
+                <button type="submit"
+                        class="notification-card
+                               {% if not notification.is_read %}unread{% endif %}">
+
+                    <span class="notification-type-icon">
+                        {% if notification.notification_type == "module" %}
+                            <i class="bi bi-journal-text"></i>
+
+                        {% elif notification.notification_type == "deadline" %}
+                            <i class="bi bi-calendar-event"></i>
+
+                        {% elif notification.notification_type == "submission" %}
+                            <i class="bi bi-file-earmark-check"></i>
+
+                        {% elif notification.notification_type == "join_request" %}
+                            <i class="bi bi-person-plus"></i>
+
+                        {% else %}
+                            <i class="bi bi-megaphone"></i>
+                        {% endif %}
+                    </span>
+
+                    <span class="notification-card-content">
+                        <span class="notification-card-title">
+                            <strong>{{ notification.title }}</strong>
+
+                            {% if not notification.is_read %}
+                                <span>New</span>
+                            {% endif %}
+                        </span>
+
+                        <span class="notification-message">
+                            {{ notification.message }}
+                        </span>
+
+                        <small>
+                            {{ notification.created_at|date:"M d, Y g:i A" }}
+                        </small>
+                    </span>
+
+                    <i class="bi bi-chevron-right"></i>
+                </button>
+            </form>
+
+        {% empty %}
+
+            <div class="notification-page-empty">
+                <i class="bi bi-bell"></i>
+
+                <h2>No notifications yet</h2>
+
+                <p>
+                    New modules, reminders, and announcements
+                    will appear here.
+                </p>
+            </div>
+
+        {% endfor %}
+
+    </div>
+</section>
+{% endblock %}

@@ -86,6 +86,36 @@
     white-space: nowrap;
 }
 
+.adobe-pdf-host {
+    height: 78vh;
+    min-height: 620px;
+    background: #eef2f7;
+}
+
+.direct-pdf-feature {
+    display: flex;
+    gap: 0.85rem;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid #e8edf3;
+}
+
+.direct-pdf-feature:last-child { border-bottom: 0; }
+.direct-pdf-feature > i { color: #0d6efd; font-size: 1.3rem; }
+.direct-pdf-feature span { display: flex; flex-direction: column; }
+.direct-pdf-feature small { color: #6c757d; margin-top: 0.2rem; }
+
+.module-score-badge {
+    align-self: flex-start;
+    padding: 0.65rem 1rem;
+    border-radius: 0.75rem;
+    background: #e7f6ec;
+    color: #146c43;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.module-grade-card { top: 88px; }
+
 .module-live .card-body {
     overflow-wrap: anywhere;
 }
@@ -165,5 +195,10 @@
 @media (max-width: 575.98px) {
     .module-live .card-body {
         padding: 1rem;
+    }
+
+    .adobe-pdf-host {
+        height: 72vh;
+        min-height: 520px;
     }
 }

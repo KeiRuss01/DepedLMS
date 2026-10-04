@@ -1,0 +1,235 @@
+{% extends "supervisor/master2.html" %}
+{% load static %}
+
+{% block title %}School Calendar{% endblock %}
+{% block nav_school_calendar %}active{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'supervisor/css/calendar.css' %}?v=2"
+>
+{% endblock %}
+
+{% block content %}
+<section class="calendar-page">
+    <header class="calendar-page-header">
+        <div>
+            <p class="calendar-eyebrow">
+                {{ school.school_name }}
+            </p>
+
+            <h1>School Calendar</h1>
+
+            <p>
+                View official district dates and manage
+                events for your assigned school.
+            </p>
+        </div>
+    </header>
+
+    <div class="calendar-information">
+        <i class="bi bi-lock-fill"></i>
+
+        <span>
+            DepEd and district events are locked.
+            You may add events for
+            {{ school.school_name }}.
+        </span>
+    </div>
+
+    <div class="calendar-page-layout">
+        <div class="calendar-main-column">
+            {% include "supervisor/_calendar_month.html" %}
+
+            <section class="calendar-list-card">
+                <div class="calendar-card-heading">
+                    <div>
+                        <h2>Calendar Events</h2>
+                        <p>
+                            Official dates and school-created events.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="calendar-event-list">
+                    {% for event in district_events %}
+                        <article class="calendar-list-item">
+                            <div class="calendar-event-icon official">
+                                <i class="bi bi-lock-fill"></i>
+                            </div>
+
+                            <div class="calendar-list-details">
+                                <div class="calendar-list-title">
+                                    <strong>{{ event.title }}</strong>
+
+                                    <span class="calendar-level-badge">
+                                        District official
+                                    </span>
+                                </div>
+
+                                <p>
+                                    {{ event.start_at|date:"M d, Y g:i A" }}
+
+                                    {% if event.end_at %}
+                                        –
+                                        {{ event.end_at|date:"M d, Y g:i A" }}
+                                    {% endif %}
+                                </p>
+
+                                {% if event.source %}
+                                    <small>{{ event.source }}</small>
+                                {% endif %}
+                            </div>
+                        </article>
+                    {% endfor %}
+
+                    {% for event in school_events %}
+                        <article class="calendar-list-item">
+                            <div class="calendar-event-icon school">
+                                <i class="bi bi-building"></i>
+                            </div>
+
+                            <div class="calendar-list-details">
+                                <div class="calendar-list-title">
+                                    <strong>{{ event.title }}</strong>
+
+                                    <span class="calendar-school-badge">
+                                        {{ event.get_status_display }}
+                                    </span>
+                                </div>
+
+                                <p>
+                                    {{ event.start_at|date:"M d, Y g:i A" }}
+
+                                    {% if event.end_at %}
+                                        –
+                                        {{ event.end_at|date:"M d, Y g:i A" }}
+                                    {% endif %}
+                                </p>
+
+                                <small>
+                                    {{ event.get_event_type_display }}
+                                </small>
+                            </div>
+
+                            {% if event.status != "cancelled" %}
+                                <div class="calendar-item-actions">
+                                    <a class="calendar-edit-button"
+                                       href="?edit_event={{ event.pk }}"
+                                       aria-label="Edit event">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+
+                                    <form method="post"
+                                          action="{% url 'supervisor:principal_calendar_event_cancel' event.pk %}"
+                                          onsubmit="return confirm('Cancel this school event? Affected users will be notified.');">
+                                        {% csrf_token %}
+                                        <button class="calendar-delete-button" type="submit" aria-label="Cancel event">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            {% endif %}
+                        </article>
+                    {% empty %}
+                        {% if not district_events %}
+                            <div class="calendar-empty">
+                                <i class="bi bi-calendar2"></i>
+                                <strong>No calendar events yet</strong>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+
+        <aside class="calendar-side-column">
+            <section class="calendar-form-card">
+                <h2>{% if editing_event %}Edit School Event{% else %}Add School Event{% endif %}</h2>
+
+                <form
+                    method="post"
+                    enctype="multipart/form-data"
+                >
+                    {% csrf_token %}
+
+                    {% if editing_event %}
+                        <input type="hidden" name="event_id" value="{{ editing_event.pk }}">
+                    {% endif %}
+
+                    {% for field in event_form %}
+                        <div class="calendar-form-field">
+                            {% if field.field.widget.input_type == "checkbox" %}
+                                <div class="form-check">
+                                    {{ field }}
+                                    <label
+                                        class="form-check-label"
+                                        for="{{ field.id_for_label }}"
+                                    >
+                                        {{ field.label }}
+                                    </label>
+                                </div>
+                            {% else %}
+                                <label for="{{ field.id_for_label }}">
+                                    {{ field.label }}
+                                </label>
+                                {{ field }}
+                            {% endif %}
+
+                            {% for error in field.errors %}
+                                <div class="calendar-field-error">
+                                    {{ error }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+
+                    <button
+                        class="btn btn-primary w-100"
+                        type="submit"
+                    >
+                        <i class="bi bi-plus-lg me-1"></i>
+                        {% if editing_event %}Update School Event{% else %}Add to School Calendar{% endif %}
+                    </button>
+
+                    {% if editing_event %}
+                        <a class="btn btn-outline-secondary w-100 mt-2" href="{% url 'supervisor:principal_calendar' %}">
+                            Cancel editing
+                        </a>
+                    {% endif %}
+                </form>
+            </section>
+
+            <section class="calendar-form-card">
+                <h2>Academic Terms</h2>
+
+                <p class="calendar-muted">
+                    These dates are configured by the
+                    District Supervisor.
+                </p>
+
+                <div class="academic-term-list">
+                    {% for academic_term in academic_terms %}
+                        <div>
+                            <strong>
+                                {{ academic_term.get_term_display }}
+                            </strong>
+
+                            <small>
+                                {{ academic_term.start_date|date:"M d, Y" }}
+                                –
+                                {{ academic_term.end_date|date:"M d, Y" }}
+                            </small>
+                        </div>
+                    {% empty %}
+                        <p class="calendar-muted">
+                            Academic terms have not been configured.
+                        </p>
+                    {% endfor %}
+                </div>
+            </section>
+        </aside>
+    </div>
+</section>
+{% endblock %}

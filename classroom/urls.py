@@ -19,6 +19,24 @@ urlpatterns = [
     ),
 
     path(
+        "calendar/",
+        views.calendar_view,
+        name="calendar",
+    ),
+
+    path(
+        "tasks/",
+        views.tasks_view,
+        name="tasks",
+    ),
+
+    path(
+        "calendar/events/<int:event_id>/cancel/",
+        views.class_calendar_event_cancel_view,
+        name="calendar_event_cancel",
+    ),
+
+    path(
         "classes/create/",
         views.create_class_view,
         name="create_class",
@@ -151,6 +169,42 @@ urlpatterns = [
     ),
 
     path(
+        "modules/<int:module_id>/mobile-draft/",
+        views.module_mobile_draft_view,
+        name="module_mobile_draft",
+    ),
+
+    path(
+        "modules/<int:module_id>/mobile-annotations/save/",
+        views.module_mobile_annotations_save_view,
+        name="module_mobile_annotations_save",
+    ),
+
+    path(
+        "modules/<int:module_id>/extra-pages/add/",
+        views.module_extra_page_create_view,
+        name="module_extra_page_create",
+    ),
+
+    path(
+        "module-extra-pages/<int:extra_page_id>/update/",
+        views.module_extra_page_update_view,
+        name="module_extra_page_update",
+    ),
+
+    path(
+        "module-extra-pages/<int:extra_page_id>/delete/",
+        views.module_extra_page_delete_view,
+        name="module_extra_page_delete",
+    ),
+
+    path(
+        "module-extra-pages/<int:extra_page_id>/file/",
+        views.module_extra_page_file_view,
+        name="module_extra_page_file",
+    ),
+
+    path(
         "module-sections/<int:section_id>/work/",
         views.module_section_work_view,
         name="module_section_work",
@@ -178,6 +232,12 @@ urlpatterns = [
         "module-submissions/<int:submission_id>/file/",
         views.module_attachment_view,
         name="module_attachment",
+    ),
+
+    path(
+        "module-submissions/<int:submission_id>/answered-pdf/",
+        views.submission_pdf_view,
+        name="submission_pdf",
     ),
 
     path(
