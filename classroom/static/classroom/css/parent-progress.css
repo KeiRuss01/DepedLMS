@@ -1,0 +1,412 @@
+.progress-heading {
+    align-items: flex-start;
+}
+
+.read-only-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 14px;
+    border-radius: 20px;
+    background: #eef2f7;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.learner-selection {
+    display: grid;
+    grid-template-columns: 100px minmax(240px, 600px);
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 22px;
+}
+
+.learner-selection label {
+    margin: 0;
+    font-weight: 700;
+}
+
+.progress-tabs {
+    display: flex;
+    margin-bottom: 22px;
+    border-bottom: 1px solid #dce3ec;
+}
+
+.progress-tabs a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 150px;
+    padding: 13px 20px;
+    color: #475569;
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+}
+
+.progress-tabs a.active {
+    color: #0d6efd;
+    border-bottom-color: #0d6efd;
+}
+
+.progress-grade-table {
+    margin: 20px 0 0;
+}
+
+.progress-grade-table th {
+    background: #f5f7fa;
+    color: #1e293b;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.progress-grade-table th,
+.progress-grade-table td {
+    padding: 14px;
+    vertical-align: middle;
+}
+
+.progress-grade-table th:not(:first-child),
+.progress-grade-table td:not(:first-child) {
+    text-align: center;
+}
+
+.progress-grade-table td:first-child small {
+    display: block;
+    margin-top: 3px;
+    color: #64748b;
+}
+
+.not-released {
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+.attendance-controls {
+    margin-bottom: 22px;
+}
+
+.attendance-controls form {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) 220px;
+    gap: 16px;
+}
+
+.attendance-controls label {
+    display: block;
+    margin-bottom: 7px;
+    font-weight: 700;
+}
+
+.attendance-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+.attendance-summary-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
+    background: #ffffff;
+    border: 1px solid #dce3ec;
+    border-radius: 14px;
+}
+
+.attendance-summary-card small {
+    display: block;
+    color: #64748b;
+}
+
+.attendance-summary-card strong {
+    display: block;
+    margin-top: 2px;
+    color: #102a56;
+    font-size: 24px;
+}
+
+.attendance-icon {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border-radius: 12px;
+    background: #f1f5f9;
+    font-size: 21px;
+}
+
+.attendance-icon.present {
+    color: #0d6efd;
+}
+
+.attendance-icon.absent {
+    color: #dc2626;
+}
+
+.attendance-icon.late {
+    color: #d97706;
+}
+
+.attendance-icon.holiday,
+.attendance-icon.no-class {
+    color: #64748b;
+}
+
+.attendance-content-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 20px;
+}
+
+.attendance-content-grid aside {
+    display: grid;
+    align-content: start;
+    gap: 20px;
+}
+
+.attendance-month-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+}
+
+.attendance-month-heading h3 {
+    margin: 0;
+    color: #102a56;
+    font-size: 20px;
+}
+
+.attendance-calendar-wrap {
+    overflow-x: auto;
+}
+
+.attendance-weekdays,
+.attendance-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(90px, 1fr));
+    min-width: 700px;
+}
+
+.attendance-weekdays span {
+    padding: 10px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.attendance-day {
+    min-height: 105px;
+    padding: 12px;
+    border-top: 1px solid #dce3ec;
+    border-left: 1px solid #dce3ec;
+    background: #ffffff;
+}
+
+.attendance-day:nth-child(7n) {
+    border-right: 1px solid #dce3ec;
+}
+
+.attendance-day strong {
+    color: #102a56;
+    font-size: 13px;
+}
+
+.attendance-day span {
+    display: block;
+    margin-top: 13px;
+    font-size: 11px;
+}
+
+.attendance-day.outside-month {
+    background: #f8fafc;
+}
+
+.attendance-day.outside-month strong {
+    color: #a8b2c1;
+}
+
+.attendance-day.status-weekend {
+    background: #fff1f2;
+}
+
+.attendance-day.status-weekend strong,
+.attendance-day.status-absent {
+    color: #dc2626;
+}
+
+.attendance-day.status-present span {
+    color: #0d6efd;
+}
+
+.attendance-day.status-absent {
+    background: #fff1f2;
+}
+
+.attendance-day.status-late {
+    background: #fffbeb;
+}
+
+.attendance-day.status-late span {
+    color: #d97706;
+}
+
+.attendance-day.status-holiday,
+.attendance-day.status-no-class {
+    background: #f1f5f9;
+}
+
+.attendance-day.status-unrecorded span {
+    color: #94a3b8;
+}
+
+.attendance-detail-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.attendance-detail-row small {
+    display: block;
+    margin-top: 4px;
+    color: #64748b;
+}
+
+.detail-status {
+    align-self: flex-start;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.detail-status.status-absent {
+    color: #dc2626;
+}
+
+.detail-status.status-late {
+    color: #d97706;
+}
+
+.detail-status.status-excused {
+    color: #0d6efd;
+}
+
+.detail-status.status-holiday,
+.detail-status.status-no-class {
+    color: #64748b;
+}
+
+.attendance-legend ul {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.attendance-legend li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #475569;
+    font-size: 13px;
+}
+
+.legend-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #94a3b8;
+}
+
+.legend-dot.present {
+    background: #0d6efd;
+}
+
+.legend-dot.absent {
+    background: #dc2626;
+}
+
+.legend-dot.late {
+    background: #f59e0b;
+}
+
+.legend-dot.holiday,
+.legend-dot.no-class {
+    background: #64748b;
+}
+
+.legend-dot.unrecorded {
+    background: #cbd5e1;
+}
+
+@media (max-width: 1199.98px) {
+    .attendance-summary-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .attendance-content-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .attendance-controls form {
+        grid-template-columns: 1fr;
+    }
+
+    .attendance-summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .attendance-day {
+        min-height: 90px;
+    }
+}
+
+@media (max-width: 420px) {
+    .attendance-summary-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media print {
+    .classroom-header,
+    .mobile-tab-navigation,
+    .progress-tabs,
+    .learner-selection,
+    .read-only-label,
+    .card-heading button {
+        display: none !important;
+    }
+
+    .classroom-main {
+        padding: 0;
+        background: #ffffff;
+    }
+
+    .classroom-card {
+        border: 0;
+        box-shadow: none;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .learner-selection {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .progress-tabs a {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .progress-grade-table {
+        min-width: 720px;
+    }
+}

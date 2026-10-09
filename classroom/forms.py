@@ -2,7 +2,13 @@ from django import forms
 
 from accounts.models import ParentStudentLink
 
-from .models import Announcement, CalendarEvent, Classroom
+from .models import (
+    Announcement,
+    CalendarEvent,
+    ClassPost,
+    Classroom,
+    Comment,
+)
 
 
 class AnnouncementForm(forms.ModelForm):
@@ -22,6 +28,63 @@ class AnnouncementForm(forms.ModelForm):
             "priority": forms.Select(attrs={"class": "form-select"}),
         }
 
+
+class ClassPostForm(forms.ModelForm):
+    class Meta:
+        model = ClassPost
+        fields = ["title", "content"]
+        widgets = {
+            "title": forms.TextInput(attrs={
+                "class": "form-control",
+                "maxlength": 200,
+                "placeholder": "Post title",
+            }),
+            "content": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 5,
+                "maxlength": 3000,
+                "placeholder": "Share an update with your class...",
+            }),
+        }
+
+    def clean_content(self):
+        content = self.cleaned_data["content"].strip()
+
+        if not content:
+            raise forms.ValidationError("Write something before posting.")
+
+        return content
+
+class CommentForm(forms.ModelForm):
+    class Meta:
+        model = Comment
+        fields = ["content", "priority"]
+
+        widgets = {
+            "content": forms.Textarea(
+                attrs={
+                    "class": "comment-input",
+                    "rows": 2,
+                    "maxlength": 1000,
+                    "placeholder": "Write a comment...",
+                }
+            ),
+            "priority": forms.Select(
+                attrs={
+                    "class": "comment-priority",
+                }
+            ),
+        }
+
+    def clean_content(self):
+        content = self.cleaned_data["content"].strip()
+
+        if not content:
+            raise forms.ValidationError(
+                "Write a comment before posting."
+            )
+
+        return content
 
 class ClassroomForm(forms.ModelForm):
     class Meta:

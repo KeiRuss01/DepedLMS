@@ -223,16 +223,23 @@
 
                     {% if is_teacher %}
 
-                    <button class="btn btn-primary"
-                            type="button"
-                            data-bs-toggle="modal"
-                            data-bs-target="#newAnnouncementModal">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-primary"
+                                type="button"
+                                data-bs-toggle="modal"
+                                data-bs-target="#newClassPostModal">
+                            <i class="bi bi-pencil-square me-2"></i>
+                            New Post
+                        </button>
 
-                        <i class="bi bi-plus-lg me-2"></i>
-
-                        New Announcement
-
-                    </button>
+                        <button class="btn btn-outline-primary"
+                                type="button"
+                                data-bs-toggle="modal"
+                                data-bs-target="#newAnnouncementModal">
+                            <i class="bi bi-megaphone me-2"></i>
+                            Announcement
+                        </button>
+                    </div>
 
                     {% endif %}
 
@@ -242,7 +249,7 @@
                 <div class="stream-feed">
                     {% for item in stream_items %}
                         {% if item.kind == "announcement" %}
-                        <article class="stream-post stream-feed-card priority-{{ item.announcement.priority }}">
+                        <article class="stream-post stream-feed-card priority-{{ item.announcement.priority }}"{% if item.post %} id="post-{{ item.post.pk }}"{% endif %}>
                             <div class="stream-post-heading">
                                 <span class="stream-post-icon announcement-color"><i class="bi bi-megaphone"></i></span>
                                 <div class="stream-post-author">
@@ -261,9 +268,10 @@
                                 {% endif %}
                             </div>
                             <div class="stream-post-body"><h3>{{ item.announcement.title }}</h3><p>{{ item.announcement.content|linebreaksbr }}</p></div>
+                            {% include "classroom/_stream_comments.html" with post=item.post %}
                         </article>
-                        {% else %}
-                        <article class="stream-post stream-feed-card module-stream-card">
+                        {% elif item.kind == "module" %}
+                        <article class="stream-post stream-feed-card module-stream-card"{% if item.post %} id="post-{{ item.post.pk }}"{% endif %}>
                             <div class="stream-post-heading">
                                 <span class="stream-post-icon activity-color"><i class="bi bi-journal-text"></i></span>
                                 <div><strong>New Module published</strong><small>{{ item.created_at|date:"M d, Y · g:i A" }}</small></div>
@@ -275,6 +283,60 @@
                                 <div class="stream-module-meta">{% if item.module.due_at %}<span><i class="bi bi-calendar-event"></i> Due {{ item.module.due_at|date:"M d, Y · g:i A" }}</span>{% endif %}<span><i class="bi bi-list-check"></i> {{ item.module.answer_sections.count }} answer section{{ item.module.answer_sections.count|pluralize }}</span></div>
                                 {% if is_teacher %}<a class="btn btn-sm btn-outline-primary" href="{% url 'classroom:module_manage' item.module.pk %}">Open Module</a>{% else %}<a class="btn btn-sm btn-primary" href="{% url 'classroom:module_work' item.module.pk %}">Open Module</a>{% endif %}
                             </div>
+                            {% include "classroom/_stream_comments.html" with post=item.post %}
+                        </article>
+                        {% elif item.kind == "post" %}
+                        <article class="stream-post stream-feed-card" id="post-{{ item.post.pk }}">
+                            <div class="stream-post-heading">
+                                <span class="stream-post-icon post-color">
+                                    <i class="bi bi-chat-square-text"></i>
+                                </span>
+
+                                <div class="stream-post-author">
+                                    <strong>{{ item.post.teacher.user.full_name }}</strong>
+                                    <small>
+                                        {{ item.post.created_at|date:"M d, Y · g:i A" }}
+                                        {% if item.post.updated_at|date:"U" != item.post.created_at|date:"U" %} · Edited{% endif %}
+                                    </small>
+                                </div>
+
+                                {% if is_teacher %}
+                                <div class="dropdown ms-auto">
+                                    <button class="btn btn-sm btn-light"
+                                            data-bs-toggle="dropdown"
+                                            aria-label="Class post actions">
+                                        <i class="bi bi-three-dots"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <button class="dropdown-item"
+                                                    type="button"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#editClassPost{{ item.post.pk }}">
+                                                <i class="bi bi-pencil me-2"></i>Edit
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <form method="post"
+                                                  action="{% url 'classroom:class_post_delete' item.post.pk %}">
+                                                {% csrf_token %}
+                                                <button class="dropdown-item text-danger"
+                                                        onclick="return confirm('Delete this class post?')">
+                                                    <i class="bi bi-trash me-2"></i>Delete
+                                                </button>
+                                            </form>
+                                        </li>
+                                    </ul>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="stream-post-body">
+                                <h3>{{ item.post.title }}</h3>
+                                <p>{{ item.post.content|linebreaksbr }}</p>
+                            </div>
+
+                            {% include "classroom/_stream_comments.html" with post=item.post %}
                         </article>
                         {% endif %}
                     {% empty %}
@@ -325,6 +387,27 @@
     </div>
 
     {% if is_teacher %}
+    <div class="modal fade" id="newClassPostModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="post" action="{% url 'classroom:class_post_create' classroom.pk %}">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title">New Class Post</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">{{ class_post_form.as_p }}</div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button class="btn btn-primary">
+                            <i class="bi bi-send me-2"></i>Post
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="newAnnouncementModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form method="post" action="{% url 'classroom:announcement_create' classroom.pk %}">
             {% csrf_token %}<div class="modal-header"><h5 class="modal-title">New Announcement</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -343,6 +426,36 @@
             </div>
             <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary">Save changes</button></div>
         </form></div></div>
+    </div>
+    {% endif %}{% endfor %}
+
+    {% for item in stream_items %}{% if item.kind == "post" %}
+    <div class="modal fade" id="editClassPost{{ item.post.pk }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="post" action="{% url 'classroom:class_post_edit' item.post.pk %}">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Class Post</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>
+                            <label class="form-label">Title</label>
+                            <input class="form-control" name="title" maxlength="200" value="{{ item.post.title }}" required>
+                        </p>
+                        <p>
+                            <label class="form-label">Message</label>
+                            <textarea class="form-control" name="content" rows="5" maxlength="3000" required>{{ item.post.content }}</textarea>
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button class="btn btn-primary">Save changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
     {% endif %}{% endfor %}
     {% endif %}

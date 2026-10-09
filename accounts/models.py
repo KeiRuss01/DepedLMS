@@ -563,16 +563,35 @@ class Notification(models.Model):
     class Type(models.TextChoices):
         MODULE = "module", "New Module"
         DEADLINE = "deadline", "Deadline Reminder"
+
         CLASS_ANNOUNCEMENT = (
             "class_announcement",
             "Class Announcement",
         )
+
         SCHOOL_ANNOUNCEMENT = (
             "school_announcement",
             "School Announcement",
         )
+
         SUBMISSION = "submission", "New Submission"
         JOIN_REQUEST = "join_request", "Join Request"
+
+        GRADE_RELEASED = (
+            "grade_released",
+            "Grade Released",
+        )
+
+        ATTENDANCE = (
+            "attendance",
+            "Attendance Alert",
+        )
+
+        FEEDBACK = (
+            "feedback",
+            "Teacher Feedback",
+        )
+
         GENERAL = "general", "General"
 
     notification_id = models.AutoField(primary_key=True)

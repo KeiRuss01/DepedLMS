@@ -102,6 +102,22 @@ html[data-theme="dark"] .account-secondary-button {
     background: #19273b;
 }
 
+html[data-theme="dark"] .stream-feed-card,
+html[data-theme="dark"] .stream-comment-form textarea,
+html[data-theme="dark"] .stream-comment-actions select {
+    background: #131f32;
+    border-color: #2b3950;
+    color: #e7eefc;
+}
+
+html[data-theme="dark"] .stream-comment-content {
+    background: #19273b;
+}
+
+html[data-theme="dark"] .stream-comment-content p {
+    color: #d3dceb;
+}
+
 html[data-text-size="small"] body.classroom-body {
     font-size: 14px;
 }

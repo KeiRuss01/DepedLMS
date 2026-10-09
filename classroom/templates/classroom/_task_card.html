@@ -67,6 +67,18 @@
                 </span>
             {% endif %}
         </div>
+        {% if task.submission.feedback %}
+            <div class="parent-task-feedback">
+                <strong>
+                    <i class="bi bi-chat-left-text"></i>
+                    Teacher Feedback
+                </strong>
+
+                <p>
+                    {{ task.submission.feedback|linebreaksbr }}
+                </p>
+            </div>
+        {% endif %}
     </div>
 
     {% if not read_only %}

@@ -1200,6 +1200,11 @@ body.classroom-body {
     color: var(--classroom-blue);
 }
 
+.post-color {
+    background: #eef2f7;
+    color: #526176;
+}
+
 .stream-post p {
     color: #475569;
     font-size: 13px;
@@ -1247,6 +1252,177 @@ body.classroom-body {
 .stream-content-label { display: inline-block; margin-bottom: 5px; color: var(--classroom-blue); font-size: 9px; font-weight: 800; letter-spacing: 1px; }
 .stream-module-meta { display: flex; flex-wrap: wrap; gap: 14px; margin: 10px 0 13px; color: var(--classroom-muted); font-size: 11px; }
 .stream-module-meta i { margin-right: 4px; color: var(--classroom-blue); }
+
+.stream-comments {
+    margin: 16px 0 0 56px;
+    padding-top: 14px;
+    border-top: 1px solid var(--classroom-border);
+}
+
+.stream-comments-heading {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 10px;
+    font-size: 12px;
+}
+
+.stream-comments-heading i {
+    color: var(--classroom-blue);
+}
+
+.stream-comments-heading span {
+    color: var(--classroom-muted);
+}
+
+.stream-comment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.stream-comment {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+}
+
+.stream-comment-avatar {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    flex: 0 0 30px;
+    border-radius: 50%;
+    background: var(--classroom-blue-light);
+    color: var(--classroom-blue);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.stream-comment-content {
+    min-width: 0;
+    flex: 1;
+    padding: 9px 11px;
+    border-radius: 9px;
+    background: #f7f9fc;
+}
+
+.stream-comment-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.stream-comment-meta strong {
+    font-size: 12px;
+}
+
+.stream-comment-meta small {
+    color: var(--classroom-muted);
+    font-size: 10px;
+}
+
+.stream-comment-content p {
+    margin: 4px 0 0;
+    color: #475569;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.comment-priority-badge {
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: #eef2f7;
+    color: #526176;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.comment-priority-badge.question {
+    background: var(--classroom-blue-light);
+    color: var(--classroom-blue);
+}
+
+.comment-priority-badge.important {
+    background: #fff4d6;
+    color: #9a6500;
+}
+
+.stream-comment-delete {
+    margin: 2px 0 0;
+}
+
+.stream-comment-delete button {
+    padding: 4px;
+    border: 0;
+    background: transparent;
+    color: var(--classroom-muted);
+    line-height: 1;
+}
+
+.stream-comment-delete button:hover {
+    color: var(--classroom-red);
+}
+
+.stream-comments-empty {
+    margin: 0;
+    color: var(--classroom-muted) !important;
+    font-size: 11px !important;
+}
+
+.stream-comment-form {
+    display: flex;
+    align-items: flex-end;
+    gap: 9px;
+    margin-top: 11px;
+}
+
+.stream-comment-form textarea {
+    min-height: 42px;
+    padding: 10px 12px;
+    flex: 1;
+    resize: vertical;
+    border: 1px solid var(--classroom-border);
+    border-radius: 9px;
+    background: #ffffff;
+    color: var(--classroom-navy);
+    font: inherit;
+    font-size: 12px;
+}
+
+.stream-comment-actions {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.stream-comment-actions select {
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid var(--classroom-border);
+    border-radius: 7px;
+    background: #ffffff;
+    color: var(--classroom-navy);
+    font-size: 11px;
+}
+
+@media (max-width: 575.98px) {
+    .stream-comments {
+        margin-left: 0;
+    }
+
+    .stream-comment-form {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .stream-comment-actions {
+        justify-content: space-between;
+    }
+}
 
 .upcoming-list { display: flex; flex-direction: column; }
 .upcoming-item { display: flex; align-items: center; gap: 11px; padding: 12px 0; border-bottom: 1px solid #eef1f5; color: var(--classroom-navy); text-decoration: none; }

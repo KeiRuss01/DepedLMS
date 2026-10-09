@@ -1,96 +1,278 @@
 {% extends "classroom/master.html" %}
 
-{% block title %}Parent Dashboard | District 1 Classroom{% endblock %}
+{% block title %}
+Parent Dashboard | District 1 Classroom
+{% endblock %}
 
 {% block content %}
 
 <section class="parent-child-bar">
     <div>
         <small>Linked learner</small>
-        <strong>
-            {% if linked_student %}
-                {{ linked_student }}
-            {% else %}
-                No linked learner
-            {% endif %}
-        </strong>
+
+        {% if linked_students %}
+            <form method="get">
+                <select
+                    name="learner"
+                    class="form-select"
+                    onchange="this.form.submit()"
+                >
+                    {% for link in linked_students %}
+                        <option
+                            value="{{ link.student_id }}"
+                            {% if linked_student.pk == link.student_id %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ link.student }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </form>
+        {% else %}
+            <strong>No linked learner</strong>
+        {% endif %}
     </div>
 
-    <a href="{% url 'classroom:parent_children' %}"
-       class="btn btn-light border">
-        <i class="bi bi-people me-2"></i>Manage Learners
-    </a>
+    <div class="d-flex flex-wrap gap-2">
+        {% if linked_student %}
+            <a
+                href="{% url 'classroom:parent_progress' %}?learner={{ linked_student.pk }}"
+                class="btn btn-primary"
+            >
+                <i class="bi bi-bar-chart me-2"></i>
+                Learner Progress
+            </a>
+        {% endif %}
+
+        <a
+            href="{% url 'accounts:notifications' %}"
+            class="btn btn-light border"
+        >
+            <i class="bi bi-bell me-2"></i>
+            Updates
+        </a>
+
+        <a
+            href="{% url 'classroom:parent_children' %}"
+            class="btn btn-light border"
+        >
+            <i class="bi bi-people me-2"></i>
+            Manage Learners
+        </a>
+    </div>
 </section>
 
 <section class="dashboard-heading">
     <div>
-        <h2>Hello, {{ request.user.full_name|default:"Parent" }}!</h2>
-        <p>Important learner updates will appear here.</p>
+        <h2>
+            Hello, {{ request.user.full_name|default:"Parent" }}!
+        </h2>
+
+        {% if linked_student %}
+            <p>
+                Here is an overview of
+                {{ linked_student.firstname }}'s progress this week.
+            </p>
+        {% else %}
+            <p>Important learner updates will appear here.</p>
+        {% endif %}
     </div>
 </section>
 
 {% if linked_student %}
+
 <div class="row g-4 mb-4">
+
+    <!-- This week -->
     <div class="col-lg-7">
         <section class="classroom-card h-100">
             <div class="card-heading">
                 <h3>This Week</h3>
+
+                <a href="{% url 'classroom:calendar' %}?learner={{ linked_student.pk }}">
+                    View Calendar
+                </a>
             </div>
 
-            <div class="dashboard-empty-card">
-                <i class="bi bi-calendar-week"></i>
-                <h4>No weekly summary</h4>
-                <p>The learner's weekly summary will appear here.</p>
-            </div>
+            {% if weekly_tasks %}
+                <div class="list-group list-group-flush">
+                    {% for task in weekly_tasks %}
+                        <a
+                            href="{% url 'classroom:tasks' %}?learner={{ linked_student.pk }}"
+                            class="list-group-item list-group-item-action px-0 py-3"
+                        >
+                            <div class="d-flex justify-content-between gap-3">
+                                <div>
+                                    <strong>
+                                        {{ task.module.title }}
+                                    </strong>
+
+                                    <p class="text-muted small mb-1">
+                                        {{ task.module.classroom.subject }}
+                                        ·
+                                        {{ task.module.classroom.grade_level }}
+                                        {{ task.module.classroom.section }}
+                                    </p>
+
+                                    <small class="text-danger">
+                                        <i class="bi bi-calendar3 me-1"></i>
+                                        Due
+                                        {{ task.module.due_at|date:"M d, Y g:i A" }}
+                                    </small>
+                                </div>
+
+                                <span class="badge text-bg-light align-self-start">
+                                    {{ task.status_label }}
+                                </span>
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="dashboard-empty-card compact">
+                    <i class="bi bi-calendar-check"></i>
+                    <h4>No deadlines this week</h4>
+                    <p>Upcoming module deadlines will appear here.</p>
+                </div>
+            {% endif %}
         </section>
     </div>
 
+    <!-- Needs attention -->
     <div class="col-lg-5">
         <section class="classroom-card h-100">
             <div class="card-heading">
                 <h3>Needs Attention</h3>
             </div>
 
-            <div class="dashboard-empty-card compact">
-                <i class="bi bi-check2-circle"></i>
-                <h4>No current alerts</h4>
-                <p>Missing work and attendance alerts will appear here.</p>
-            </div>
+            {% if attention_tasks or attendance_alerts %}
+                <div class="list-group list-group-flush">
+
+                    {% for task in attention_tasks %}
+                        <a
+                            href="{% url 'classroom:tasks' %}?learner={{ linked_student.pk }}"
+                            class="list-group-item list-group-item-action px-0 py-3"
+                        >
+                            <strong class="text-danger">
+                                {% if task.status == "returned" %}
+                                    Returned submission
+                                {% else %}
+                                    Overdue module
+                                {% endif %}
+                            </strong>
+
+                            <p class="mb-1">
+                                {{ task.module.title }}
+                            </p>
+
+                            <small class="text-muted">
+                                {{ task.module.classroom.subject }}
+                            </small>
+                        </a>
+                    {% endfor %}
+
+                    {% for record in attendance_alerts %}
+                        <div class="list-group-item px-0 py-3">
+                            <strong class="text-danger">
+                                {% if record.status == "absent" %}
+                                    Absence recorded
+                                {% else %}
+                                    Late attendance
+                                {% endif %}
+                            </strong>
+
+                            <p class="mb-1">
+                                {{ record.attendance_day.date|date:"M d, Y" }}
+                            </p>
+
+                            <small class="text-muted">
+                                {{ record.attendance_day.classroom.subject }}
+                            </small>
+                        </div>
+                    {% endfor %}
+
+                </div>
+            {% else %}
+                <div class="dashboard-empty-card compact">
+                    <i class="bi bi-check2-circle"></i>
+                    <h4>No current alerts</h4>
+                    <p>
+                        Overdue work and attendance concerns
+                        will appear here.
+                    </p>
+                </div>
+            {% endif %}
         </section>
     </div>
+
 </div>
 
+<!-- Latest update -->
 <section class="classroom-card mb-4">
     <div class="card-heading">
         <h3>Latest School Update</h3>
     </div>
 
-    <div class="dashboard-empty-card compact">
-        <i class="bi bi-megaphone"></i>
-        <h4>No school updates</h4>
-        <p>New school and Teacher announcements will appear here.</p>
-    </div>
+    {% if latest_update %}
+        <article class="py-3">
+            <div class="d-flex align-items-start gap-3">
+                <i class="bi bi-megaphone fs-3 text-primary"></i>
+
+                <div>
+                    <div class="d-flex flex-wrap gap-2 mb-1">
+                        <strong>{{ latest_update.title }}</strong>
+
+                        <span class="badge text-bg-light">
+                            {{ latest_update_kind }} announcement
+                        </span>
+                    </div>
+
+                    {% if latest_update_kind == "Class" %}
+                        <small class="text-muted d-block mb-2">
+                            {{ latest_update.classroom.subject }}
+                        </small>
+                    {% endif %}
+
+                    <p class="mb-2">
+                        {{ latest_update.content|truncatechars:220 }}
+                    </p>
+
+                    <small class="text-muted">
+                        {{ latest_update.created_at|date:"M d, Y g:i A" }}
+                    </small>
+                </div>
+            </div>
+        </article>
+    {% else %}
+        <div class="dashboard-empty-card compact">
+            <i class="bi bi-megaphone"></i>
+            <h4>No school updates</h4>
+            <p>
+                School and Teacher announcements will appear here.
+            </p>
+        </div>
+    {% endif %}
 </section>
+
 {% else %}
+
 <div class="empty-state classes-empty-state">
     <i class="bi bi-person-exclamation"></i>
     <h3>No linked learner</h3>
-    <p>Your Parent account must be connected to a Student first.</p>
+    <p>
+        Connect your Parent account to a Student
+        before viewing learner information.
+    </p>
+
+    <a
+        href="{% url 'classroom:parent_children' %}"
+        class="btn btn-primary"
+    >
+        Manage Learners
+    </a>
 </div>
+
 {% endif %}
-
-<div class="parent-links">
-    <a href="#">
-        <i class="bi bi-clipboard-data"></i>View Grades
-    </a>
-
-    <a href="#">
-        <i class="bi bi-person-check"></i>Attendance
-    </a>
-
-    <a href="#">
-        <i class="bi bi-envelope"></i>Message Teacher
-    </a>
-</div>
 
 {% endblock %}

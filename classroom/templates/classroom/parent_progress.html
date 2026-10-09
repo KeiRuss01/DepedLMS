@@ -1,0 +1,513 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block title %}
+Learner Progress | District 1 Classroom
+{% endblock %}
+
+{% block extra_css %}
+<link
+    rel="stylesheet"
+    href="{% static 'classroom/css/parent-progress.css' %}"
+>
+{% endblock %}
+
+{% block content %}
+
+<section class="dashboard-heading progress-heading">
+    <div>
+        <h2>Learner Progress</h2>
+        <p>View your learner's released grades and attendance.</p>
+    </div>
+
+    <span class="read-only-label">
+        <i class="bi bi-lock-fill"></i>
+        Read only
+    </span>
+</section>
+
+{% if linked_students %}
+
+<form method="get" class="learner-selection">
+    <input
+        type="hidden"
+        name="tab"
+        value="{{ active_tab }}"
+    >
+
+    <label for="learner">Learner</label>
+
+    <select
+        name="learner"
+        id="learner"
+        class="form-select"
+        onchange="this.form.submit()"
+    >
+        {% for link in linked_students %}
+            <option
+                value="{{ link.student_id }}"
+                {% if selected_student.pk == link.student_id %}
+                    selected
+                {% endif %}
+            >
+                {{ link.student }}
+            </option>
+        {% endfor %}
+    </select>
+</form>
+
+<nav class="progress-tabs">
+    <a
+        href="?learner={{ selected_student.pk }}&tab=grades"
+        class="{% if active_tab == 'grades' %}active{% endif %}"
+    >
+        <i class="bi bi-bar-chart"></i>
+        Grades
+    </a>
+
+    <a
+        href="?learner={{ selected_student.pk }}&tab=attendance"
+        class="{% if active_tab == 'attendance' %}active{% endif %}"
+    >
+        <i class="bi bi-person-check"></i>
+        Attendance
+    </a>
+</nav>
+
+{% if active_tab == "grades" %}
+
+<section class="classroom-card">
+    <div class="card-heading">
+        <div>
+            <h3>Term Grades</h3>
+
+            <p class="text-muted mb-0">
+                Only officially released term grades are shown.
+            </p>
+        </div>
+
+        <button
+            type="button"
+            class="btn btn-outline-primary"
+            onclick="window.print()"
+        >
+            <i class="bi bi-printer me-2"></i>
+            Print / Save PDF
+        </button>
+    </div>
+
+    {% if grade_rows %}
+
+        <div class="table-responsive">
+            <table class="table progress-grade-table">
+                <thead>
+                    <tr>
+                        <th>Subject</th>
+                        <th>Term 1</th>
+                        <th>Term 2</th>
+                        <th>Term 3</th>
+                        <th>Final Grade</th>
+                        <th>Remark</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for row in grade_rows %}
+                        <tr>
+                            <td>
+                                <strong>
+                                    {{ row.classroom.subject }}
+                                </strong>
+
+                                <small>
+                                    {{ row.classroom.grade_level }}
+                                    ·
+                                    {{ row.classroom.section }}
+                                </small>
+                            </td>
+
+                            <td>
+                                {% if row.term_1.released %}
+                                    {{ row.term_1.grade|default_if_none:"—" }}
+                                {% else %}
+                                    <span class="not-released">
+                                        Not released
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if row.term_2.released %}
+                                    {{ row.term_2.grade|default_if_none:"—" }}
+                                {% else %}
+                                    <span class="not-released">
+                                        Not released
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if row.term_3.released %}
+                                    {{ row.term_3.grade|default_if_none:"—" }}
+                                {% else %}
+                                    <span class="not-released">
+                                        Not released
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <strong>
+                                    {{ row.final_grade|default_if_none:"—" }}
+                                </strong>
+                            </td>
+
+                            <td>
+                                {{ row.remark|default:"—" }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    {% else %}
+
+        <div class="dashboard-empty-card">
+            <i class="bi bi-bar-chart"></i>
+            <h4>No grade records</h4>
+            <p>Released term grades will appear here.</p>
+        </div>
+
+    {% endif %}
+</section>
+
+{% else %}
+
+{% if classrooms %}
+
+<section class="attendance-controls">
+    <form method="get">
+        <input type="hidden" name="tab" value="attendance">
+        <input
+            type="hidden"
+            name="learner"
+            value="{{ selected_student.pk }}"
+        >
+
+        <div>
+            <label for="classroom">Class</label>
+
+            <select
+                name="classroom"
+                id="classroom"
+                class="form-select"
+                onchange="this.form.submit()"
+            >
+                {% for classroom in classrooms %}
+                    <option
+                        value="{{ classroom.pk }}"
+                        {% if selected_classroom.pk == classroom.pk %}
+                            selected
+                        {% endif %}
+                    >
+                        {{ classroom.subject }}
+                        ·
+                        {{ classroom.grade_level }}
+                        {{ classroom.section }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label for="month">Month</label>
+
+            <input
+                type="month"
+                name="month"
+                id="month"
+                class="form-control"
+                value="{{ attendance_summary.month_value }}"
+                onchange="this.form.submit()"
+            >
+        </div>
+    </form>
+</section>
+
+{% if attendance_summary %}
+
+<div class="attendance-summary-grid">
+
+    <article class="attendance-summary-card">
+        <span class="attendance-icon present">
+            <i class="bi bi-check-circle"></i>
+        </span>
+
+        <div>
+            <small>Present</small>
+            <strong>
+                {{ attendance_summary.totals.present }}
+            </strong>
+        </div>
+    </article>
+
+    <article class="attendance-summary-card">
+        <span class="attendance-icon absent">
+            <i class="bi bi-x-circle"></i>
+        </span>
+
+        <div>
+            <small>Absent</small>
+            <strong>
+                {{ attendance_summary.totals.absent }}
+            </strong>
+        </div>
+    </article>
+
+    <article class="attendance-summary-card">
+        <span class="attendance-icon late">
+            <i class="bi bi-clock"></i>
+        </span>
+
+        <div>
+            <small>Tardy</small>
+            <strong>
+                {{ attendance_summary.totals.late }}
+            </strong>
+        </div>
+    </article>
+
+    <article class="attendance-summary-card">
+        <span class="attendance-icon holiday">
+            <i class="bi bi-calendar-event"></i>
+        </span>
+
+        <div>
+            <small>Holiday</small>
+            <strong>
+                {{ attendance_summary.totals.holiday }}
+            </strong>
+        </div>
+    </article>
+
+    <article class="attendance-summary-card">
+        <span class="attendance-icon no-class">
+            <i class="bi bi-calendar-x"></i>
+        </span>
+
+        <div>
+            <small>No Class</small>
+            <strong>
+                {{ attendance_summary.totals.no_class }}
+            </strong>
+        </div>
+    </article>
+
+</div>
+
+<div class="attendance-content-grid">
+
+    <!-- Calendar -->
+    <section class="classroom-card attendance-calendar-card">
+        <div class="attendance-month-heading">
+            <a
+                href="?tab=attendance&learner={{ selected_student.pk }}&classroom={{ selected_classroom.pk }}&month={{ attendance_summary.previous_month }}"
+                class="btn btn-light border"
+                aria-label="Previous month"
+            >
+                <i class="bi bi-chevron-left"></i>
+            </a>
+
+            <h3>{{ attendance_summary.month_label }}</h3>
+
+            <a
+                href="?tab=attendance&learner={{ selected_student.pk }}&classroom={{ selected_classroom.pk }}&month={{ attendance_summary.next_month }}"
+                class="btn btn-light border"
+                aria-label="Next month"
+            >
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </div>
+
+        <div class="attendance-calendar-wrap">
+            <div class="attendance-weekdays">
+                <span>Sun</span>
+                <span>Mon</span>
+                <span>Tue</span>
+                <span>Wed</span>
+                <span>Thu</span>
+                <span>Fri</span>
+                <span>Sat</span>
+            </div>
+
+            <div class="attendance-calendar">
+                {% for week in attendance_summary.weeks %}
+                    {% for day in week %}
+                        <article
+                            class="
+                                attendance-day
+                                {% if not day.in_month %}
+                                    outside-month
+                                {% else %}
+                                    status-{{ day.status }}
+                                {% endif %}
+                            "
+                        >
+                            <strong>
+                                {{ day.date.day }}
+                            </strong>
+
+                            {% if day.in_month %}
+                                <span>
+                                    {% if day.status == "present" %}
+                                        <i class="bi bi-check-circle-fill"></i>
+
+                                    {% elif day.status == "absent" %}
+                                        <i class="bi bi-x-circle-fill"></i>
+
+                                    {% elif day.status == "late" %}
+                                        <i class="bi bi-clock-fill"></i>
+
+                                    {% elif day.status == "holiday" %}
+                                        <i class="bi bi-calendar-event"></i>
+
+                                    {% elif day.status == "no-class" %}
+                                        <i class="bi bi-calendar-x"></i>
+
+                                    {% elif day.status == "excused" %}
+                                        <i class="bi bi-info-circle"></i>
+                                    {% endif %}
+
+                                    {{ day.label }}
+                                </span>
+                            {% endif %}
+                        </article>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Details -->
+    <aside>
+        <section class="classroom-card attendance-details">
+            <div class="card-heading">
+                <h3>Attendance Details</h3>
+            </div>
+
+            {% if attendance_summary.details %}
+                <div class="list-group list-group-flush">
+                    {% for day in attendance_summary.details %}
+                        <div class="list-group-item px-0">
+                            <div class="attendance-detail-row">
+                                <div>
+                                    <strong>
+                                        {{ day.date|date:"M d, Y" }}
+                                    </strong>
+
+                                    {% if day.note %}
+                                        <small>{{ day.note }}</small>
+                                    {% endif %}
+                                </div>
+
+                                <span class="detail-status status-{{ day.status }}">
+                                    {{ day.label }}
+                                </span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="dashboard-empty-card compact">
+                    <i class="bi bi-check-circle"></i>
+                    <h4>No attendance concerns</h4>
+                    <p>
+                        Absences, tardiness, holidays, and no-class
+                        dates will appear here.
+                    </p>
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="classroom-card attendance-legend">
+            <div class="card-heading">
+                <h3>Legend</h3>
+            </div>
+
+            <ul>
+                <li>
+                    <i class="legend-dot present"></i>
+                    Present
+                </li>
+
+                <li>
+                    <i class="legend-dot absent"></i>
+                    Absent
+                </li>
+
+                <li>
+                    <i class="legend-dot late"></i>
+                    Tardy
+                </li>
+
+                <li>
+                    <i class="legend-dot holiday"></i>
+                    Holiday
+                </li>
+
+                <li>
+                    <i class="legend-dot no-class"></i>
+                    No class
+                </li>
+
+                <li>
+                    <i class="legend-dot unrecorded"></i>
+                    Not recorded
+                </li>
+            </ul>
+        </section>
+    </aside>
+
+</div>
+
+{% endif %}
+
+{% else %}
+
+<section class="classroom-card">
+    <div class="dashboard-empty-card">
+        <i class="bi bi-grid"></i>
+        <h4>No enrolled classes</h4>
+        <p>
+            Attendance will appear after the learner
+            is enrolled in a class.
+        </p>
+    </div>
+</section>
+
+{% endif %}
+
+{% endif %}
+
+{% else %}
+
+<div class="empty-state classes-empty-state">
+    <i class="bi bi-person-exclamation"></i>
+    <h3>No linked learner</h3>
+
+    <p>
+        Connect your Parent account to a Student first.
+    </p>
+
+    <a
+        href="{% url 'classroom:parent_children' %}"
+        class="btn btn-primary"
+    >
+        Manage Learners
+    </a>
+</div>
+
+{% endif %}
+
+{% endblock %}

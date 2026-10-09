@@ -9,7 +9,9 @@ from accounts.models import ParentStudentLink, Student, User
 from .forms import (
     AnnouncementForm,
     ClassCalendarEventForm,
+    ClassPostForm,
     ClassroomForm,
+    CommentForm,
     InviteStudentForm,
     JoinClassForm,
     StudentLinkRequestForm,
@@ -22,6 +24,7 @@ from datetime import date, timedelta
 import calendar as month_calendar
 import json
 
+from supervisor.models import SchoolAnnouncement
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Count, Max, Q
@@ -29,6 +32,8 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from .models import (
+    ClassPost,
+    Comment,
     Module,
     ModuleAnswerSection,
     SectionQuestion,
@@ -52,13 +57,17 @@ from .module_forms import (
 from .module_pdf_processor import build_student_pdf
 from .submission_pdf import build_final_submission_pdf
 from .notification_services import (
+    notify_attendance_record,
     notify_calendar_event,
     notify_class_announcement,
     notify_join_request,
     notify_module_published,
     notify_submission,
+    notify_submission_feedback,
+    notify_term_grade_released,
 )
 from .gradebook import (
+    build_released_student_summary,
     build_summary,
     build_term_record,
     next_item_position,
@@ -72,6 +81,14 @@ from .models import (
     GradeItem,
     GradeScore,
     GradebookSettings,
+)
+from .attendance_summary import (
+    build_parent_attendance,
+    parse_month,
+)
+from .stream_posts import (
+    sync_announcement_post,
+    sync_module_post,
 )
 
 
@@ -229,27 +246,125 @@ def dashboard_view(request):
 
     if user.role == User.Role.PARENT:
         parent = getattr(user, "parent_profile", None)
-        linked_students = ParentStudentLink.objects.none()
 
-        if parent:
-            linked_students = ParentStudentLink.objects.filter(
-                parent=parent,
-                status=ParentStudentLink.Status.APPROVED,
+        if parent is None:
+            messages.error(request, "Your Parent profile was not found.")
+            return redirect("accounts:login")
+
+        linked_students = ParentStudentLink.objects.filter(
+            parent=parent,
+            status=ParentStudentLink.Status.APPROVED,
+        ).select_related(
+            "student",
+            "student__user",
+            "student__school",
+        )
+
+        selected_learner_id = request.GET.get("learner")
+
+        selected_link = linked_students.filter(
+            student_id=selected_learner_id,
+        ).first()
+
+        if selected_link is None:
+            selected_link = linked_students.first()
+
+        linked_student = (
+            selected_link.student
+            if selected_link
+            else None
+        )
+
+        weekly_tasks = []
+        attention_tasks = []
+        attendance_alerts = []
+        latest_update = None
+        latest_update_kind = ""
+
+        if linked_student:
+            tasks = _build_student_module_tasks(linked_student)
+
+            weekly_tasks = [
+                task
+                for task in tasks
+                if task["is_due_soon"]
+            ][:3]
+
+            attention_tasks = [
+                task
+                for task in tasks
+                if task["is_overdue"]
+                or task["status"] == "returned"
+            ][:3]
+
+            attendance_alerts = AttendanceRecord.objects.filter(
+                student=linked_student,
+                attendance_day__date__gte=(
+                    timezone.localdate() - timedelta(days=30)
+                ),
+                status__in=[
+                    AttendanceRecord.Status.ABSENT,
+                    AttendanceRecord.Status.LATE,
+                ],
             ).select_related(
-                "student",
-                "student__user",
-                "student__school",
+                "attendance_day",
+                "attendance_day__classroom",
+            ).order_by(
+                "-attendance_day__date"
+            )[:3]
+
+            classroom_ids = ClassEnrollment.objects.filter(
+                student=linked_student,
+                status=ClassEnrollment.Status.APPROVED,
+                classroom__is_archived=False,
+            ).values_list(
+                "classroom_id",
+                flat=True,
             )
 
-        first_link = linked_students.first()
-        linked_student = first_link.student if first_link else None
+            class_update = Announcement.objects.filter(
+                classroom_id__in=classroom_ids,
+            ).select_related(
+                "classroom",
+            ).order_by(
+                "-created_at"
+            ).first()
+
+            school_update = SchoolAnnouncement.objects.filter(
+                school=linked_student.school,
+            ).order_by(
+                "-created_at"
+            ).first()
+
+            available_updates = [
+                update
+                for update in [class_update, school_update]
+                if update is not None
+            ]
+
+            if available_updates:
+                latest_update = max(
+                    available_updates,
+                    key=lambda update: update.created_at,
+                )
+
+                latest_update_kind = (
+                    "School"
+                    if isinstance(latest_update, SchoolAnnouncement)
+                    else "Class"
+                )
 
         return render(
             request,
             "classroom/parent_dashboard.html",
             {
-                "linked_student": linked_student,
                 "linked_students": linked_students,
+                "linked_student": linked_student,
+                "weekly_tasks": weekly_tasks,
+                "attention_tasks": attention_tasks,
+                "attendance_alerts": attendance_alerts,
+                "latest_update": latest_update,
+                "latest_update_kind": latest_update_kind,
             },
         )
 
@@ -932,15 +1047,34 @@ def class_page_view(request, classroom_id):
         ]
 
     if active_tab == "stream":
-        announcements = classroom.announcements.select_related("posted_by")
+        announcements = classroom.announcements.select_related(
+            "posted_by",
+            "class_post",
+        ).prefetch_related(
+            "class_post__comments__user",
+        )
         published_modules = classroom.modules.filter(
             status=Module.Status.PUBLISHED,
+        ).select_related(
+            "class_post",
+        ).prefetch_related(
+            "class_post__comments__user",
+        )
+        general_posts = classroom.class_posts.filter(
+            post_type=ClassPost.PostType.GENERAL,
+            is_published=True,
+        ).select_related(
+            "teacher",
+            "teacher__user",
+        ).prefetch_related(
+            "comments__user",
         )
         stream_items = [
             {
                 "kind": "announcement",
                 "created_at": announcement.created_at,
                 "announcement": announcement,
+                "post": getattr(announcement, "class_post", None),
             }
             for announcement in announcements
         ]
@@ -949,8 +1083,17 @@ def class_page_view(request, classroom_id):
                 "kind": "module",
                 "created_at": module.published_at or module.created_at,
                 "module": module,
+                "post": getattr(module, "class_post", None),
             }
             for module in published_modules
+        )
+        stream_items.extend(
+            {
+                "kind": "post",
+                "created_at": post.created_at,
+                "post": post,
+            }
+            for post in general_posts
         )
         stream_items.sort(key=lambda item: item["created_at"], reverse=True)
         upcoming_modules = published_modules.filter(
@@ -973,9 +1116,33 @@ def class_page_view(request, classroom_id):
             "stream_items": stream_items,
             "upcoming_modules": upcoming_modules,
             "announcement_form": AnnouncementForm(),
+            "class_post_form": ClassPostForm(),
+            "comment_form": CommentForm(),
         },
     )
 
+def _can_comment_on_post(user, post):
+    if user.role == User.Role.TEACHER:
+        teacher = getattr(user, "teacher_profile", None)
+
+        return (
+            teacher is not None
+            and post.classroom.teacher_id == teacher.pk
+        )
+
+    if user.role == User.Role.STUDENT:
+        student = getattr(user, "student_profile", None)
+
+        if student is None:
+            return False
+
+        return ClassEnrollment.objects.filter(
+            classroom=post.classroom,
+            student=student,
+            status=ClassEnrollment.Status.APPROVED,
+        ).exists()
+
+    return False
 
 def _teacher_classroom_or_404(request, classroom_id):
     if request.user.role != User.Role.TEACHER:
@@ -991,6 +1158,164 @@ def _teacher_classroom_or_404(request, classroom_id):
 
 @login_required(login_url="accounts:login")
 @require_POST
+def class_post_create_view(request, classroom_id):
+    classroom = _teacher_classroom_or_404(request, classroom_id)
+    form = ClassPostForm(request.POST)
+
+    if form.is_valid():
+        post = form.save(commit=False)
+        post.classroom = classroom
+        post.teacher = classroom.teacher
+        post.post_type = ClassPost.PostType.GENERAL
+        post.is_published = True
+        post.save()
+
+        messages.success(request, "Class post published.")
+    else:
+        messages.error(request, "Complete the post title and message.")
+
+    return redirect(
+        f"{reverse('classroom:class_page', args=[classroom.pk])}?tab=stream"
+    )
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def class_post_edit_view(request, post_id):
+    post = get_object_or_404(
+        ClassPost.objects.select_related("classroom"),
+        pk=post_id,
+        post_type=ClassPost.PostType.GENERAL,
+    )
+    classroom = _teacher_classroom_or_404(request, post.classroom_id)
+    form = ClassPostForm(request.POST, instance=post)
+
+    if form.is_valid():
+        form.save()
+        messages.success(request, "Class post updated.")
+    else:
+        messages.error(request, "The class post could not be updated.")
+
+    return redirect(
+        f"{reverse('classroom:class_page', args=[classroom.pk])}?tab=stream#post-{post.pk}"
+    )
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def class_post_delete_view(request, post_id):
+    post = get_object_or_404(
+        ClassPost.objects.select_related("classroom"),
+        pk=post_id,
+        post_type=ClassPost.PostType.GENERAL,
+    )
+    classroom = _teacher_classroom_or_404(request, post.classroom_id)
+    post.delete()
+
+    messages.success(request, "Class post deleted.")
+
+    return redirect(
+        f"{reverse('classroom:class_page', args=[classroom.pk])}?tab=stream"
+    )
+
+@login_required(login_url="accounts:login")
+@require_POST
+def comment_create_view(request, post_id):
+    post = get_object_or_404(
+        ClassPost.objects.select_related(
+            "classroom",
+            "classroom__teacher",
+        ),
+        pk=post_id,
+        is_published=True,
+    )
+
+    if not _can_comment_on_post(request.user, post):
+        raise PermissionDenied(
+            "You cannot comment on this class post."
+        )
+
+    form = CommentForm(request.POST)
+
+    if form.is_valid():
+        comment = form.save(commit=False)
+        comment.post = post
+        comment.user = request.user
+
+        if (
+            request.user.role != User.Role.TEACHER
+            and comment.priority == Comment.Priority.IMPORTANT
+        ):
+            comment.priority = Comment.Priority.NORMAL
+
+        comment.save()
+
+        messages.success(request, "Comment posted.")
+    else:
+        error_message = "The comment could not be posted."
+
+        if form.errors.get("content"):
+            error_message = form.errors["content"][0]
+
+        messages.error(request, error_message)
+
+    class_url = reverse(
+        "classroom:class_page",
+        args=[post.classroom_id],
+    )
+
+    return redirect(
+        f"{class_url}?tab=stream#post-{post.pk}"
+    )
+
+@login_required(login_url="accounts:login")
+@require_POST
+def comment_delete_view(request, comment_id):
+    comment = get_object_or_404(
+        Comment.objects.select_related(
+            "post",
+            "post__classroom",
+            "post__classroom__teacher",
+        ),
+        pk=comment_id,
+    )
+
+    post = comment.post
+
+    teacher = getattr(
+        request.user,
+        "teacher_profile",
+        None,
+    )
+
+    is_comment_owner = (
+        comment.user_id == request.user.pk
+    )
+
+    is_class_teacher = (
+        teacher is not None
+        and post.classroom.teacher_id == teacher.pk
+    )
+
+    if not is_comment_owner and not is_class_teacher:
+        raise PermissionDenied(
+            "You cannot delete this comment."
+        )
+
+    comment.delete()
+    messages.success(request, "Comment deleted.")
+
+    class_url = reverse(
+        "classroom:class_page",
+        args=[post.classroom_id],
+    )
+
+    return redirect(
+        f"{class_url}?tab=stream#post-{post.pk}"
+    )
+
+@login_required(login_url="accounts:login")
+@require_POST
 def announcement_create_view(request, classroom_id):
     classroom = _teacher_classroom_or_404(request, classroom_id)
     form = AnnouncementForm(request.POST)
@@ -999,6 +1324,7 @@ def announcement_create_view(request, classroom_id):
         announcement.classroom = classroom
         announcement.posted_by = request.user
         announcement.save()
+        sync_announcement_post(announcement)
         notify_class_announcement(announcement)
         messages.success(request, "Announcement posted to the Class Stream.")
     else:
@@ -1018,7 +1344,9 @@ def announcement_edit_view(request, announcement_id):
     classroom = _teacher_classroom_or_404(request, announcement.classroom_id)
     form = AnnouncementForm(request.POST, instance=announcement)
     if form.is_valid():
-        form.save()
+        announcement = form.save()
+        sync_announcement_post(announcement)
+
         messages.success(request, "Announcement updated.")
     else:
         messages.error(request, "The announcement could not be updated.")
@@ -1366,8 +1694,12 @@ def module_manage_view(request, module_id):
         if action == "save_score":
             score_form = ModuleScoreForm(request.POST, instance=module)
             if score_form.is_valid():
-                score_form.save()
+                module = score_form.save()
                 sync_module_grade_item(module)
+
+                if module.status == Module.Status.PUBLISHED:
+                    sync_module_post(module)
+                    
                 messages.success(request, "Maximum Module score saved.")
                 return redirect("classroom:module_manage", module_id=module.pk)
         elif action == "publish":
@@ -1384,6 +1716,7 @@ def module_manage_view(request, module_id):
                 module.published_at = timezone.now()
                 module.save(update_fields=["status", "published_at"])
                 sync_module_grade_item(module)
+                sync_module_post(module)
 
                 if not was_already_published:
                     notify_module_published(module)
@@ -2157,10 +2490,23 @@ def module_review_view(request, submission_id):
             graded.status = ModuleSubmission.Status.GRADED
             graded.graded_at = timezone.now()
             graded.save(update_fields=[
-                "score", "feedback", "status", "graded_at", "updated_at",
+                "score",
+                "feedback",
+                "status",
+                "graded_at",
+                "updated_at",
             ])
+
             sync_module_grade_score(graded)
-            messages.success(request, "Module score and feedback saved.")
+
+            notify_submission_feedback(
+                graded
+            )
+
+            messages.success(
+                request,
+                "Module score and feedback saved.",
+            )
             return redirect("classroom:module_review", submission_id=submission.pk)
 
         return render(
@@ -2302,11 +2648,39 @@ def gradebook_view(request, classroom_id):
         elif action == "toggle_release":
             field_name = f"term_{term}_released"
             current_value = getattr(settings, field_name)
-            setattr(settings, field_name, not current_value)
-            settings.save(update_fields=[field_name])
-            message = "released to Students" if not current_value else "hidden from Students"
-            messages.success(request, f"Term {term} Quarterly Grades are now {message}.")
-            return redirect(f"{request.path}?term={term}")
+
+            new_value = not current_value
+
+            setattr(
+                settings,
+                field_name,
+                new_value,
+            )
+
+            settings.save(
+                update_fields=[field_name],
+            )
+
+            if new_value:
+                notify_term_grade_released(
+                    classroom,
+                    term,
+                )
+
+            message = (
+                "released to Students and Parents"
+                if new_value
+                else "hidden from Students and Parents"
+            )
+
+            messages.success(
+                request,
+                f"Term {term} grades are now {message}.",
+            )
+
+            return redirect(
+                f"{request.path}?term={term}"
+            )
 
         elif action == "save_scores":
             errors = []
@@ -2555,15 +2929,22 @@ def attendance_view(request, classroom_id):
                     )
                     if status not in valid_statuses:
                         status = AttendanceRecord.Status.PRESENT
-                    AttendanceRecord.objects.update_or_create(
-                        attendance_day=attendance_day,
-                        student=student,
-                        defaults={
-                            "status": status,
-                            "remarks": request.POST.get(
-                                f"remarks_{student.pk}", ""
-                            ).strip()[:200],
-                        },
+                    attendance_record, created = (
+                        AttendanceRecord.objects.update_or_create(
+                            attendance_day=attendance_day,
+                            student=student,
+                            defaults={
+                                "status": status,
+                                "remarks": request.POST.get(
+                                    f"remarks_{student.pk}",
+                                    "",
+                                ).strip()[:200],
+                            },
+                        )
+                    )
+
+                    notify_attendance_record(
+                        attendance_record
                     )
 
         if day_type == AttendanceDay.DayType.CLASS_DAY:
@@ -3220,6 +3601,7 @@ def tasks_view(request):
                 "task_summary": task_summary,
                 "due_soon_tasks": due_soon_tasks,
                 "later_tasks": later_tasks,
+                "task_overview": task_overview,
             },
         )
 
@@ -3263,6 +3645,7 @@ def tasks_view(request):
         )
 
         tasks = []
+        task_overview = _build_task_overview(tasks)
 
         if selected_student:
             tasks = _build_student_module_tasks(
@@ -3678,4 +4061,95 @@ def section_attachment_view(request, attachment_id):
         attachment.file,
         attachment.original_name,
         content_types.get(extension, "application/octet-stream"),
+    )
+
+@login_required(login_url="accounts:login")
+def parent_progress_view(request):
+    if request.user.role != User.Role.PARENT:
+        return redirect("classroom:dashboard")
+
+    parent = getattr(
+        request.user,
+        "parent_profile",
+        None,
+    )
+
+    if parent is None:
+        return redirect("classroom:dashboard")
+
+    linked_students = ParentStudentLink.objects.filter(
+        parent=parent,
+        status=ParentStudentLink.Status.APPROVED,
+    ).select_related(
+        "student",
+        "student__user",
+    )
+
+    selected_link = linked_students.filter(
+        student_id=request.GET.get("learner"),
+    ).first()
+
+    if selected_link is None:
+        selected_link = linked_students.first()
+
+    selected_student = (
+        selected_link.student
+        if selected_link
+        else None
+    )
+
+    active_tab = request.GET.get("tab", "grades")
+
+    if active_tab not in {"grades", "attendance"}:
+        active_tab = "grades"
+
+    classrooms = Classroom.objects.none()
+    selected_classroom = None
+    grade_rows = []
+    attendance_summary = None
+
+    if selected_student:
+        classrooms = Classroom.objects.filter(
+            enrollments__student=selected_student,
+            enrollments__status=ClassEnrollment.Status.APPROVED,
+            is_archived=False,
+        ).distinct()
+
+        if active_tab == "grades":
+            grade_rows = build_released_student_summary(
+                selected_student,
+                classrooms,
+            )
+
+        else:
+            selected_classroom = classrooms.filter(
+                pk=request.GET.get("classroom"),
+            ).first()
+
+            if selected_classroom is None:
+                selected_classroom = classrooms.first()
+
+            if selected_classroom:
+                selected_month = parse_month(
+                    request.GET.get("month")
+                )
+
+                attendance_summary = build_parent_attendance(
+                    selected_student,
+                    selected_classroom,
+                    selected_month,
+                )
+
+    return render(
+        request,
+        "classroom/parent_progress.html",
+        {
+            "linked_students": linked_students,
+            "selected_student": selected_student,
+            "classrooms": classrooms,
+            "selected_classroom": selected_classroom,
+            "grade_rows": grade_rows,
+            "attendance_summary": attendance_summary,
+            "active_tab": active_tab,
+        },
     )

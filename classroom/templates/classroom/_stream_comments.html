@@ -1,0 +1,80 @@
+{% if post %}
+<section class="stream-comments" aria-label="Comments for {{ post.title }}">
+    <div class="stream-comments-heading">
+        <strong>
+            <i class="bi bi-chat-left-text"></i>
+            Comments
+        </strong>
+        <span>{{ post.comments.count }}</span>
+    </div>
+
+    <div class="stream-comment-list">
+        {% for comment in post.comments.all %}
+        <div class="stream-comment">
+            <span class="stream-comment-avatar">
+                {{ comment.user.full_name|slice:":1"|upper }}
+            </span>
+
+            <div class="stream-comment-content">
+                <div class="stream-comment-meta">
+                    <strong>{{ comment.user.full_name }}</strong>
+                    <small>{{ comment.created_at|date:"M d, Y · g:i A" }}</small>
+
+                    {% if comment.priority != "normal" %}
+                    <span class="comment-priority-badge {{ comment.priority }}">
+                        {{ comment.get_priority_display }}
+                    </span>
+                    {% endif %}
+                </div>
+
+                <p>{{ comment.content|linebreaksbr }}</p>
+            </div>
+
+            {% if is_teacher or comment.user_id == request.user.pk %}
+            <form method="post"
+                  action="{% url 'classroom:comment_delete' comment.pk %}"
+                  class="stream-comment-delete">
+                {% csrf_token %}
+                <button type="submit"
+                        aria-label="Delete comment"
+                        title="Delete comment"
+                        onclick="return confirm('Delete this comment?')">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% empty %}
+        <p class="stream-comments-empty">No comments yet.</p>
+        {% endfor %}
+    </div>
+
+    <form method="post"
+          action="{% url 'classroom:comment_create' post.pk %}"
+          class="stream-comment-form">
+        {% csrf_token %}
+
+        <textarea name="content"
+                  rows="2"
+                  maxlength="1000"
+                  placeholder="Write a comment..."
+                  aria-label="Comment"
+                  required></textarea>
+
+        <div class="stream-comment-actions">
+            <select name="priority" aria-label="Comment type">
+                <option value="normal">Normal</option>
+                <option value="question">Question</option>
+                {% if is_teacher %}
+                <option value="important">Important</option>
+                {% endif %}
+            </select>
+
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="bi bi-send"></i>
+                Post
+            </button>
+        </div>
+    </form>
+</section>
+{% endif %}

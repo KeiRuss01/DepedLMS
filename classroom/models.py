@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.crypto import get_random_string
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.conf import settings
 
 from accounts.models import School, Student, Teacher, User
 
@@ -370,6 +371,140 @@ class Module(models.Model):
         # contain legacy answer sections.
         return section_total or self.max_score
 
+class ClassPost(models.Model):
+    class PostType(models.TextChoices):
+        GENERAL = "post", "Class Post"
+        ANNOUNCEMENT = "announcement", "Announcement"
+        MODULE = "module", "Module"
+        ACTIVITY = "activity", "Activity"
+
+    class GradeComponent(models.TextChoices):
+        NOT_GRADED = "not_graded", "Not graded"
+        WRITTEN_WORK = "written_work", "Written Work"
+        PERFORMANCE_TASK = "performance_task", "Performance Task"
+        ASSESSMENT = "assessment", "Assessment"
+
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name="class_posts",
+    )
+
+    teacher = models.ForeignKey(
+        Teacher,
+        on_delete=models.CASCADE,
+        related_name="class_posts",
+    )
+
+    post_type = models.CharField(
+        max_length=20,
+        choices=PostType.choices,
+    )
+
+    title = models.CharField(max_length=200)
+
+    content = models.TextField(blank=True)
+
+    due_date = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    score = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        null=True,
+        blank=True,
+    )
+
+    grade_component = models.CharField(
+        max_length=30,
+        choices=GradeComponent.choices,
+        default=GradeComponent.NOT_GRADED,
+    )
+
+    term = models.CharField(
+        max_length=1,
+        choices=Module.Term.choices,
+        null=True,
+        blank=True,
+    )
+
+    is_published = models.BooleanField(default=False)
+
+    allow_late_submission = models.BooleanField(default=False)
+
+    file = models.FileField(
+        upload_to="class_posts/",
+        storage=learning_storage,
+        blank=True,
+        null=True,
+    )
+
+    # Connect existing announcements and modules to the common post.
+    announcement = models.OneToOneField(
+        Announcement,
+        on_delete=models.CASCADE,
+        related_name="class_post",
+        null=True,
+        blank=True,
+    )
+
+    module = models.OneToOneField(
+        Module,
+        on_delete=models.CASCADE,
+        related_name="class_post",
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.get_post_type_display()}: {self.title}"
+
+
+class Comment(models.Model):
+    class Priority(models.TextChoices):
+        NORMAL = "normal", "Normal"
+        QUESTION = "question", "Question"
+        IMPORTANT = "important", "Important"
+
+    post = models.ForeignKey(
+        ClassPost,
+        on_delete=models.CASCADE,
+        related_name="comments",
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="class_comments",
+    )
+
+    content = models.TextField()
+
+    priority = models.CharField(
+        max_length=15,
+        choices=Priority.choices,
+        default=Priority.NORMAL,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["post", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"Comment by {self.user} on {self.post}"
 
 # =========================================================
 # MODULE ANSWER SECTION

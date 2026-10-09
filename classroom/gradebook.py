@@ -216,3 +216,78 @@ def build_summary(classroom, students):
             ),
         })
     return rows
+
+def build_released_student_summary(student, classrooms):
+    """
+    Build the Parent's three-term grade summary.
+
+    A grade is included only after the Teacher releases
+    that term through GradebookSettings.
+    """
+
+    rows = []
+
+    for classroom in classrooms:
+        settings, _ = GradebookSettings.objects.get_or_create(
+            classroom=classroom,
+        )
+
+        term_grades = []
+
+        for term in ("1", "2", "3"):
+            released = getattr(
+                settings,
+                f"term_{term}_released",
+            )
+
+            grade = None
+
+            if released:
+                record = build_term_record(
+                    classroom,
+                    term,
+                    [student],
+                )
+
+                if record["rows"]:
+                    grade = record["rows"][0]["quarterly"]
+
+            term_grades.append({
+                "released": released,
+                "grade": grade,
+            })
+
+        final_grade = None
+
+        if all(
+            term["released"] and term["grade"] is not None
+            for term in term_grades
+        ):
+            final_grade = (
+                sum(
+                    term["grade"]
+                    for term in term_grades
+                )
+                / Decimal("3")
+            ).quantize(
+                Decimal("1"),
+                rounding=ROUND_HALF_UP,
+            )
+
+        rows.append({
+            "classroom": classroom,
+            "term_1": term_grades[0],
+            "term_2": term_grades[1],
+            "term_3": term_grades[2],
+            "final_grade": final_grade,
+            "remark": (
+                "Passed"
+                if final_grade is not None
+                and final_grade >= 75
+                else "Failed"
+                if final_grade is not None
+                else ""
+            ),
+        })
+
+    return rows

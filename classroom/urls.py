@@ -93,6 +93,32 @@ urlpatterns = [
         name="announcement_delete",
     ),
     path(
+        "classes/<int:classroom_id>/posts/create/",
+        views.class_post_create_view,
+        name="class_post_create",
+    ),
+    path(
+        "posts/<int:post_id>/edit/",
+        views.class_post_edit_view,
+        name="class_post_edit",
+    ),
+    path(
+        "posts/<int:post_id>/delete/",
+        views.class_post_delete_view,
+        name="class_post_delete",
+    ),
+    path(
+        "posts/<int:post_id>/comments/create/",
+        views.comment_create_view,
+        name="comment_create",
+    ),
+
+    path(
+        "comments/<int:comment_id>/delete/",
+        views.comment_delete_view,
+        name="comment_delete",
+    ),
+    path(
         "classes/<int:classroom_id>/grades/",
         views.gradebook_view,
         name="gradebook",
@@ -124,6 +150,12 @@ urlpatterns = [
         "family/parent-requests/<int:link_id>/<str:action>/",
         views.respond_parent_link_view,
         name="respond_parent_link",
+    ),
+
+    path(
+        "family/progress/",
+        views.parent_progress_view,
+        name="parent_progress",
     ),
 
     path(

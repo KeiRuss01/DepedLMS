@@ -706,6 +706,30 @@ html[data-theme="dark"] .week-task > div > small {
     background: #273449;
 }
 
+.parent-task-feedback {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-left: 3px solid #0d6efd;
+    border-radius: 6px;
+    background: #f5f8fc;
+}
+
+.parent-task-feedback strong {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 5px;
+    color: #102a56;
+    font-size: 13px;
+}
+
+.parent-task-feedback p {
+    margin: 0;
+    color: #475569;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
 
 /* Responsive */
 

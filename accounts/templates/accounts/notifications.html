@@ -13,10 +13,19 @@
 
     <header class="notifications-page-header">
         <div>
-            <h1>Notifications</h1>
-            <p>
-                View your latest classroom and school updates.
-            </p>
+            {% if request.user.role == "parent" %}
+                <h1>Parent Updates</h1>
+
+                <p>
+                    View your learner's academic and school updates.
+                </p>
+            {% else %}
+                <h1>Notifications</h1>
+
+                <p>
+                    View your latest classroom and school updates.
+                </p>
+            {% endif %}
         </div>
 
         {% if unread_notification_count %}
@@ -58,6 +67,15 @@
 
                         {% elif notification.notification_type == "join_request" %}
                             <i class="bi bi-person-plus"></i>
+                            
+                        {% elif notification.notification_type == "grade_released" %}
+                            <i class="bi bi-bar-chart"></i>
+
+                        {% elif notification.notification_type == "attendance" %}
+                            <i class="bi bi-person-exclamation"></i>
+
+                        {% elif notification.notification_type == "feedback" %}
+                            <i class="bi bi-chat-left-text"></i>
 
                         {% else %}
                             <i class="bi bi-megaphone"></i>

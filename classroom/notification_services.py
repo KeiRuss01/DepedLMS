@@ -11,7 +11,10 @@ from accounts.models import (
     UserPreference,
 )
 
-from .models import ClassEnrollment
+from .models import (
+    AttendanceRecord,
+    ClassEnrollment,
+)
 
 
 def _create_notification(user, notification_type, title, message, target_url):
@@ -298,6 +301,150 @@ def notify_calendar_event(event, action="created"):
                 f"for {event_date}."
             ),
             target_url=target_url,
+        )
+
+    return created_count
+
+def _approved_parent_links(student):
+    return ParentStudentLink.objects.filter(
+        student=student,
+        status=ParentStudentLink.Status.APPROVED,
+        parent__user__status=User.Status.ACTIVE,
+    ).select_related(
+        "parent",
+        "parent__user",
+    )
+
+
+def notify_term_grade_released(classroom, term):
+    """
+    Notify approved Parents when a Teacher releases
+    one class term grade.
+    """
+
+    enrollments = ClassEnrollment.objects.filter(
+        classroom=classroom,
+        status=ClassEnrollment.Status.APPROVED,
+    ).select_related(
+        "student",
+    )
+
+    created_count = 0
+
+    for enrollment in enrollments:
+        student = enrollment.student
+
+        target_url = (
+            reverse("classroom:parent_progress")
+            + f"?learner={student.pk}&tab=grades"
+        )
+
+        for link in _approved_parent_links(student):
+            created_count += _create_notification(
+                user=link.parent.user,
+                notification_type=(
+                    Notification.Type.GRADE_RELEASED
+                ),
+                title=f"Term {term} grade released",
+                message=(
+                    f"{classroom.subject}: "
+                    f"{student.firstname}'s Term {term} "
+                    "grade is now available."
+                ),
+                target_url=target_url,
+            )
+
+    return created_count
+
+
+def notify_attendance_record(record):
+    """
+    Notify approved Parents only for an absence or tardiness.
+    """
+
+    if record.status not in {
+        AttendanceRecord.Status.ABSENT,
+        AttendanceRecord.Status.LATE,
+    }:
+        return 0
+
+    student = record.student
+    classroom = record.attendance_day.classroom
+    attendance_date = record.attendance_day.date
+
+    status_label = (
+        "absent"
+        if record.status == AttendanceRecord.Status.ABSENT
+        else "tardy"
+    )
+
+    target_url = (
+        reverse("classroom:parent_progress")
+        + f"?learner={student.pk}"
+        + "&tab=attendance"
+        + f"&classroom={classroom.pk}"
+        + f"&month={attendance_date:%Y-%m}"
+    )
+
+    created_count = 0
+
+    for link in _approved_parent_links(student):
+        created_count += _create_notification(
+            user=link.parent.user,
+            notification_type=Notification.Type.ATTENDANCE,
+            title=f"{status_label.title()} attendance recorded",
+            message=(
+                f"{student.firstname} was marked "
+                f"{status_label} in {classroom.subject} "
+                f"on {attendance_date:%B %d, %Y}."
+            ),
+            target_url=target_url,
+        )
+
+    return created_count
+
+
+def notify_submission_feedback(submission):
+    """
+    Notify the Student and approved Parents after the
+    Teacher saves feedback.
+    """
+
+    if not submission.feedback:
+        return 0
+
+    parent_target = (
+        reverse("classroom:tasks")
+        + f"?learner={submission.student_id}"
+        + "&status=returned"
+    )
+
+    student_target = reverse(
+        "classroom:module_work",
+        args=[submission.module_id],
+    )
+
+    created_count = _create_notification(
+        user=submission.student.user,
+        notification_type=Notification.Type.FEEDBACK,
+        title="Teacher feedback available",
+        message=(
+            f"Your Teacher added feedback to "
+            f"{submission.module.title}."
+        ),
+        target_url=student_target,
+    )
+
+    for link in _approved_parent_links(submission.student):
+        created_count += _create_notification(
+            user=link.parent.user,
+            notification_type=Notification.Type.FEEDBACK,
+            title="Teacher feedback available",
+            message=(
+                f"Feedback for {submission.student.firstname}'s "
+                f"{submission.module.title} is now available."
+            ),
+            target_url=parent_target,
         )
 
     return created_count
