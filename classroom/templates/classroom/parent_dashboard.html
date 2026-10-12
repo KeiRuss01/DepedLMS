@@ -105,20 +105,20 @@ Parent Dashboard | District 1 Classroom
                             <div class="d-flex justify-content-between gap-3">
                                 <div>
                                     <strong>
-                                        {{ task.module.title }}
+                                        {{ task.title }}
                                     </strong>
 
                                     <p class="text-muted small mb-1">
-                                        {{ task.module.classroom.subject }}
+                                        {{ task.classroom.subject }}
                                         ·
-                                        {{ task.module.classroom.grade_level }}
-                                        {{ task.module.classroom.section }}
+                                        {{ task.classroom.grade_level }}
+                                        {{ task.classroom.section }}
                                     </p>
 
                                     <small class="text-danger">
                                         <i class="bi bi-calendar3 me-1"></i>
                                         Due
-                                        {{ task.module.due_at|date:"M d, Y g:i A" }}
+                                        {{ task.due_date|date:"M d, Y g:i A" }}
                                     </small>
                                 </div>
 
@@ -133,7 +133,7 @@ Parent Dashboard | District 1 Classroom
                 <div class="dashboard-empty-card compact">
                     <i class="bi bi-calendar-check"></i>
                     <h4>No deadlines this week</h4>
-                    <p>Upcoming module deadlines will appear here.</p>
+                    <p>Upcoming Module and Activity deadlines will appear here.</p>
                 </div>
             {% endif %}
         </section>
@@ -158,16 +158,16 @@ Parent Dashboard | District 1 Classroom
                                 {% if task.status == "returned" %}
                                     Returned submission
                                 {% else %}
-                                    Overdue module
+                                    Overdue schoolwork
                                 {% endif %}
                             </strong>
 
                             <p class="mb-1">
-                                {{ task.module.title }}
+                                {{ task.title }}
                             </p>
 
                             <small class="text-muted">
-                                {{ task.module.classroom.subject }}
+                                {{ task.classroom.subject }}
                             </small>
                         </a>
                     {% endfor %}

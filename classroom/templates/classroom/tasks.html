@@ -185,19 +185,38 @@
                                 Review
                             </a>
                         </article>
+                    {% endfor %}
 
-                    {% empty %}
+                    {% for activity in review_activities %}
+                        <article class="task-card">
+                            <div class="task-icon"><i class="bi bi-clipboard-check"></i></div>
+                            <div class="task-card-content">
+                                <div class="task-title-row">
+                                    <h3>{{ activity.title }}</h3>
+                                    <span class="task-type-badge">Activity</span>
+                                </div>
+                                <p>{{ activity.classroom.subject }} · {{ activity.classroom.grade_level }} {{ activity.classroom.section }}</p>
+                                <div class="task-meta">
+                                    <span><i class="bi bi-person-check"></i> {{ activity.review_count }} waiting for checking</span>
+                                    {% if activity.due_date %}<span><i class="bi bi-calendar3"></i> Due {{ activity.due_date|date:"M d, Y" }}</span>{% endif %}
+                                </div>
+                            </div>
+                            <a class="task-primary-button" href="{% url 'classroom:activity_detail' activity.pk %}">Review</a>
+                        </article>
+                    {% endfor %}
+
+                    {% if not review_modules and not review_activities %}
                         <div class="tasks-empty">
                             <i class="bi bi-check2-circle"></i>
 
                             <strong>No submissions waiting</strong>
 
                             <p>
-                                Submitted Modules requiring checking will
+                                Submitted Modules and Activities requiring checking will
                                 appear here.
                             </p>
                         </div>
-                    {% endfor %}
+                    {% endif %}
                 </div>
             </section>
 
@@ -247,17 +266,33 @@
                                 Open
                             </a>
                         </article>
+                    {% endfor %}
 
-                    {% empty %}
+                    {% for activity in due_activities %}
+                        <article class="task-card compact">
+                            <div class="task-icon"><i class="bi bi-clipboard-check"></i></div>
+                            <div class="task-card-content">
+                                <div class="task-title-row">
+                                    <h3>{{ activity.title }}</h3>
+                                    <span class="task-type-badge">Activity</span>
+                                </div>
+                                <p>{{ activity.classroom.subject }} · {{ activity.classroom.section }}</p>
+                                <div class="task-meta"><span><i class="bi bi-calendar3"></i> Due {{ activity.due_date|date:"M d, Y g:i A" }}</span></div>
+                            </div>
+                            <a class="task-secondary-button" href="{% url 'classroom:activity_detail' activity.pk %}">Open</a>
+                        </article>
+                    {% endfor %}
+
+                    {% if not due_modules and not due_activities %}
                         <div class="tasks-empty compact">
                             <strong>No approaching deadlines</strong>
 
                             <p>
-                                Published Modules due within seven days
+                                Published Modules and Activities due within seven days
                                 will appear here.
                             </p>
                         </div>
-                    {% endfor %}
+                    {% endif %}
                 </div>
             </section>
 
@@ -267,7 +302,7 @@
                 <header class="task-section-heading">
                     <div>
                         <i class="bi bi-file-earmark"></i>
-                        <h2>Draft Modules</h2>
+                        <h2>Draft Work</h2>
                     </div>
                 </header>
 
@@ -307,16 +342,32 @@
                                 Continue
                             </a>
                         </article>
+                    {% endfor %}
 
-                    {% empty %}
+                    {% for activity in draft_activities %}
+                        <article class="task-card compact">
+                            <div class="task-icon"><i class="bi bi-clipboard"></i></div>
+                            <div class="task-card-content">
+                                <div class="task-title-row">
+                                    <h3>{{ activity.title }}</h3>
+                                    <span class="task-type-badge">Activity Draft</span>
+                                </div>
+                                <p>{{ activity.classroom.subject }} · {{ activity.classroom.section }}</p>
+                                <div class="task-meta"><span>Created {{ activity.created_at|date:"M d, Y" }}</span></div>
+                            </div>
+                            <a class="task-secondary-button" href="{% url 'classroom:activity_edit' activity.pk %}">Continue</a>
+                        </article>
+                    {% endfor %}
+
+                    {% if not draft_modules and not draft_activities %}
                         <div class="tasks-empty compact">
-                            <strong>No draft Modules</strong>
+                            <strong>No draft work</strong>
 
                             <p>
-                                Unpublished Modules will appear here.
+                                Unpublished Modules and Activities will appear here.
                             </p>
                         </div>
-                    {% endfor %}
+                    {% endif %}
                 </div>
             </section>
 
@@ -562,27 +613,27 @@
                     <div class="week-task-list">
                         {% for task in task_overview.week_tasks %}
                             <article class="week-task">
-                                <time datetime="{{ task.module.due_at|date:'c' }}">
+                                <time datetime="{{ task.due_date|date:'c' }}">
                                     <span>
-                                        {{ task.module.due_at|date:"M" }}
+                                        {{ task.due_date|date:"M" }}
                                     </span>
 
                                     <strong>
-                                        {{ task.module.due_at|date:"d" }}
+                                        {{ task.due_date|date:"d" }}
                                     </strong>
                                 </time>
 
                                 <div>
                                     <strong>
-                                        {{ task.module.title }}
+                                        {{ task.title }}
                                     </strong>
 
                                     <span>
-                                        {{ task.module.classroom.subject }}
+                                        {{ task.classroom.subject }}
                                     </span>
 
                                     <small>
-                                        Due {{ task.module.due_at|timeuntil }}
+                                        Due {{ task.due_date|timeuntil }}
                                     </small>
                                 </div>
                             </article>

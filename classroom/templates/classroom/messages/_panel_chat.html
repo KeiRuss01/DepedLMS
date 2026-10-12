@@ -1,0 +1,13 @@
+<header class="message-panel-header panel-chat-header">
+    <button type="button" data-message-panel-back aria-label="Back to conversations"><i class="bi bi-arrow-left"></i></button>
+    <span class="message-avatar">{% if request.user.role == 'parent' %}{{ conversation.classroom.teacher.user.full_name|slice:":1"|upper }}{% else %}{{ conversation.parent.user.full_name|slice:":1"|upper }}{% endif %}</span>
+    <div><strong>{% if request.user.role == 'parent' %}{{ conversation.classroom.teacher.user.full_name }}{% else %}{{ conversation.parent.user.full_name }}{% endif %}</strong><small>{{ conversation.classroom.subject }} · {{ conversation.student.user.full_name }}</small></div>
+    <a href="{% url 'classroom:message_conversation' conversation.pk %}" aria-label="Open full conversation"><i class="bi bi-arrows-fullscreen"></i></a>
+</header>
+<div class="message-panel-notice"><i class="bi bi-info-circle"></i> About your linked learner and this class only.</div>
+<div class="message-panel-thread" data-panel-thread>
+    {% for item in conversation_messages %}<div class="message-bubble-row {% if item.sender_id == request.user.pk %}mine{% endif %}"><div class="message-bubble"><p>{{ item.content|linebreaksbr }}</p><small>{{ item.created_at|date:"g:i A" }}</small></div></div>{% empty %}<div class="messages-empty compact"><p>No messages yet.</p></div>{% endfor %}
+</div>
+<form class="conversation-composer panel-composer" method="post" action="{% url 'classroom:message_send' conversation.pk %}" data-panel-message-form>
+    {% csrf_token %}<textarea name="content" rows="1" maxlength="2000" placeholder="Write a message…" required></textarea><button class="btn btn-primary" aria-label="Send"><i class="bi bi-send"></i></button>
+</form>

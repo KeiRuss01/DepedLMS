@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import activity_views, messaging_views, views
 
 
 app_name = "classroom"
@@ -28,6 +28,36 @@ urlpatterns = [
         "tasks/",
         views.tasks_view,
         name="tasks",
+    ),
+    path(
+        "progress/",
+        views.student_progress_view,
+        name="student_progress",
+    ),
+    path(
+        "messages/",
+        messaging_views.message_inbox_view,
+        name="message_inbox",
+    ),
+    path(
+        "messages/start/",
+        messaging_views.message_conversation_start_view,
+        name="message_conversation_start",
+    ),
+    path(
+        "messages/<int:conversation_id>/",
+        messaging_views.message_conversation_view,
+        name="message_conversation",
+    ),
+    path(
+        "messages/<int:conversation_id>/panel/",
+        messaging_views.message_panel_conversation_view,
+        name="message_panel_conversation",
+    ),
+    path(
+        "messages/<int:conversation_id>/send/",
+        messaging_views.message_send_view,
+        name="message_send",
     ),
 
     path(
@@ -76,6 +106,51 @@ urlpatterns = [
         "classes/<int:classroom_id>/classroom/",
         views.class_page_view,
         name="class_page",
+    ),
+    path(
+        "classes/<int:classroom_id>/activities/create/",
+        activity_views.activity_create_view,
+        name="activity_create",
+    ),
+    path(
+        "activities/<int:activity_id>/",
+        activity_views.activity_detail_view,
+        name="activity_detail",
+    ),
+    path(
+        "activities/<int:activity_id>/edit/",
+        activity_views.activity_edit_view,
+        name="activity_edit",
+    ),
+    path(
+        "activities/<int:activity_id>/status/",
+        activity_views.activity_status_view,
+        name="activity_status",
+    ),
+    path(
+        "activities/<int:activity_id>/resource/",
+        activity_views.activity_resource_view,
+        name="activity_resource",
+    ),
+    path(
+        "activities/<int:activity_id>/resource/view/",
+        activity_views.activity_resource_reader_view,
+        name="activity_resource_reader",
+    ),
+    path(
+        "activity-submissions/<int:submission_id>/review/",
+        activity_views.activity_review_view,
+        name="activity_review",
+    ),
+    path(
+        "activity-submissions/<int:submission_id>/pdf/",
+        activity_views.activity_submission_pdf_view,
+        name="activity_submission_pdf",
+    ),
+    path(
+        "activity-submissions/<int:submission_id>/pdf/view/",
+        activity_views.activity_submission_pdf_reader_view,
+        name="activity_submission_pdf_reader",
     ),
     path(
         "classes/<int:classroom_id>/announcements/create/",

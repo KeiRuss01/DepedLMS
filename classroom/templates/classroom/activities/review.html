@@ -1,0 +1,30 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block title %}Review {{ submission.student.user.full_name }} | District 1 Classroom{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'classroom/css/activities.css' %}?v=1">{% endblock %}
+
+{% block content %}
+<main class="activity-page">
+    <a class="activity-back" href="{% url 'classroom:activity_detail' activity.pk %}"><i class="bi bi-arrow-left"></i> Activity submissions</a>
+    <div class="activity-page-heading"><div><span class="activity-kicker">{{ activity.title }}</span><h1>{{ submission.student.user.full_name }}</h1><p>{{ submission.get_method_display }}{% if submission.submitted_at %} · Submitted {{ submission.submitted_at|date:"M d, Y · g:i A" }}{% endif %}</p></div></div>
+    <div class="activity-review-layout">
+        <section class="activity-panel">
+            <h2>Student answer</h2>
+            {% if submission.method == 'text' %}<div class="submitted-answer">{{ submission.text_response|linebreaksbr }}</div>
+            {% elif submission.method == 'pdf' %}<a class="activity-resource" href="{% url 'classroom:activity_submission_pdf_reader' submission.pk %}"><i class="bi bi-file-earmark-pdf"></i><span><strong>Open submitted PDF</strong><small>View inside the application</small></span><i class="bi bi-chevron-right"></i></a>
+            {% else %}<a class="activity-resource" target="_blank" rel="noopener" href="{{ submission.link_url }}"><i class="bi bi-link-45deg"></i><span><strong>Open submitted link</strong><small>{{ submission.link_url }}</small></span><i class="bi bi-box-arrow-up-right"></i></a>{% endif %}
+            {% if submission.note %}<div class="activity-note"><strong>Student note</strong><p>{{ submission.note|linebreaksbr }}</p></div>{% endif %}
+        </section>
+        <aside class="activity-panel">
+            <h2>Review</h2>
+            <form method="post">{% csrf_token %}
+                <div class="activity-field"><label>Score out of {{ activity.score|floatformat:-2 }}</label>{{ form.score }}{{ form.score.errors }}</div>
+                <div class="activity-field"><label>Feedback</label>{{ form.feedback }}{{ form.feedback.errors }}</div>
+                <div class="activity-field"><label>Decision</label>{{ form.status }}{{ form.status.errors }}</div>
+                <button class="btn btn-primary w-100">Save review</button>
+            </form>
+        </aside>
+    </div>
+</main>
+{% endblock %}

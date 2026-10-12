@@ -1,0 +1,60 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block title %}{{ document_title }} | District 1 Classroom{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'classroom/css/activity_pdf_viewer.css' %}?v=1">{% endblock %}
+
+{% block content %}
+<main class="app-pdf-page">
+    <header class="app-pdf-header">
+        <a class="app-pdf-back" href="{{ back_url }}" aria-label="Go back">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div class="app-pdf-title">
+            <small>{{ document_label }}</small>
+            <h1>{{ document_title }}</h1>
+        </div>
+    </header>
+
+    <section
+        id="appPdfViewer"
+        class="app-pdf-viewer"
+        data-pdf-url="{{ pdf_url }}"
+        data-library="{% static 'vendor/pdfjs/build/pdf.min.mjs' %}"
+        data-worker="{% static 'vendor/pdfjs/build/pdf.worker.min.mjs' %}"
+        data-assets="{% static 'vendor/pdfjs/' %}"
+    >
+        <div class="app-pdf-toolbar" aria-label="PDF controls">
+            <button type="button" id="appPdfPrevious" aria-label="Previous page" disabled>
+                <i class="bi bi-chevron-left"></i>
+            </button>
+            <span id="appPdfPageLabel" aria-live="polite">Loading PDF…</span>
+            <button type="button" id="appPdfNext" aria-label="Next page" disabled>
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            <span class="app-pdf-divider"></span>
+            <button type="button" id="appPdfZoomOut" aria-label="Zoom out" disabled>
+                <i class="bi bi-dash-lg"></i>
+            </button>
+            <button type="button" id="appPdfZoomIn" aria-label="Zoom in" disabled>
+                <i class="bi bi-plus-lg"></i>
+            </button>
+        </div>
+
+        <div class="app-pdf-stage" id="appPdfStage">
+            <div class="app-pdf-loading" id="appPdfLoading">
+                <span class="spinner-border text-primary" aria-hidden="true"></span>
+                <p>Preparing document…</p>
+            </div>
+            <canvas id="appPdfCanvas" role="img" aria-label="PDF page"></canvas>
+            <div class="app-pdf-error" id="appPdfError" hidden>
+                <i class="bi bi-exclamation-circle"></i>
+                <strong>The PDF could not be displayed.</strong>
+                <p>Return to the Activity and try opening it again.</p>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'classroom/js/activity_pdf_viewer.js' %}?v=1"></script>{% endblock %}

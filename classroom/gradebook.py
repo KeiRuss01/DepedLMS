@@ -68,6 +68,61 @@ def sync_module_grade_score(submission):
     )[0]
 
 
+def sync_activity_grade_item(activity):
+    """Keep one gradebook column for one published graded Activity."""
+    if activity.post_type != activity.PostType.ACTIVITY or activity.score is None:
+        return None
+
+    component = activity.grade_component
+    defaults = {
+        "classroom": activity.classroom,
+        "term": activity.term,
+        "component": component,
+        "title": activity.title,
+        "highest_possible_score": activity.score,
+    }
+
+    try:
+        item = activity.grade_item
+    except GradeItem.DoesNotExist:
+        defaults["position"] = next_item_position(
+            activity.classroom,
+            activity.term,
+            component,
+        )
+        item = GradeItem.objects.create(activity=activity, **defaults)
+    else:
+        changed_group = (
+            item.classroom_id != activity.classroom_id
+            or item.term != activity.term
+            or item.component != component
+        )
+        if changed_group:
+            item.position = next_item_position(
+                activity.classroom,
+                activity.term,
+                component,
+            )
+        for field, value in defaults.items():
+            setattr(item, field, value)
+        item.save()
+    return item
+
+
+def sync_activity_grade_score(submission):
+    if submission.score is None:
+        return None
+    item = sync_activity_grade_item(submission.activity)
+    if item is None:
+        return None
+    score = min(Decimal(submission.score), item.highest_possible_score)
+    return GradeScore.objects.update_or_create(
+        item=item,
+        student=submission.student,
+        defaults={"score": max(ZERO, score)},
+    )[0]
+
+
 def percentage(score, possible):
     if not possible:
         return ZERO

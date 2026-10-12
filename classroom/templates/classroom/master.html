@@ -27,6 +27,10 @@
     <link rel="stylesheet"
           href="{% static 'accounts/css/user-preferences.css' %}">
 
+    {% if messaging_enabled %}
+    <link rel="stylesheet" href="{% static 'classroom/css/messages.css' %}?v=1">
+    {% endif %}
+
     {% block extra_css %}{% endblock %}
 </head>
 
@@ -92,11 +96,16 @@
 
                 <div class="header-actions">
 
-                <a class="header-icon"
-                   href="#"
-                   aria-label="Messages">
+                {% if messaging_enabled %}
+                <button class="header-icon message-panel-trigger"
+                        id="messagePanelTrigger"
+                        type="button"
+                        aria-label="Messages"
+                        aria-expanded="false">
                     <i class="bi bi-chat-dots"></i>
-                </a>
+                    <span class="message-navigation-badge {% if unread_message_count == 0 %}d-none{% endif %}">{{ unread_message_count }}</span>
+                </button>
+                {% endif %}
 
                 <div class="dropdown notification-menu">
 
@@ -286,6 +295,36 @@
         </div>
     </header>
 
+    {% if messaging_enabled %}
+    <aside class="message-floating-panel" id="messageFloatingPanel" hidden aria-label="Messages panel">
+        <div class="message-panel-list" id="messagePanelList">
+            <header class="message-panel-header">
+                <div><strong>Messages</strong><small>Parent–Teacher communication</small></div>
+                <button type="button" id="messagePanelClose" aria-label="Close messages"><i class="bi bi-x-lg"></i></button>
+            </header>
+            <div class="message-panel-search"><i class="bi bi-search"></i><input type="search" placeholder="Search messages" data-message-search></div>
+            <div class="message-panel-conversations" data-message-list>
+                {% for row in message_conversation_rows %}
+                <a class="message-conversation-row"
+                   href="{% url 'classroom:message_conversation' row.conversation.pk %}"
+                   data-panel-url="{% url 'classroom:message_panel_conversation' row.conversation.pk %}"
+                   data-message-name="{% if request.user.role == 'parent' %}{{ row.conversation.classroom.teacher.user.full_name }}{% else %}{{ row.conversation.parent.user.full_name }}{% endif %} {{ row.conversation.student.user.full_name }} {{ row.conversation.classroom.subject }}">
+                    <span class="message-avatar">{% if request.user.role == 'parent' %}{{ row.conversation.classroom.teacher.user.full_name|slice:":1"|upper }}{% else %}{{ row.conversation.parent.user.full_name|slice:":1"|upper }}{% endif %}</span>
+                    <span class="message-row-content">
+                        <strong>{% if request.user.role == 'parent' %}{{ row.conversation.classroom.teacher.user.full_name }}{% else %}{{ row.conversation.parent.user.full_name }}{% endif %}</strong>
+                        <small>{{ row.conversation.classroom.subject }} · Learner: {{ row.conversation.student.user.full_name }}</small>
+                        <span>{% if row.last_message %}{{ row.last_message.content|truncatechars:52 }}{% else %}Start the conversation{% endif %}</span>
+                    </span>
+                    <span class="message-row-side">{% if row.last_message %}<small>{{ row.last_message.created_at|date:"M d" }}</small>{% endif %}{% if row.unread_count %}<b>{{ row.unread_count }}</b>{% endif %}</span>
+                </a>
+                {% empty %}<div class="message-panel-empty"><i class="bi bi-chat-square-text"></i><strong>No conversations yet</strong><span>Open Messages to contact an eligible Teacher or Parent.</span></div>{% endfor %}
+            </div>
+            <a class="message-panel-view-all" href="{% url 'classroom:message_inbox' %}">Open Messages</a>
+        </div>
+        <div id="messagePanelChat" class="message-panel-chat" hidden></div>
+    </aside>
+    {% endif %}
+
     <!-- Page content -->
     <main class="classroom-main">
         <div class="container-fluid classroom-container">
@@ -312,7 +351,7 @@
 
     <!-- Mobile and tablet tab navigation -->
     {% with current_page=request.resolver_match.url_name %}
-    <nav class="mobile-tab-navigation"
+    <nav class="mobile-tab-navigation {% if messaging_enabled %}has-messages{% endif %}"
          aria-label="Mobile classroom navigation">
 
         <!-- Home -->
@@ -362,11 +401,23 @@
             <span>Calendar</span>
         </a>
 
+        {% if messaging_enabled %}
+        <a class="mobile-tab {% if current_page == 'message_inbox' or current_page == 'message_conversation' %}active{% endif %}"
+           href="{% url 'classroom:message_inbox' %}">
+            <span class="mobile-message-icon">
+                {% if current_page == 'message_inbox' or current_page == 'message_conversation' %}<i class="bi bi-chat-dots-fill"></i>{% else %}<i class="bi bi-chat-dots"></i>{% endif %}
+                {% if unread_message_count %}<b>{{ unread_message_count }}</b>{% endif %}
+            </span>
+            <span>Messages</span>
+        </a>
+        {% endif %}
+
     </nav>
     {% endwith %}
 
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     <script src="{% static 'accounts/js/notification-bell.js' %}"></script>
+    {% if messaging_enabled %}<script src="{% static 'classroom/js/messages.js' %}?v=1"></script>{% endif %}
 
     {% block extra_js %}{% endblock %}
 </body>

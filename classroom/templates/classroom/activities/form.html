@@ -1,0 +1,49 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block title %}{% if activity %}Edit{% else %}Create{% endif %} Activity | District 1 Classroom{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'classroom/css/activities.css' %}?v=1">{% endblock %}
+
+{% block content %}
+<main class="activity-page">
+    <a class="activity-back" href="{% url 'classroom:class_page' classroom.pk %}?tab=activities"><i class="bi bi-arrow-left"></i> Activities</a>
+    <div class="activity-page-heading">
+        <div><h1>{% if activity %}Edit Activity{% else %}Create Activity{% endif %}</h1><p>Attach an optional PDF resource and set the Activity deadline.</p></div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="activity-form-layout">
+        {% csrf_token %}
+        <section class="activity-panel">
+            <h2>Activity details</h2>
+            {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+            <div class="activity-field"><label>{{ form.activity_type.label }}</label>{{ form.activity_type }}{{ form.activity_type.errors }}</div>
+            <div class="activity-field"><label>{{ form.title.label }}</label>{{ form.title }}{{ form.title.errors }}</div>
+            <div class="activity-field"><label>Instructions</label>{{ form.content }}{{ form.content.errors }}</div>
+            <div class="activity-field"><label>PDF resource <small>(optional, maximum 20 MB)</small></label>{{ form.file }}{{ form.file.errors }}
+                {% if activity.file %}<a class="activity-file-link" href="{% url 'classroom:activity_resource_reader' activity.pk %}"><i class="bi bi-file-earmark-pdf"></i> Open current PDF</a>{% endif %}
+            </div>
+        </section>
+
+        <aside class="activity-panel activity-settings">
+            <h2>Submission settings</h2>
+            <div class="activity-two-fields">
+                <div class="activity-field"><label>{{ form.term.label }}</label>{{ form.term }}{{ form.term.errors }}</div>
+                <div class="activity-field"><label>Grade component</label>{{ form.grade_component }}{{ form.grade_component.errors }}</div>
+            </div>
+            <div class="activity-two-fields">
+                <div class="activity-field"><label>Maximum score</label>{{ form.score }}{{ form.score.errors }}</div>
+                <div class="activity-field"><label>Due date</label>{{ form.due_date }}{{ form.due_date.errors }}</div>
+            </div>
+            <div class="activity-default-methods">
+                <h3>Student submissions</h3>
+                <p>Students can always write directly, upload a PDF, or submit a link.</p>
+            </div>
+            <label class="activity-check compact">{{ form.allow_late_submission }} <span><strong>Allow late submissions</strong></span></label>
+            <div class="activity-form-actions">
+                <button class="btn btn-outline-primary" name="action" value="draft">Save draft</button>
+                <button class="btn btn-primary" name="action" value="publish"><i class="bi bi-send me-2"></i>Publish</button>
+            </div>
+        </aside>
+    </form>
+</main>
+{% endblock %}

@@ -3,7 +3,7 @@ from django.utils.crypto import get_random_string
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.conf import settings
 
-from accounts.models import School, Student, Teacher, User
+from accounts.models import Parent, School, Student, Teacher, User
 
 from .module_storage import (
     learning_storage,
@@ -25,6 +25,13 @@ def generate_class_code():
     """
     characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     return get_random_string(7, characters)
+
+
+def activity_submission_pdf_path(instance, filename):
+    return (
+        f"activities/{instance.activity_id}/submissions/"
+        f"{instance.student_id}/{filename}"
+    )
 
 
 # =========================================================
@@ -181,6 +188,80 @@ class ClassEnrollment(models.Model):
             f"{self.classroom} - "
             f"{self.get_status_display()}"
         )
+
+
+# =========================================================
+# PARENT–TEACHER MESSAGING
+# =========================================================
+
+class ParentTeacherConversation(models.Model):
+    """One private conversation for one Parent, learner, and class."""
+
+    conversation_id = models.AutoField(primary_key=True)
+    classroom = models.ForeignKey(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name="parent_conversations",
+    )
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name="parent_teacher_conversations",
+    )
+    parent = models.ForeignKey(
+        Parent,
+        on_delete=models.CASCADE,
+        related_name="teacher_conversations",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "parent_teacher_conversation"
+        ordering = ["-updated_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["classroom", "student", "parent"],
+                name="unique_parent_teacher_conversation",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["classroom", "updated_at"]),
+            models.Index(fields=["parent", "updated_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.parent} - {self.student} - {self.classroom}"
+
+
+class ParentTeacherMessage(models.Model):
+    """A text-only message sent inside a Parent–Teacher conversation."""
+
+    message_id = models.AutoField(primary_key=True)
+    conversation = models.ForeignKey(
+        ParentTeacherConversation,
+        on_delete=models.CASCADE,
+        related_name="messages",
+    )
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="parent_teacher_messages",
+    )
+    content = models.TextField(max_length=2000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = "parent_teacher_message"
+        ordering = ["created_at", "message_id"]
+        indexes = [
+            models.Index(fields=["conversation", "created_at"]),
+            models.Index(fields=["conversation", "read_at"]),
+        ]
+
+    def __str__(self):
+        return f"Message from {self.sender} in conversation {self.conversation_id}"
 
 
 # =========================================================
@@ -384,6 +465,11 @@ class ClassPost(models.Model):
         PERFORMANCE_TASK = "performance_task", "Performance Task"
         ASSESSMENT = "assessment", "Assessment"
 
+    class ActivityType(models.TextChoices):
+        ASSIGNMENT = "assignment", "Assignment"
+        PERFORMANCE_TASK = "performance_task", "Performance Task"
+        EXTERNAL_QUIZ = "external_quiz", "External Quiz"
+
     classroom = models.ForeignKey(
         Classroom,
         on_delete=models.CASCADE,
@@ -433,6 +519,17 @@ class ClassPost(models.Model):
     is_published = models.BooleanField(default=False)
 
     allow_late_submission = models.BooleanField(default=False)
+
+    activity_type = models.CharField(
+        max_length=30,
+        choices=ActivityType.choices,
+        default=ActivityType.ASSIGNMENT,
+    )
+
+    allow_text_submission = models.BooleanField(default=True)
+    allow_pdf_submission = models.BooleanField(default=True)
+    allow_link_submission = models.BooleanField(default=True)
+    is_closed = models.BooleanField(default=False)
 
     file = models.FileField(
         upload_to="class_posts/",
@@ -505,6 +602,71 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"Comment by {self.user} on {self.post}"
+
+
+class ActivitySubmission(models.Model):
+    class Method(models.TextChoices):
+        TEXT = "text", "Write directly"
+        PDF = "pdf", "Upload PDF"
+        LINK = "link", "Submit a link"
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        SUBMITTED = "submitted", "Submitted"
+        RETURNED = "returned", "Returned"
+        GRADED = "graded", "Graded"
+
+    submission_id = models.AutoField(primary_key=True)
+    activity = models.ForeignKey(
+        ClassPost,
+        on_delete=models.CASCADE,
+        related_name="activity_submissions",
+        limit_choices_to={"post_type": ClassPost.PostType.ACTIVITY},
+    )
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name="activity_submissions",
+    )
+    method = models.CharField(max_length=10, choices=Method.choices)
+    text_response = models.TextField(blank=True)
+    pdf_file = models.FileField(
+        upload_to=activity_submission_pdf_path,
+        storage=learning_storage,
+        blank=True,
+        null=True,
+    )
+    link_url = models.URLField(blank=True)
+    note = models.TextField(blank=True, max_length=1000)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+    )
+    score = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+    feedback = models.TextField(blank=True)
+    submitted_at = models.DateTimeField(blank=True, null=True)
+    graded_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "activity_submission"
+        ordering = ["student__lastname", "student__firstname"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["activity", "student"],
+                name="unique_activity_student_submission",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.student} - {self.activity.title}"
 
 # =========================================================
 # MODULE ANSWER SECTION
@@ -1122,6 +1284,14 @@ class GradeItem(models.Model):
         blank=True,
         null=True,
     )
+    activity = models.OneToOneField(
+        ClassPost,
+        on_delete=models.CASCADE,
+        related_name="grade_item",
+        blank=True,
+        null=True,
+        limit_choices_to={"post_type": ClassPost.PostType.ACTIVITY},
+    )
     term = models.CharField(max_length=1, choices=Module.Term.choices)
     component = models.CharField(max_length=30, choices=Component.choices)
     title = models.CharField(max_length=150)
@@ -1146,6 +1316,10 @@ class GradeItem(models.Model):
     @property
     def is_module(self):
         return self.module_id is not None
+
+    @property
+    def is_activity(self):
+        return self.activity_id is not None
 
     def __str__(self):
         return f"{self.classroom} - {self.title}"

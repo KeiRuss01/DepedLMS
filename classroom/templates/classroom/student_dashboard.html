@@ -108,23 +108,29 @@
         <p>Your learning updates will appear here.</p>
     </div>
 
-    <a href="{% url 'classroom:join_class' %}"
-       class="btn btn-primary classroom-primary-button">
-        <i class="bi bi-plus-lg me-2"></i>Join Class
-    </a>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'classroom:student_progress' %}"
+           class="btn btn-light border classroom-primary-button">
+            <i class="bi bi-bar-chart me-2"></i>My Progress
+        </a>
+        <a href="{% url 'classroom:join_class' %}"
+           class="btn btn-primary classroom-primary-button">
+            <i class="bi bi-plus-lg me-2"></i>Join Class
+        </a>
+    </div>
 </section>
 
 <a class="classroom-card continue-learning-card mb-4 dashboard-card-link"
-   {% if continue_module %}href="{% url 'classroom:module_work' continue_module.pk %}"{% endif %}>
+   {% if continue_task %}href="{{ continue_task.url }}"{% endif %}>
     <div class="continue-icon science">
         <i class="bi bi-book"></i>
     </div>
 
     <div class="continue-information">
         <small>Continue Learning</small>
-        {% if continue_module %}
-        <h3>{{ continue_module.title }}</h3>
-        <p class="mb-0">{{ continue_module.classroom.class_name }}{% if continue_module.due_at %} &middot; Due {{ continue_module.due_at|date:"M j, Y g:i A" }}{% endif %}</p>
+        {% if continue_task %}
+        <h3>{{ continue_task.title }}</h3>
+        <p class="mb-0">{{ continue_task.task_type }} &middot; {{ continue_task.classroom.class_name }}{% if continue_task.due_date %} &middot; Due {{ continue_task.due_date|date:"M j, Y g:i A" }}{% endif %}</p>
         {% else %}
         <h3>No lesson available</h3>
         <p class="mb-0">Your latest Module will appear here when a Teacher publishes one.</p>
@@ -140,19 +146,19 @@
             </div>
 
             <div class="task-list">
-                {% for module in due_soon %}
-                <a class="task-item" href="{% url 'classroom:module_work' module.pk %}">
-                    <span class="attention-icon dashboard-icon-blue"><i class="bi bi-journal-text"></i></span>
+                {% for task in due_soon_tasks %}
+                <a class="task-item" href="{{ task.url }}">
+                    <span class="attention-icon dashboard-icon-blue"><i class="bi {% if task.task_type == 'Activity' %}bi-clipboard-check{% else %}bi-journal-text{% endif %}"></i></span>
                     <span class="task-information">
-                        <strong>{{ module.title }}</strong>
-                        <small>{{ module.classroom.class_name }} &middot; Due {{ module.due_at|date:"M j, Y g:i A" }}</small>
+                        <strong>{{ task.title }}</strong>
+                        <small>{{ task.task_type }} &middot; {{ task.classroom.class_name }} &middot; Due {{ task.due_date|date:"M j, Y g:i A" }}</small>
                     </span>
                 </a>
                 {% empty %}
                 <div class="dashboard-empty-card">
                     <i class="bi bi-clipboard-check"></i>
                     <h4>No upcoming tasks</h4>
-                    <p>Published Modules with deadlines will appear here.</p>
+                    <p>Published Modules and Activities with deadlines will appear here.</p>
                 </div>
                 {% endfor %}
             </div>

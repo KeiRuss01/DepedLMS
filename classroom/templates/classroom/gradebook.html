@@ -32,7 +32,7 @@
     <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=modules" class="class-navigation-link"><i class="bi bi-collection"></i><span>Modules</span></a>
     <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=activities" class="class-navigation-link"><i class="bi bi-clipboard-check"></i><span>Activities</span></a>
     <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=people" class="class-navigation-link"><i class="bi bi-people"></i><span>People</span></a>
-    {% if is_teacher %}<a href="{% url 'classroom:attendance' classroom.class_id %}" class="class-navigation-link"><i class="bi bi-calendar2-check"></i><span>Attendance</span></a>{% endif %}
+    {% if is_teacher %}<a href="{% url 'classroom:attendance' classroom.class_id %}" class="class-navigation-link"><i class="bi bi-calendar2-check"></i><span>Attendance</span></a>{% else %}<a href="{% url 'classroom:student_progress' %}?tab=attendance&amp;classroom={{ classroom.pk }}" class="class-navigation-link"><i class="bi bi-calendar2-check"></i><span>Attendance</span></a>{% endif %}
     <a href="{% url 'classroom:gradebook' classroom.class_id %}" class="class-navigation-link active"><i class="bi bi-journal-check"></i><span>Grades</span></a>
 </nav>
 

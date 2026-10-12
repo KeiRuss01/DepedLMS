@@ -5,21 +5,21 @@
 
     <div class="task-card-content">
         <div class="task-title-row">
-            <h3>{{ task.module.title }}</h3>
+            <h3>{{ task.title }}</h3>
 
             <span class="task-type-badge">
-                Module
+                {{ task.task_type }}
             </span>
         </div>
 
         <p>
-            {{ task.module.classroom.subject }} ·
-            {{ task.module.classroom.grade_level }}
-            {{ task.module.classroom.section }}
+            {{ task.classroom.subject }} ·
+            {{ task.classroom.grade_level }}
+            {{ task.classroom.section }}
         </p>
 
         <div class="task-meta">
-            {% if task.module.due_at %}
+            {% if task.due_date %}
                 <span class="{% if task.is_overdue %}overdue{% endif %}">
                     <i class="bi bi-calendar3"></i>
 
@@ -29,7 +29,7 @@
                         Due
                     {% endif %}
 
-                    {{ task.module.due_at|date:"M d, Y g:i A" }}
+                    {{ task.due_date|date:"M d, Y g:i A" }}
                 </span>
             {% else %}
                 <span>
@@ -63,7 +63,7 @@
                     Score:
                     {{ task.submission.score|floatformat:2 }}
                     /
-                    {{ task.module.total_points }}
+                    {{ task.max_score|floatformat:-2 }}
                 </span>
             {% endif %}
         </div>

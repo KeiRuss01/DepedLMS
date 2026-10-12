@@ -3,6 +3,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'classroom/css/modules.css' %}?v=1">
+<link rel="stylesheet" href="{% static 'classroom/css/activities.css' %}?v=1">
 {% endblock %}
 
 {% block extra_js %}
@@ -162,6 +163,17 @@
         </span>
 
     </a>
+    {% elif is_student %}
+    <a href="{% url 'classroom:student_progress' %}?tab=attendance&amp;classroom={{ classroom.pk }}"
+       class="class-navigation-link">
+
+        <i class="bi bi-calendar2-check"></i>
+
+        <span>
+            Attendance
+        </span>
+
+    </a>
     {% endif %}
 
 
@@ -282,6 +294,24 @@
                                 {% if item.module.instructions %}<p>{{ item.module.instructions|truncatewords:35 }}</p>{% endif %}
                                 <div class="stream-module-meta">{% if item.module.due_at %}<span><i class="bi bi-calendar-event"></i> Due {{ item.module.due_at|date:"M d, Y · g:i A" }}</span>{% endif %}<span><i class="bi bi-list-check"></i> {{ item.module.answer_sections.count }} answer section{{ item.module.answer_sections.count|pluralize }}</span></div>
                                 {% if is_teacher %}<a class="btn btn-sm btn-outline-primary" href="{% url 'classroom:module_manage' item.module.pk %}">Open Module</a>{% else %}<a class="btn btn-sm btn-primary" href="{% url 'classroom:module_work' item.module.pk %}">Open Module</a>{% endif %}
+                            </div>
+                            {% include "classroom/_stream_comments.html" with post=item.post %}
+                        </article>
+                        {% elif item.kind == "activity" %}
+                        <article class="stream-post stream-feed-card" id="post-{{ item.post.pk }}">
+                            <div class="stream-post-heading">
+                                <span class="stream-post-icon activity-color"><i class="bi bi-clipboard-check"></i></span>
+                                <div><strong>New Activity published</strong><small>{{ item.created_at|date:"M d, Y · g:i A" }}</small></div>
+                            </div>
+                            <div class="stream-post-body">
+                                <span class="stream-content-label">{{ item.activity.get_activity_type_display }} · TERM {{ item.activity.term }}</span>
+                                <h3>{{ item.activity.title }}</h3>
+                                {% if item.activity.content %}<p>{{ item.activity.content|truncatewords:35 }}</p>{% endif %}
+                                <div class="stream-module-meta">
+                                    {% if item.activity.due_date %}<span><i class="bi bi-calendar-event"></i> Due {{ item.activity.due_date|date:"M d, Y · g:i A" }}</span>{% endif %}
+                                    <span><i class="bi bi-star"></i> {{ item.activity.score|floatformat:-2 }} points</span>
+                                </div>
+                                <a class="btn btn-sm btn-primary" href="{% url 'classroom:activity_detail' item.activity.pk %}">Open Activity</a>
                             </div>
                             {% include "classroom/_stream_comments.html" with post=item.post %}
                         </article>
@@ -497,15 +527,14 @@
 
         {% if is_teacher %}
 
-        <button class="btn btn-primary"
-                type="button"
-                disabled>
+        <a class="btn btn-primary"
+           href="{% url 'classroom:activity_create' classroom.pk %}">
 
             <i class="bi bi-plus-lg me-2"></i>
 
             Create Activity
 
-        </button>
+        </a>
 
         {% endif %}
 
@@ -513,25 +542,32 @@
 
 
 
-    <section class="classroom-card">
-
-        <div class="grade-placeholder">
-
-            <span>
-                <i class="bi bi-clipboard-check"></i>
+    <section class="classroom-card activity-list-card">
+        {% for row in activity_rows %}
+        <a class="activity-list-row" href="{% url 'classroom:activity_detail' row.activity.pk %}">
+            <span class="activity-list-icon"><i class="bi bi-clipboard-check"></i></span>
+            <span class="activity-list-main">
+                <span class="activity-list-label">{{ row.activity.get_activity_type_display }}</span>
+                <strong>{{ row.activity.title }}</strong>
+                <small>Term {{ row.activity.term }}{% if row.activity.due_date %} · Due {{ row.activity.due_date|date:"M d, Y · g:i A" }}{% endif %}</small>
             </span>
-
-            <h3>
-                No activities yet
-            </h3>
-
-            <p>
-                Published assignments and quizzes
-                will appear here.
-            </p>
-
+            <span class="activity-list-score">{{ row.activity.score|floatformat:-2 }} pts</span>
+            {% if is_teacher %}
+                <span class="activity-status {% if row.activity.is_published %}published{% else %}draft{% endif %}">{% if row.activity.is_published %}Published{% else %}Draft{% endif %}</span>
+            {% elif row.submission %}
+                <span class="activity-status {{ row.submission.status }}">{{ row.submission.get_status_display }}</span>
+            {% else %}
+                <span class="activity-status">To do</span>
+            {% endif %}
+            <i class="bi bi-chevron-right"></i>
+        </a>
+        {% empty %}
+        <div class="grade-placeholder">
+            <span><i class="bi bi-clipboard-check"></i></span>
+            <h3>No activities yet</h3>
+            <p>Published assignments and other class activities will appear here.</p>
         </div>
-
+        {% endfor %}
     </section>
 
 

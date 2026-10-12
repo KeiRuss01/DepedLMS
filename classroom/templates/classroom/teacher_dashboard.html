@@ -74,6 +74,16 @@
                 </a>
                 {% endfor %}
 
+                {% for activity in today_activities %}
+                <a class="task-item" href="{% url 'classroom:activity_detail' activity.pk %}">
+                    <span class="attention-icon dashboard-icon-blue"><i class="bi bi-clipboard-check"></i></span>
+                    <span class="task-information">
+                        <strong>{{ activity.title }}</strong>
+                        <small>{{ activity.classroom.class_name }} &middot; Activity due {{ activity.due_date|date:"g:i A" }}</small>
+                    </span>
+                </a>
+                {% endfor %}
+
                 {% for classroom in attendance_pending_classrooms %}
                 <a class="task-item" href="{% url 'classroom:attendance' classroom.pk %}?date={{ today|date:'Y-m-d' }}">
                     <span class="attention-icon dashboard-icon-teal"><i class="bi bi-calendar-check"></i></span>
@@ -84,11 +94,11 @@
                 </a>
                 {% endfor %}
 
-                {% if not today_modules and not attendance_pending_classrooms %}
+                {% if not today_modules and not today_activities and not attendance_pending_classrooms %}
                 <div class="dashboard-empty-card">
                     <i class="bi bi-calendar2-check"></i>
                     <h4>Nothing scheduled today</h4>
-                    <p>Today's Module deadlines and attendance reminders will appear here.</p>
+                    <p>Today's Module and Activity deadlines and attendance reminders will appear here.</p>
                 </div>
                 {% endif %}
             </div>
@@ -129,11 +139,21 @@
                 </a>
                 {% endfor %}
 
-                {% if not join_requests and not submissions_to_review %}
+                {% for submission in activity_submissions_to_review %}
+                <a href="{% url 'classroom:activity_review' submission.pk %}" class="attention-item">
+                    <span class="attention-icon dashboard-icon-blue"><i class="bi bi-clipboard-check"></i></span>
+                    <span>
+                        <strong>{{ submission.student }}</strong>
+                        <small>Submitted {{ submission.activity.title }} in {{ submission.activity.classroom.class_name }}</small>
+                    </span>
+                </a>
+                {% endfor %}
+
+                {% if not join_requests and not submissions_to_review and not activity_submissions_to_review %}
                 <div class="dashboard-empty-card compact">
                     <i class="bi bi-check2-circle"></i>
                     <h4>Nothing needs attention</h4>
-                    <p>Student join requests and submitted Modules will appear here.</p>
+                    <p>Student join requests and submitted Modules or Activities will appear here.</p>
                 </div>
                 {% endif %}
             </div>

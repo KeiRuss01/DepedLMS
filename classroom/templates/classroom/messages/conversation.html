@@ -1,0 +1,26 @@
+{% extends "classroom/master.html" %}
+
+{% block title %}Conversation | District 1 Classroom{% endblock %}
+
+{% block content %}
+<main class="messages-page conversation-page">
+    <section class="messages-card full-conversation">
+        <header class="conversation-header">
+            <a href="{% url 'classroom:message_inbox' %}" aria-label="Back to messages"><i class="bi bi-arrow-left"></i></a>
+            <span class="message-avatar">{% if request.user.role == 'parent' %}{{ conversation.classroom.teacher.user.full_name|slice:":1"|upper }}{% else %}{{ conversation.parent.user.full_name|slice:":1"|upper }}{% endif %}</span>
+            <div><h1>{% if request.user.role == 'parent' %}{{ conversation.classroom.teacher.user.full_name }}{% else %}{{ conversation.parent.user.full_name }}{% endif %}</h1><p>{{ conversation.classroom.subject }} · Learner: {{ conversation.student.user.full_name }}</p></div>
+        </header>
+        <div class="conversation-notice"><i class="bi bi-info-circle"></i> Messages should concern {{ conversation.student.user.full_name }} and this enrolled class.</div>
+        <div class="conversation-messages" id="conversationMessages">
+            {% for item in conversation_messages %}
+            <div class="message-bubble-row {% if item.sender_id == request.user.pk %}mine{% endif %}">
+                <div class="message-bubble"><p>{{ item.content|linebreaksbr }}</p><small>{{ item.created_at|date:"M d, Y · g:i A" }}</small></div>
+            </div>
+            {% empty %}<div class="messages-empty compact"><p>No messages yet. Start the conversation below.</p></div>{% endfor %}
+        </div>
+        <form class="conversation-composer" method="post" action="{% url 'classroom:message_send' conversation.pk %}">
+            {% csrf_token %}<textarea name="content" rows="1" maxlength="2000" placeholder="Write a message…" required></textarea><button class="btn btn-primary" aria-label="Send message"><i class="bi bi-send"></i><span>Send</span></button>
+        </form>
+    </section>
+</main>
+{% endblock %}

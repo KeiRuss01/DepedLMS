@@ -32,6 +32,7 @@ from django.http import FileResponse, Http404, JsonResponse
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from .models import (
+    ActivitySubmission,
     ClassPost,
     Comment,
     Module,
@@ -126,6 +127,14 @@ def dashboard_view(request):
             due_at__date=today,
         ).select_related("classroom").order_by("due_at")[:5]
 
+        today_activities = ClassPost.objects.filter(
+            classroom__teacher=teacher,
+            classroom__is_archived=False,
+            post_type=ClassPost.PostType.ACTIVITY,
+            is_published=True,
+            due_date__date=today,
+        ).select_related("classroom").order_by("due_date")[:5]
+
         attendance_pending_classrooms = []
         if today.weekday() < 5:
             recorded_class_ids = AttendanceDay.objects.filter(
@@ -147,6 +156,17 @@ def dashboard_view(request):
             "student__user",
         ).order_by("submitted_at", "updated_at")[:5]
 
+        activity_submissions_to_review = ActivitySubmission.objects.filter(
+            activity__classroom__teacher=teacher,
+            activity__classroom__is_archived=False,
+            status=ActivitySubmission.Status.SUBMITTED,
+        ).select_related(
+            "activity",
+            "activity__classroom",
+            "student",
+            "student__user",
+        ).order_by("submitted_at", "updated_at")[:5]
+
         return render(
             request,
             "classroom/teacher_dashboard.html",
@@ -154,8 +174,10 @@ def dashboard_view(request):
                 "classrooms": classrooms,
                 "join_requests": join_requests,
                 "today_modules": today_modules,
+                "today_activities": today_activities,
                 "attendance_pending_classrooms": attendance_pending_classrooms,
                 "submissions_to_review": submissions_to_review,
+                "activity_submissions_to_review": activity_submissions_to_review,
                 "today": today,
             },
         )
@@ -197,31 +219,18 @@ def dashboard_view(request):
             "parent__user",
         )
 
-        now = timezone.now()
-        finished_module_ids = ModuleSubmission.objects.filter(
-            student=student,
-            status__in=[
-                ModuleSubmission.Status.SUBMITTED,
-                ModuleSubmission.Status.GRADED,
-            ],
-        ).values_list("module_id", flat=True)
-        available_modules = Module.objects.filter(
-            classroom_id__in=enrolled_class_ids,
-            classroom__is_archived=False,
-            status=Module.Status.PUBLISHED,
-        ).exclude(
-            module_id__in=finished_module_ids,
-        ).select_related("classroom")
-        due_soon = available_modules.filter(
-            due_at__isnull=False,
-            due_at__gte=now,
-        ).order_by("due_at")[:5]
-        continue_module = due_soon.first()
-        if continue_module is None:
-            continue_module = available_modules.order_by(
-                "-published_at",
-                "-created_at",
-            ).first()
+        student_tasks = _build_student_module_tasks(student)
+        due_soon_tasks = [
+            task for task in student_tasks
+            if task["is_due_soon"]
+        ][:5]
+        continue_task = next(
+            (
+                task for task in student_tasks
+                if task["status"] in {"to_do", "in_progress", "returned"}
+            ),
+            None,
+        )
 
         latest_announcements = Announcement.objects.filter(
             classroom_id__in=enrolled_class_ids,
@@ -238,8 +247,8 @@ def dashboard_view(request):
                 "enrollments": enrollments,
                 "invitations": invitations,
                 "parent_requests": parent_requests,
-                "continue_module": continue_module,
-                "due_soon": due_soon,
+                "continue_task": continue_task,
+                "due_soon_tasks": due_soon_tasks,
                 "latest_announcements": latest_announcements,
             },
         )
@@ -260,7 +269,10 @@ def dashboard_view(request):
             "student__school",
         )
 
-        selected_learner_id = request.GET.get("learner")
+        selected_learner_id = (
+            request.GET.get("learner")
+            or request.session.get("parent_selected_learner")
+        )
 
         selected_link = linked_students.filter(
             student_id=selected_learner_id,
@@ -268,6 +280,9 @@ def dashboard_view(request):
 
         if selected_link is None:
             selected_link = linked_students.first()
+
+        if selected_link:
+            request.session["parent_selected_learner"] = selected_link.student_id
 
         linked_student = (
             selected_link.student
@@ -471,7 +486,11 @@ def classes_view(request):
             )
 
         selected_link = None
-        selected_student_id = request.GET.get("student")
+        selected_student_id = (
+            request.GET.get("learner")
+            or request.GET.get("student")
+            or request.session.get("parent_selected_learner")
+        )
 
         if selected_student_id:
             selected_link = linked_students.filter(
@@ -480,6 +499,9 @@ def classes_view(request):
 
         if selected_link is None:
             selected_link = linked_students.first()
+
+        if selected_link:
+            request.session["parent_selected_learner"] = selected_link.student_id
 
         linked_student = selected_link.student if selected_link else None
         enrollments = ClassEnrollment.objects.none()
@@ -1010,6 +1032,7 @@ def class_page_view(request, classroom_id):
     )
 
     module_rows = []
+    activity_rows = []
     stream_items = []
     upcoming_modules = []
     selected_term = request.GET.get("term", "")
@@ -1046,6 +1069,32 @@ def class_page_view(request, classroom_id):
             for module in modules
         ]
 
+    if active_tab == "activities":
+        activities = classroom.class_posts.filter(
+            post_type=ClassPost.PostType.ACTIVITY,
+        )
+
+        if not is_teacher:
+            activities = activities.filter(is_published=True)
+
+        submissions = {}
+        if student:
+            submissions = {
+                submission.activity_id: submission
+                for submission in ActivitySubmission.objects.filter(
+                    student=student,
+                    activity__classroom=classroom,
+                )
+            }
+
+        activity_rows = [
+            {
+                "activity": activity,
+                "submission": submissions.get(activity.pk),
+            }
+            for activity in activities
+        ]
+
     if active_tab == "stream":
         announcements = classroom.announcements.select_related(
             "posted_by",
@@ -1069,6 +1118,15 @@ def class_page_view(request, classroom_id):
         ).prefetch_related(
             "comments__user",
         )
+        published_activities = classroom.class_posts.filter(
+            post_type=ClassPost.PostType.ACTIVITY,
+            is_published=True,
+        ).select_related(
+            "teacher",
+            "teacher__user",
+        ).prefetch_related(
+            "comments__user",
+        )
         stream_items = [
             {
                 "kind": "announcement",
@@ -1078,6 +1136,15 @@ def class_page_view(request, classroom_id):
             }
             for announcement in announcements
         ]
+        stream_items.extend(
+            {
+                "kind": "activity",
+                "created_at": activity.created_at,
+                "activity": activity,
+                "post": activity,
+            }
+            for activity in published_activities
+        )
         stream_items.extend(
             {
                 "kind": "module",
@@ -1111,6 +1178,7 @@ def class_page_view(request, classroom_id):
             "is_student": is_student,
             "enrolled_students": enrolled_students,
             "rows": module_rows,
+            "activity_rows": activity_rows,
             "selected_term": selected_term,
             "search": search,
             "stream_items": stream_items,
@@ -1259,14 +1327,11 @@ def comment_create_view(request, post_id):
 
         messages.error(request, error_message)
 
-    class_url = reverse(
-        "classroom:class_page",
-        args=[post.classroom_id],
-    )
+    if post.post_type == ClassPost.PostType.ACTIVITY:
+        return redirect("classroom:activity_detail", activity_id=post.pk)
 
-    return redirect(
-        f"{class_url}?tab=stream#post-{post.pk}"
-    )
+    class_url = reverse("classroom:class_page", args=[post.classroom_id])
+    return redirect(f"{class_url}?tab=stream#post-{post.pk}")
 
 @login_required(login_url="accounts:login")
 @require_POST
@@ -1305,14 +1370,11 @@ def comment_delete_view(request, comment_id):
     comment.delete()
     messages.success(request, "Comment deleted.")
 
-    class_url = reverse(
-        "classroom:class_page",
-        args=[post.classroom_id],
-    )
+    if post.post_type == ClassPost.PostType.ACTIVITY:
+        return redirect("classroom:activity_detail", activity_id=post.pk)
 
-    return redirect(
-        f"{class_url}?tab=stream#post-{post.pk}"
-    )
+    class_url = reverse("classroom:class_page", args=[post.classroom_id])
+    return redirect(f"{class_url}?tab=stream#post-{post.pk}")
 
 @login_required(login_url="accounts:login")
 @require_POST
@@ -3109,6 +3171,25 @@ def _calendar_item_from_module(module):
     }
 
 
+def _calendar_item_from_activity(activity):
+    due_date = _calendar_date(activity.due_date)
+    return {
+        "event_id": None,
+        "title": f"{activity.title} Due",
+        "description": activity.content,
+        "start_date": due_date,
+        "end_date": due_date,
+        "event_type": CalendarEvent.EventType.DEADLINE,
+        "event_type_label": "Activity deadline",
+        "level": "activity",
+        "level_label": "Activity deadline",
+        "classroom": activity.classroom,
+        "source": "",
+        "is_editable": False,
+        "is_module_deadline": False,
+    }
+
+
 def _collect_calendar_items(school, classrooms):
     """Collect official, school, class, and module events."""
     classrooms = list(classrooms)
@@ -3143,6 +3224,12 @@ def _collect_calendar_items(school, classrooms):
         status=Module.Status.PUBLISHED,
         due_at__isnull=False,
     ).select_related("classroom")
+    activities = ClassPost.objects.filter(
+        classroom__in=classrooms,
+        post_type=ClassPost.PostType.ACTIVITY,
+        is_published=True,
+        due_date__isnull=False,
+    ).select_related("classroom")
 
     items = [
         _calendar_item_from_event(event)
@@ -3154,6 +3241,10 @@ def _collect_calendar_items(school, classrooms):
     items.extend(
         _calendar_item_from_module(module)
         for module in modules
+    )
+    items.extend(
+        _calendar_item_from_activity(activity)
+        for activity in activities
     )
 
     return items
@@ -3348,6 +3439,11 @@ def _build_student_module_tasks(student, classroom_id=None):
 
         tasks.append({
             "module": module,
+            "title": module.title,
+            "classroom": module.classroom,
+            "due_date": module.due_at,
+            "max_score": module.total_points,
+            "task_type": "Module",
             "submission": submission,
             "status": status,
             "status_label": status_label,
@@ -3359,6 +3455,60 @@ def _build_student_module_tasks(student, classroom_id=None):
                 args=[module.pk],
             ),
         })
+
+    activities = ClassPost.objects.filter(
+        classroom__in=approved_classrooms,
+        post_type=ClassPost.PostType.ACTIVITY,
+        is_published=True,
+    ).select_related("classroom")
+    activity_submissions = {
+        item.activity_id: item
+        for item in ActivitySubmission.objects.filter(
+            student=student,
+            activity__in=activities,
+        )
+    }
+
+    for activity in activities:
+        submission = activity_submissions.get(activity.pk)
+        if submission is None:
+            status, status_label, action_label = "to_do", "To Do", "Open"
+        elif submission.status == ActivitySubmission.Status.DRAFT:
+            status, status_label, action_label = "in_progress", "In Progress", "Continue"
+        elif submission.status == ActivitySubmission.Status.SUBMITTED:
+            status, status_label, action_label = "submitted", "Submitted", "View Submission"
+        elif submission.status == ActivitySubmission.Status.RETURNED:
+            status, status_label, action_label = "returned", "Returned", "Revise"
+        else:
+            status, status_label, action_label = "completed", "Completed", "View Result"
+
+        is_overdue = bool(
+            activity.due_date
+            and activity.due_date < now
+            and status in {"to_do", "in_progress", "returned"}
+        )
+        is_due_soon = bool(
+            activity.due_date
+            and now <= activity.due_date <= due_soon_limit
+            and status not in {"submitted", "completed"}
+        )
+        tasks.append({
+            "module": None,
+            "title": activity.title,
+            "classroom": activity.classroom,
+            "due_date": activity.due_date,
+            "max_score": activity.score,
+            "task_type": "Activity",
+            "submission": submission,
+            "status": status,
+            "status_label": status_label,
+            "action_label": action_label,
+            "is_due_soon": is_due_soon,
+            "is_overdue": is_overdue,
+            "url": reverse("classroom:activity_detail", args=[activity.pk]),
+        })
+
+    tasks.sort(key=lambda task: (task["due_date"] is None, task["due_date"] or now))
 
     return tasks
 
@@ -3397,7 +3547,7 @@ def _build_task_overview(tasks):
             for task in tasks
             if task["is_due_soon"]
         ],
-        key=lambda task: task["module"].due_at,
+        key=lambda task: task["due_date"],
     )[:5]
 
     return {
@@ -3450,9 +3600,18 @@ def tasks_view(request):
             classroom__is_archived=False,
         )
 
+        activities = ClassPost.objects.filter(
+            classroom__teacher=teacher,
+            classroom__is_archived=False,
+            post_type=ClassPost.PostType.ACTIVITY,
+        )
+
         if selected_classroom_id:
             if classrooms.filter(pk=selected_classroom_id).exists():
                 modules = modules.filter(
+                    classroom_id=selected_classroom_id,
+                )
+                activities = activities.filter(
                     classroom_id=selected_classroom_id,
                 )
             else:
@@ -3471,6 +3630,19 @@ def tasks_view(request):
             )
         )
 
+        activities = activities.select_related(
+            "classroom",
+        ).annotate(
+            review_count=Count(
+                "activity_submissions",
+                filter=Q(
+                    activity_submissions__status=(
+                        ActivitySubmission.Status.SUBMITTED
+                    )
+                ),
+            )
+        )
+
         now = timezone.now()
         due_soon_limit = now + timedelta(days=7)
 
@@ -3478,8 +3650,16 @@ def tasks_view(request):
             review_count__gt=0,
         ).order_by("-review_count", "due_at")
 
+        review_activities = activities.filter(
+            review_count__gt=0,
+        ).order_by("-review_count", "due_date")
+
         draft_modules = modules.filter(
             status=Module.Status.DRAFT,
+        ).order_by("-created_at")
+
+        draft_activities = activities.filter(
+            is_published=False,
         ).order_by("-created_at")
 
         due_modules = modules.filter(
@@ -3488,16 +3668,26 @@ def tasks_view(request):
             due_at__lte=due_soon_limit,
         ).order_by("due_at")
 
+        due_activities = activities.filter(
+            is_published=True,
+            is_closed=False,
+            due_date__gte=now,
+            due_date__lte=due_soon_limit,
+        ).order_by("due_date")
+
         teacher_summary = {
             "needs_review": sum(
                 module.review_count
                 for module in review_modules
+            ) + sum(
+                activity.review_count
+                for activity in review_activities
             ),
-            "due_soon": due_modules.count(),
-            "drafts": draft_modules.count(),
+            "due_soon": due_modules.count() + due_activities.count(),
+            "drafts": draft_modules.count() + draft_activities.count(),
             "published": modules.filter(
                 status=Module.Status.PUBLISHED,
-            ).count(),
+            ).count() + activities.filter(is_published=True).count(),
         }
 
         return render(
@@ -3508,8 +3698,11 @@ def tasks_view(request):
                 "classrooms": classrooms,
                 "selected_classroom_id": selected_classroom_id,
                 "review_modules": review_modules,
+                "review_activities": review_activities,
                 "draft_modules": draft_modules,
+                "draft_activities": draft_activities,
                 "due_modules": due_modules,
+                "due_activities": due_activities,
                 "task_summary": teacher_summary,
             },
         )
@@ -3627,7 +3820,10 @@ def tasks_view(request):
             "student__user",
         )
 
-        selected_learner_id = request.GET.get("learner")
+        selected_learner_id = (
+            request.GET.get("learner")
+            or request.session.get("parent_selected_learner")
+        )
         selected_link = None
 
         if selected_learner_id:
@@ -3637,6 +3833,9 @@ def tasks_view(request):
 
         if selected_link is None:
             selected_link = linked_students.first()
+
+        if selected_link:
+            request.session["parent_selected_learner"] = selected_link.student_id
 
         selected_student = (
             selected_link.student
@@ -4063,6 +4262,77 @@ def section_attachment_view(request, attachment_id):
         content_types.get(extension, "application/octet-stream"),
     )
 
+def _learner_progress_context(student, request):
+    """Build one read-only progress view for a Student or Parent."""
+
+    active_tab = request.GET.get("tab", "overview")
+    if active_tab not in {"overview", "grades", "attendance"}:
+        active_tab = "overview"
+
+    classrooms = Classroom.objects.filter(
+        enrollments__student=student,
+        enrollments__status=ClassEnrollment.Status.APPROVED,
+        is_archived=False,
+    ).distinct().order_by("subject", "section")
+
+    tasks = _build_student_module_tasks(student)
+    task_overview = _build_task_overview(tasks)
+    attention_tasks = [
+        task for task in tasks
+        if task["is_overdue"] or task["status"] == "returned"
+    ][:5]
+
+    grade_rows = build_released_student_summary(
+        student,
+        classrooms,
+    )
+
+    selected_classroom = classrooms.filter(
+        pk=request.GET.get("classroom"),
+    ).first()
+    if selected_classroom is None:
+        selected_classroom = classrooms.first()
+
+    attendance_summary = None
+    if selected_classroom:
+        attendance_summary = build_parent_attendance(
+            student,
+            selected_classroom,
+            parse_month(request.GET.get("month")),
+        )
+
+    return {
+        "active_tab": active_tab,
+        "selected_student": student,
+        "classrooms": classrooms,
+        "selected_classroom": selected_classroom,
+        "grade_rows": grade_rows,
+        "attendance_summary": attendance_summary,
+        "task_overview": task_overview,
+        "attention_tasks": attention_tasks,
+    }
+
+
+@login_required(login_url="accounts:login")
+def student_progress_view(request):
+    if request.user.role != User.Role.STUDENT:
+        return redirect("classroom:dashboard")
+
+    student = getattr(request.user, "student_profile", None)
+    if student is None:
+        messages.error(request, "Your Student profile was not found.")
+        return redirect("classroom:dashboard")
+
+    context = _learner_progress_context(student, request)
+    context["student_view"] = True
+
+    return render(
+        request,
+        "classroom/parent_progress.html",
+        context,
+    )
+
+
 @login_required(login_url="accounts:login")
 def parent_progress_view(request):
     if request.user.role != User.Role.PARENT:
@@ -4085,12 +4355,20 @@ def parent_progress_view(request):
         "student__user",
     )
 
+    selected_learner_id = (
+        request.GET.get("learner")
+        or request.session.get("parent_selected_learner")
+    )
+
     selected_link = linked_students.filter(
-        student_id=request.GET.get("learner"),
+        student_id=selected_learner_id,
     ).first()
 
     if selected_link is None:
         selected_link = linked_students.first()
+
+    if selected_link:
+        request.session["parent_selected_learner"] = selected_link.student_id
 
     selected_student = (
         selected_link.student
@@ -4098,47 +4376,12 @@ def parent_progress_view(request):
         else None
     )
 
-    active_tab = request.GET.get("tab", "grades")
-
-    if active_tab not in {"grades", "attendance"}:
-        active_tab = "grades"
-
-    classrooms = Classroom.objects.none()
-    selected_classroom = None
-    grade_rows = []
-    attendance_summary = None
-
+    progress_context = {}
     if selected_student:
-        classrooms = Classroom.objects.filter(
-            enrollments__student=selected_student,
-            enrollments__status=ClassEnrollment.Status.APPROVED,
-            is_archived=False,
-        ).distinct()
-
-        if active_tab == "grades":
-            grade_rows = build_released_student_summary(
-                selected_student,
-                classrooms,
-            )
-
-        else:
-            selected_classroom = classrooms.filter(
-                pk=request.GET.get("classroom"),
-            ).first()
-
-            if selected_classroom is None:
-                selected_classroom = classrooms.first()
-
-            if selected_classroom:
-                selected_month = parse_month(
-                    request.GET.get("month")
-                )
-
-                attendance_summary = build_parent_attendance(
-                    selected_student,
-                    selected_classroom,
-                    selected_month,
-                )
+        progress_context = _learner_progress_context(
+            selected_student,
+            request,
+        )
 
     return render(
         request,
@@ -4146,10 +4389,6 @@ def parent_progress_view(request):
         {
             "linked_students": linked_students,
             "selected_student": selected_student,
-            "classrooms": classrooms,
-            "selected_classroom": selected_classroom,
-            "grade_rows": grade_rows,
-            "attendance_summary": attendance_summary,
-            "active_tab": active_tab,
+            **progress_context,
         },
     )

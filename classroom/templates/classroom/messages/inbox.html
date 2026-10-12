@@ -1,0 +1,54 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block title %}Messages | District 1 Classroom{% endblock %}
+
+{% block content %}
+<main class="messages-page">
+    <header class="messages-page-heading">
+        <div><h1>Messages</h1><p>{% if request.user.role == 'parent' %}Contact the Teachers of your connected learners.{% else %}Communicate with Parents about their enrolled learners.{% endif %}</p></div>
+    </header>
+
+    <div class="messages-inbox-layout">
+        <section class="messages-card messages-conversation-card">
+            <div class="messages-card-heading"><h2>Conversations</h2><span>{{ conversation_rows|length }}</span></div>
+            <div class="messages-search"><i class="bi bi-search"></i><input type="search" placeholder="Search conversations" data-message-search></div>
+            <div class="messages-list" data-message-list>
+                {% for row in conversation_rows %}
+                <a class="message-conversation-row"
+                   href="{% url 'classroom:message_conversation' row.conversation.pk %}"
+                   data-message-name="{% if request.user.role == 'parent' %}{{ row.conversation.classroom.teacher.user.full_name }}{% else %}{{ row.conversation.parent.user.full_name }}{% endif %} {{ row.conversation.student.user.full_name }} {{ row.conversation.classroom.subject }}">
+                    <span class="message-avatar">{% if request.user.role == 'parent' %}{{ row.conversation.classroom.teacher.user.full_name|slice:":1"|upper }}{% else %}{{ row.conversation.parent.user.full_name|slice:":1"|upper }}{% endif %}</span>
+                    <span class="message-row-content">
+                        <strong>{% if request.user.role == 'parent' %}{{ row.conversation.classroom.teacher.user.full_name }}{% else %}{{ row.conversation.parent.user.full_name }}{% endif %}</strong>
+                        <small>{{ row.conversation.classroom.subject }} · Learner: {{ row.conversation.student.user.full_name }}</small>
+                        <span>{% if row.last_message %}{{ row.last_message.content|truncatechars:80 }}{% else %}Start the conversation{% endif %}</span>
+                    </span>
+                    <span class="message-row-side">{% if row.last_message %}<small>{{ row.last_message.created_at|date:"M d" }}</small>{% endif %}{% if row.unread_count %}<b>{{ row.unread_count }}</b>{% endif %}<i class="bi bi-chevron-right"></i></span>
+                </a>
+                {% empty %}<div class="messages-empty"><i class="bi bi-chat-square-text"></i><h3>No conversations yet</h3><p>Choose an eligible contact below to begin.</p></div>{% endfor %}
+            </div>
+        </section>
+
+        <aside class="messages-card messages-contacts-card">
+            <div class="messages-card-heading"><h2>{% if request.user.role == 'parent' %}Your Teachers{% else %}Parents and Learners{% endif %}</h2></div>
+            <p class="messages-contact-help">Only approved learner connections and active class enrollments are shown.</p>
+            <div class="eligible-contact-list">
+                {% for contact in eligible_contacts %}
+                    {% if not contact.conversation %}
+                    <form method="post" action="{% url 'classroom:message_conversation_start' %}" class="eligible-contact">
+                        {% csrf_token %}
+                        <input type="hidden" name="classroom_id" value="{{ contact.classroom.pk }}">
+                        <input type="hidden" name="student_id" value="{{ contact.student.pk }}">
+                        <input type="hidden" name="parent_id" value="{{ contact.parent.pk }}">
+                        <span class="message-avatar">{% if request.user.role == 'parent' %}{{ contact.classroom.teacher.user.full_name|slice:":1"|upper }}{% else %}{{ contact.parent.user.full_name|slice:":1"|upper }}{% endif %}</span>
+                        <span><strong>{% if request.user.role == 'parent' %}{{ contact.classroom.teacher.user.full_name }}{% else %}{{ contact.parent.user.full_name }}{% endif %}</strong><small>{{ contact.classroom.subject }} · Learner: {{ contact.student.user.full_name }}</small></span>
+                        <button class="btn btn-sm btn-outline-primary" aria-label="Start conversation"><i class="bi bi-chat-dots"></i></button>
+                    </form>
+                    {% endif %}
+                {% empty %}<div class="messages-empty compact"><p>No eligible contacts are available.</p></div>{% endfor %}
+            </div>
+        </aside>
+    </div>
+</main>
+{% endblock %}
