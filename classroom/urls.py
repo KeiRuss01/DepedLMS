@@ -30,11 +30,6 @@ urlpatterns = [
         name="tasks",
     ),
     path(
-        "progress/",
-        views.student_progress_view,
-        name="student_progress",
-    ),
-    path(
         "messages/",
         messaging_views.message_inbox_view,
         name="message_inbox",
@@ -58,6 +53,12 @@ urlpatterns = [
         "messages/<int:conversation_id>/send/",
         messaging_views.message_send_view,
         name="message_send",
+    ),
+
+    path(
+        "messages/status/",
+        messaging_views.message_status_view,
+        name="message_status",
     ),
 
     path(
@@ -202,6 +203,16 @@ urlpatterns = [
         "classes/<int:classroom_id>/attendance/",
         views.attendance_view,
         name="attendance",
+    ),
+    path(
+        "classes/<int:classroom_id>/my-attendance/",
+        views.student_attendance_view,
+        name="student_attendance",
+    ),
+    path(
+        "classes/<int:classroom_id>/students/<int:student_id>/performance/",
+        views.student_performance_report_view,
+        name="student_performance_report",
     ),
     path(
         "grade-items/<int:item_id>/delete/",

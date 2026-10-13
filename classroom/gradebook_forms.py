@@ -15,6 +15,18 @@ class GradeItemForm(forms.ModelForm):
             ),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["component"].choices = [
+            (
+                value,
+                "Term Assessment"
+                if value == GradeItem.Component.ASSESSMENT
+                else label,
+            )
+            for value, label in self.fields["component"].choices
+        ]
+
     def clean_highest_possible_score(self):
         value = self.cleaned_data["highest_possible_score"]
         if value <= 0:

@@ -249,6 +249,17 @@ def dashboard_view(request):
                 "parent_requests": parent_requests,
                 "continue_task": continue_task,
                 "due_soon_tasks": due_soon_tasks,
+                # Keep the original context values for older templates/tests.
+                "continue_module": (
+                    continue_task["module"]
+                    if continue_task and continue_task["task_type"] == "Module"
+                    else None
+                ),
+                "due_soon": [
+                    task["module"]
+                    for task in due_soon_tasks
+                    if task["task_type"] == "Module"
+                ],
                 "latest_announcements": latest_announcements,
             },
         )
@@ -967,6 +978,7 @@ def class_page_view(request, classroom_id):
         "modules",
         "activities",
         "people",
+        "attendance",
         "grades",
     ]
 
@@ -1024,6 +1036,9 @@ def class_page_view(request, classroom_id):
         )
         return redirect("classroom:dashboard")
 
+    if active_tab == "attendance" and is_teacher:
+        return redirect("classroom:attendance", classroom_id=classroom_id)
+
     enrolled_students = classroom.enrollments.filter(
         status=ClassEnrollment.Status.APPROVED,
     ).select_related(
@@ -1037,6 +1052,14 @@ def class_page_view(request, classroom_id):
     upcoming_modules = []
     selected_term = request.GET.get("term", "")
     search = request.GET.get("q", "").strip()[:150]
+    attendance_summary = None
+
+    if active_tab == "attendance" and student:
+        attendance_summary = build_parent_attendance(
+            student,
+            classroom,
+            parse_month(request.GET.get("month")),
+        )
 
     if active_tab == "modules":
         modules = classroom.modules.all()
@@ -1183,6 +1206,7 @@ def class_page_view(request, classroom_id):
             "search": search,
             "stream_items": stream_items,
             "upcoming_modules": upcoming_modules,
+            "attendance_summary": attendance_summary,
             "announcement_form": AnnouncementForm(),
             "class_post_form": ClassPostForm(),
             "comment_form": CommentForm(),
@@ -2751,7 +2775,7 @@ def gradebook_view(request, classroom_id):
                 component_labels = {
                     GradeItem.Component.WRITTEN_WORK: "Written Work",
                     GradeItem.Component.PERFORMANCE_TASK: "Performance Task",
-                    GradeItem.Component.ASSESSMENT: "Quarterly Assessment",
+                    GradeItem.Component.ASSESSMENT: "Term Assessment",
                 }
 
                 # Empty cells are direct-entry slots. Supplying an HPS or a
@@ -2866,7 +2890,7 @@ def gradebook_view(request, classroom_id):
         for component, label in (
             (GradeItem.Component.WRITTEN_WORK, "Written Works"),
             (GradeItem.Component.PERFORMANCE_TASK, "Performance Tasks"),
-            (GradeItem.Component.ASSESSMENT, "Quarterly Assessment"),
+            (GradeItem.Component.ASSESSMENT, "Term Assessment"),
         ):
             component_items = record["grouped"][component]
             student_score_groups.append({
@@ -4032,7 +4056,11 @@ def calendar_view(request):
             ).select_related("school").distinct().order_by("lastname", "firstname")
         )
 
-        learner_id = request.GET.get("learner_id")
+        learner_id = (
+            request.GET.get("learner")
+            or request.GET.get("learner_id")
+            or request.session.get("parent_selected_learner")
+        )
         if learner_id:
             selected_learner = next(
                 (student for student in linked_students if str(student.pk) == learner_id),
@@ -4040,6 +4068,9 @@ def calendar_view(request):
             )
         if selected_learner is None and linked_students:
             selected_learner = linked_students[0]
+
+        if selected_learner:
+            request.session["parent_selected_learner"] = selected_learner.pk
 
         if selected_learner:
             available_classrooms = Classroom.objects.filter(
@@ -4314,7 +4345,7 @@ def _learner_progress_context(student, request):
 
 
 @login_required(login_url="accounts:login")
-def student_progress_view(request):
+def student_attendance_view(request, classroom_id):
     if request.user.role != User.Role.STUDENT:
         return redirect("classroom:dashboard")
 
@@ -4323,13 +4354,75 @@ def student_progress_view(request):
         messages.error(request, "Your Student profile was not found.")
         return redirect("classroom:dashboard")
 
-    context = _learner_progress_context(student, request)
-    context["student_view"] = True
+    enrollment = get_object_or_404(
+        ClassEnrollment.objects.select_related("classroom"),
+        classroom_id=classroom_id,
+        student=student,
+        status=ClassEnrollment.Status.APPROVED,
+        classroom__is_archived=False,
+    )
+
+    url = reverse("classroom:class_page", args=[enrollment.classroom_id])
+    query = "tab=attendance"
+    month = request.GET.get("month")
+    if month:
+        query += f"&month={month}"
+    return redirect(f"{url}?{query}")
+
+
+@login_required(login_url="accounts:login")
+def student_performance_report_view(request, classroom_id, student_id):
+    if request.user.role != User.Role.TEACHER:
+        raise PermissionDenied("Only the Teacher can open Student performance reports.")
+
+    teacher = getattr(request.user, "teacher_profile", None)
+    if teacher is None:
+        raise PermissionDenied("Teacher profile not found.")
+
+    classroom = get_object_or_404(
+        Classroom,
+        pk=classroom_id,
+        teacher=teacher,
+        is_archived=False,
+    )
+    enrollment = get_object_or_404(
+        ClassEnrollment.objects.select_related("student", "student__user"),
+        classroom=classroom,
+        student_id=student_id,
+        status=ClassEnrollment.Status.APPROVED,
+    )
+    student = enrollment.student
+
+    tasks = _build_student_module_tasks(student, classroom.pk)
+    task_overview = _build_task_overview(tasks)
+    grade_rows = build_summary(classroom, [student])
+    grade_summary = grade_rows[0] if grade_rows else None
+    score_rows = GradeScore.objects.filter(
+        item__classroom=classroom,
+        student=student,
+    ).select_related("item").order_by(
+        "item__term",
+        "item__component",
+        "item__position",
+    )
+    attendance_summary = build_parent_attendance(
+        student,
+        classroom,
+        parse_month(request.GET.get("month")),
+    )
 
     return render(
         request,
-        "classroom/parent_progress.html",
-        context,
+        "classroom/student_performance_report.html",
+        {
+            "classroom": classroom,
+            "student": student,
+            "tasks": tasks,
+            "task_overview": task_overview,
+            "grade_summary": grade_summary,
+            "score_rows": score_rows,
+            "attendance_summary": attendance_summary,
+        },
     )
 
 

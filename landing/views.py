@@ -1,11 +1,27 @@
 from django.contrib import messages
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.models import Principal, School, Teacher
 
 
 def home(request):
+    # The normal website keeps its complete public landing page.
+    request.session.pop("app_shell", None)
+    request.session.pop("classroom_splash_seen", None)
     return render(request, "home.html")
+
+
+def app_entry(request):
+    """Entry point reserved for the mobile and desktop application shells."""
+    if request.user.is_authenticated:
+        return redirect("accounts:home")
+
+    request.session["app_shell"] = True
+    return render(
+        request,
+        "app_splash.html",
+        {"login_url": "/accounts/login/?app=1"},
+    )
 
 
 def download(request):

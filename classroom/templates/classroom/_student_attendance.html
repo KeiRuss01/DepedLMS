@@ -1,0 +1,133 @@
+<div class="class-tab-heading attendance-tab-heading">
+    <div>
+        <h2>My Attendance</h2>
+        <p>View your daily record and monthly attendance summary.</p>
+    </div>
+
+    <div class="attendance-tab-actions">
+        <span class="read-only-label">
+            <i class="bi bi-lock-fill"></i>
+            Read only
+        </span>
+
+        <form method="get">
+            <input type="hidden" name="tab" value="attendance">
+            <label for="attendance-month" class="visually-hidden">Month</label>
+            <input
+                type="month"
+                id="attendance-month"
+                name="month"
+                class="form-control"
+                value="{{ attendance_summary.month_value }}"
+                onchange="this.form.submit()"
+            >
+        </form>
+    </div>
+</div>
+
+{% if attendance_summary %}
+<div class="attendance-summary-grid">
+    <article class="attendance-summary-card">
+        <span class="attendance-icon present"><i class="bi bi-check-circle"></i></span>
+        <div><small>Present</small><strong>{{ attendance_summary.totals.present }}</strong></div>
+    </article>
+    <article class="attendance-summary-card">
+        <span class="attendance-icon absent"><i class="bi bi-x-circle"></i></span>
+        <div><small>Absent</small><strong>{{ attendance_summary.totals.absent }}</strong></div>
+    </article>
+    <article class="attendance-summary-card">
+        <span class="attendance-icon late"><i class="bi bi-clock"></i></span>
+        <div><small>Tardy</small><strong>{{ attendance_summary.totals.late }}</strong></div>
+    </article>
+    <article class="attendance-summary-card">
+        <span class="attendance-icon holiday"><i class="bi bi-calendar-event"></i></span>
+        <div><small>Holiday</small><strong>{{ attendance_summary.totals.holiday }}</strong></div>
+    </article>
+    <article class="attendance-summary-card">
+        <span class="attendance-icon no-class"><i class="bi bi-calendar-x"></i></span>
+        <div><small>No Class</small><strong>{{ attendance_summary.totals.no_class }}</strong></div>
+    </article>
+</div>
+
+<div class="attendance-content-grid">
+    <section class="classroom-card attendance-calendar-card">
+        <div class="attendance-month-heading">
+            <a href="?tab=attendance&month={{ attendance_summary.previous_month }}"
+               class="btn btn-light border" aria-label="Previous month">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            <h3>{{ attendance_summary.month_label }}</h3>
+            <a href="?tab=attendance&month={{ attendance_summary.next_month }}"
+               class="btn btn-light border" aria-label="Next month">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </div>
+
+        <div class="attendance-calendar-wrap">
+            <div class="attendance-weekdays">
+                <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span>
+                <span>Thu</span><span>Fri</span><span>Sat</span>
+            </div>
+            <div class="attendance-calendar">
+                {% for week in attendance_summary.weeks %}
+                    {% for day in week %}
+                    <article class="attendance-day {% if not day.in_month %}outside-month{% else %}status-{{ day.status }}{% endif %}">
+                        <strong>{{ day.date.day }}</strong>
+                        {% if day.in_month %}
+                        <span>
+                            {% if day.status == "present" %}<i class="bi bi-check-circle-fill"></i>
+                            {% elif day.status == "absent" %}<i class="bi bi-x-circle-fill"></i>
+                            {% elif day.status == "late" %}<i class="bi bi-clock-fill"></i>
+                            {% elif day.status == "holiday" %}<i class="bi bi-calendar-event"></i>
+                            {% elif day.status == "no-class" %}<i class="bi bi-calendar-x"></i>
+                            {% elif day.status == "excused" %}<i class="bi bi-info-circle"></i>{% endif %}
+                            {{ day.label }}
+                        </span>
+                        {% endif %}
+                    </article>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <aside>
+        <section class="classroom-card attendance-details">
+            <div class="card-heading"><h3>Attendance Details</h3></div>
+            {% if attendance_summary.details %}
+            <div class="list-group list-group-flush">
+                {% for day in attendance_summary.details %}
+                <div class="list-group-item px-0">
+                    <div class="attendance-detail-row">
+                        <div>
+                            <strong>{{ day.date|date:"M d, Y" }}</strong>
+                            {% if day.note %}<small>{{ day.note }}</small>{% endif %}
+                        </div>
+                        <span class="detail-status status-{{ day.status }}">{{ day.label }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="dashboard-empty-card compact">
+                <i class="bi bi-check-circle"></i>
+                <h4>No attendance concerns</h4>
+                <p>Absences, tardiness, holidays, and no-class dates will appear here.</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <section class="classroom-card attendance-legend">
+            <div class="card-heading"><h3>Legend</h3></div>
+            <ul>
+                <li><i class="legend-dot present"></i>Present</li>
+                <li><i class="legend-dot absent"></i>Absent</li>
+                <li><i class="legend-dot late"></i>Tardy</li>
+                <li><i class="legend-dot holiday"></i>Holiday</li>
+                <li><i class="legend-dot no-class"></i>No class</li>
+                <li><i class="legend-dot unrecorded"></i>Not recorded</li>
+            </ul>
+        </section>
+    </aside>
+</div>
+{% endif %}

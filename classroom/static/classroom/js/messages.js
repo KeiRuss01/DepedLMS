@@ -4,6 +4,59 @@ const messagePanelClose = document.getElementById("messagePanelClose");
 const messagePanelList = document.getElementById("messagePanelList");
 const messagePanelChat = document.getElementById("messagePanelChat");
 
+const messageStatusUrl =
+    messagePanelTrigger?.dataset.messageStatusUrl;
+
+const messageCountBadges =
+    document.querySelectorAll("[data-message-count]");
+
+function updateMessageCount(count) {
+    messageCountBadges.forEach((badge) => {
+        badge.textContent = count > 99 ? "99+" : count;
+        badge.classList.toggle("d-none", count === 0);
+    });
+}
+
+async function checkUnreadMessages() {
+    if (!messageStatusUrl || document.hidden) {
+        return;
+    }
+
+    try {
+        const response = await fetch(messageStatusUrl, {
+            headers: {
+                "X-Requested-With": "XMLHttpRequest",
+            },
+            cache: "no-store",
+        });
+
+        if (!response.ok) {
+            return;
+        }
+
+        const data = await response.json();
+        updateMessageCount(Number(data.unread_count || 0));
+    } catch (error) {
+        console.debug(
+            "Message status check failed:",
+            error
+        );
+    }
+}
+
+checkUnreadMessages();
+
+window.setInterval(
+    checkUnreadMessages,
+    15000
+);
+
+document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+        checkUnreadMessages();
+    }
+});
+
 function scrollMessageThreads() {
     document.querySelectorAll("#conversationMessages, [data-panel-thread]").forEach((thread) => {
         thread.scrollTop = thread.scrollHeight;
@@ -33,6 +86,7 @@ async function loadPanelConversation(url) {
         const response = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
         if (!response.ok) throw new Error("Conversation could not be loaded.");
         messagePanelChat.innerHTML = await response.text();
+        await checkUnreadMessages();
         bindPanelChat(url);
         scrollMessageThreads();
     } catch (error) {

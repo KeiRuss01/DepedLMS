@@ -1,0 +1,141 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+{% block title %}Student Performance Report | District 1 Classroom{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'classroom/css/parent-progress.css' %}">
+{% endblock %}
+
+{% block content %}
+<section class="performance-report">
+    <header class="dashboard-heading progress-heading">
+        <div>
+            <a href="{% url 'classroom:class_page' classroom.pk %}?tab=people" class="view-all-link">
+                <i class="bi bi-arrow-left me-1"></i> Back to People
+            </a>
+            <h2 class="mt-3">Student Performance Report</h2>
+            <p>{{ student }} · {{ classroom.subject }} · {{ classroom.grade_level }} {{ classroom.section }}</p>
+        </div>
+        <button type="button" class="btn btn-outline-primary no-print" onclick="window.print()">
+            <i class="bi bi-printer me-2"></i>Print / Save PDF
+        </button>
+    </header>
+
+    <div class="progress-overview-grid">
+        <article class="progress-overview-card">
+            <span>All Tasks</span>
+            <strong>{{ task_overview.total_tasks }}</strong>
+            <small>Modules and Activities</small>
+        </article>
+        <article class="progress-overview-card">
+            <span>Completed</span>
+            <strong>{{ task_overview.completed_tasks }}</strong>
+            <small>{{ task_overview.progress_percent }}% completion</small>
+        </article>
+        <article class="progress-overview-card">
+            <span>Submitted</span>
+            <strong>{{ task_overview.status_counts.submitted }}</strong>
+            <small>Waiting for checking</small>
+        </article>
+        <article class="progress-overview-card">
+            <span>Returned</span>
+            <strong>{{ task_overview.status_counts.returned }}</strong>
+            <small>Needs revision</small>
+        </article>
+    </div>
+
+    <section class="classroom-card progress-completion-card">
+        <div class="card-heading">
+            <div>
+                <h3>Completion</h3>
+                <p class="text-muted mb-0">{{ task_overview.completed_tasks }} of {{ task_overview.total_tasks }} tasks completed</p>
+            </div>
+            <strong>{{ task_overview.progress_percent }}%</strong>
+        </div>
+        <div class="progress" role="progressbar" aria-valuenow="{{ task_overview.progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar" style="width: {{ task_overview.progress_percent }}%"></div>
+        </div>
+    </section>
+
+    <div class="progress-report-grid mb-4">
+        <section class="classroom-card">
+            <div class="card-heading"><h3>Term Grades</h3></div>
+            {% if grade_summary %}
+            <div class="table-responsive">
+                <table class="table progress-grade-table mb-0">
+                    <thead><tr><th>Term 1</th><th>Term 2</th><th>Term 3</th><th>Final</th><th>Remark</th></tr></thead>
+                    <tbody><tr>
+                        <td>{{ grade_summary.term_1|default_if_none:"—" }}</td>
+                        <td>{{ grade_summary.term_2|default_if_none:"—" }}</td>
+                        <td>{{ grade_summary.term_3|default_if_none:"—" }}</td>
+                        <td><strong>{{ grade_summary.final|default_if_none:"—" }}</strong></td>
+                        <td>{{ grade_summary.remark|default:"—" }}</td>
+                    </tr></tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="dashboard-empty-card compact"><h4>No grades yet</h4></div>
+            {% endif %}
+        </section>
+
+        <section class="classroom-card">
+            <div class="card-heading"><h3>Attendance · {{ attendance_summary.month_label }}</h3></div>
+            <div class="overview-attendance-values">
+                <span>Present <strong>{{ attendance_summary.totals.present }}</strong></span>
+                <span>Absent <strong>{{ attendance_summary.totals.absent }}</strong></span>
+                <span>Tardy <strong>{{ attendance_summary.totals.late }}</strong></span>
+            </div>
+            <div class="attendance-report-month no-print">
+                <a href="?month={{ attendance_summary.previous_month }}" class="btn btn-sm btn-light border"><i class="bi bi-chevron-left"></i></a>
+                <span>{{ attendance_summary.month_label }}</span>
+                <a href="?month={{ attendance_summary.next_month }}" class="btn btn-sm btn-light border"><i class="bi bi-chevron-right"></i></a>
+            </div>
+        </section>
+    </div>
+
+    <section class="classroom-card mb-4">
+        <div class="card-heading"><h3>Recorded Scores</h3></div>
+        <div class="table-responsive">
+            <table class="table progress-grade-table mb-0">
+                <thead><tr><th>Term</th><th>Assessment</th><th>Component</th><th>Score</th></tr></thead>
+                <tbody>
+                    {% for row in score_rows %}
+                    <tr>
+                        <td>Term {{ row.item.term }}</td>
+                        <td><strong>{{ row.item.title }}</strong></td>
+                        <td>{{ row.item.get_component_display }}</td>
+                        <td>{{ row.score|floatformat:-2 }} / {{ row.item.highest_possible_score|floatformat:-2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted py-4">No recorded scores.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="classroom-card">
+        <div class="card-heading"><h3>Modules and Activities</h3></div>
+        <div class="table-responsive">
+            <table class="table performance-task-table mb-0">
+                <thead><tr><th>Task</th><th>Type</th><th>Status</th><th>Score</th><th>Due date</th><th>Feedback</th></tr></thead>
+                <tbody>
+                    {% for task in tasks %}
+                    <tr>
+                        <td><strong>{{ task.title }}</strong></td>
+                        <td>{{ task.task_type }}</td>
+                        <td><span class="task-status status-{{ task.status }}">{{ task.status_label }}</span></td>
+                        <td>{% if task.submission.score is not None %}{{ task.submission.score|floatformat:-2 }} / {{ task.max_score|floatformat:-2 }}{% else %}—{% endif %}</td>
+                        <td>{% if task.due_date %}{{ task.due_date|date:"M d, Y g:i A" }}{% else %}No deadline{% endif %}</td>
+                        <td>{% if task.submission.feedback %}{{ task.submission.feedback|linebreaksbr }}{% else %}—{% endif %}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted py-4">No published Modules or Activities.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</section>
+{% endblock %}

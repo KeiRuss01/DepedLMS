@@ -229,7 +229,7 @@
     <div class="learner-selector mb-4">
         <span>Viewing learner:</span>
         {% for link in linked_students %}
-        <a href="{% url 'classroom:classes' %}?student={{ link.student.student_id }}"
+        <a href="{% url 'classroom:classes' %}?learner={{ link.student.student_id }}"
            class="learner-selector-link {% if linked_student.student_id == link.student.student_id %}active{% endif %}">
             {{ link.student.firstname }} {{ link.student.lastname }}
         </a>

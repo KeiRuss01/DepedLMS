@@ -32,7 +32,7 @@
     <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=modules" class="class-navigation-link"><i class="bi bi-collection"></i><span>Modules</span></a>
     <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=activities" class="class-navigation-link"><i class="bi bi-clipboard-check"></i><span>Activities</span></a>
     <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=people" class="class-navigation-link"><i class="bi bi-people"></i><span>People</span></a>
-    {% if is_teacher %}<a href="{% url 'classroom:attendance' classroom.class_id %}" class="class-navigation-link"><i class="bi bi-calendar2-check"></i><span>Attendance</span></a>{% else %}<a href="{% url 'classroom:student_progress' %}?tab=attendance&amp;classroom={{ classroom.pk }}" class="class-navigation-link"><i class="bi bi-calendar2-check"></i><span>Attendance</span></a>{% endif %}
+    {% if is_teacher %}<a href="{% url 'classroom:attendance' classroom.class_id %}" class="class-navigation-link"><i class="bi bi-calendar2-check"></i><span>Attendance</span></a>{% else %}<a href="{% url 'classroom:class_page' classroom.pk %}?tab=attendance" class="class-navigation-link"><i class="bi bi-calendar2-check"></i><span>Attendance</span></a>{% endif %}
     <a href="{% url 'classroom:gradebook' classroom.class_id %}" class="class-navigation-link active"><i class="bi bi-journal-check"></i><span>Grades</span></a>
 </nav>
 
@@ -71,7 +71,7 @@
     <div class="student-grade-heading">
         <div><span>TERM {{ term }}</span><h2>My scores</h2><p>You can see only your own recorded scores.</p></div>
         <div class="released-grade {% if not quarterly_grade_released %}is-hidden{% endif %}">
-            <small>Quarterly Grade</small>
+            <small>Term Grade</small>
             {% if quarterly_grade_released %}
                 <strong>{{ student_term_row.quarterly|default_if_none:"—" }}</strong>
                 <span>Released by your Teacher</span>
@@ -151,8 +151,8 @@
                         <th rowspan="3" class="record-number">#</th><th rowspan="3" class="learner-name">Learners' Names</th>
                         <th colspan="{{ record.written_slots|length|add:3 }}">Written Works ({{ record.settings.written_work_weight }}%)</th>
                         <th colspan="{{ record.performance_slots|length|add:3 }}">Performance Tasks ({{ record.settings.performance_task_weight }}%)</th>
-                        <th colspan="{{ record.assessment_slots|length|add:2 }}">Quarterly Assessment ({{ record.settings.assessment_weight }}%)</th>
-                        <th rowspan="3">Initial Grade</th><th rowspan="3">Quarterly Grade</th>
+                        <th colspan="{{ record.assessment_slots|length|add:2 }}">Term Assessment ({{ record.settings.assessment_weight }}%)</th>
+                        <th rowspan="3">Initial Grade</th><th rowspan="3">Term Grade</th>
                     </tr>
                     <tr>
                         {% for slot in record.written_slots %}<th title="{% if slot.item %}{{ slot.item.title }}{% else %}Empty slot{% endif %}" class="item-number {% if slot.item.module_id %}module-slot{% endif %}">{{ slot.number }}</th>{% endfor %}<th>Total</th><th>PS</th><th>WS</th>
@@ -162,7 +162,7 @@
                     <tr class="highest-row">
                         {% for slot in record.written_slots %}<th>{% if slot.item %}{{ slot.item.highest_possible_score }}{% else %}<input class="hps-input" type="number" name="new_hps_written_work_{{ slot.number }}" min="1" step="0.01" placeholder="HPS" aria-label="Highest possible score for Written Work {{ slot.number }}">{% endif %}</th>{% endfor %}<th>{{ record.highest.written_work }}</th><th>100</th><th>{{ record.settings.written_work_weight }}%</th>
                         {% for slot in record.performance_slots %}<th>{% if slot.item %}{{ slot.item.highest_possible_score }}{% else %}<input class="hps-input" type="number" name="new_hps_performance_task_{{ slot.number }}" min="1" step="0.01" placeholder="HPS" aria-label="Highest possible score for Performance Task {{ slot.number }}">{% endif %}</th>{% endfor %}<th>{{ record.highest.performance_task }}</th><th>100</th><th>{{ record.settings.performance_task_weight }}%</th>
-                        {% for slot in record.assessment_slots %}<th>{% if slot.item %}{{ slot.item.highest_possible_score }}{% else %}<input class="hps-input" type="number" name="new_hps_assessment_{{ slot.number }}" min="1" step="0.01" placeholder="HPS" aria-label="Highest possible score for Quarterly Assessment {{ slot.number }}">{% endif %}</th>{% endfor %}<th>100</th><th>{{ record.settings.assessment_weight }}%</th>
+                        {% for slot in record.assessment_slots %}<th>{% if slot.item %}{{ slot.item.highest_possible_score }}{% else %}<input class="hps-input" type="number" name="new_hps_assessment_{{ slot.number }}" min="1" step="0.01" placeholder="HPS" aria-label="Highest possible score for Term Assessment {{ slot.number }}">{% endif %}</th>{% endfor %}<th>100</th><th>{{ record.settings.assessment_weight }}%</th>
                     </tr>
                 </thead>
                 <tbody><tr class="gender-row"><th colspan="99">MALE</th></tr>{% include "classroom/_gradebook_rows.html" with group_rows=male_rows %}</tbody>

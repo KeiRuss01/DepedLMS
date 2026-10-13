@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from accounts.models import ParentStudentLink, User
 
@@ -119,6 +119,24 @@ def _mark_opened(conversation, user):
         read_at__isnull=True,
     ).exclude(sender=user).update(read_at=timezone.now())
 
+
+@login_required(login_url="accounts:login")
+@require_GET
+def message_status_view(request):
+    _require_messaging_role(request.user)
+
+    conversations = valid_conversations_for_user(request.user)
+
+    unread_count = ParentTeacherMessage.objects.filter(
+        conversation__in=conversations,
+        read_at__isnull=True,
+    ).exclude(
+        sender=request.user,
+    ).count()
+
+    return JsonResponse({
+        "unread_count": unread_count,
+    })
 
 @login_required(login_url="accounts:login")
 def message_inbox_view(request):

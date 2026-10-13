@@ -44,7 +44,14 @@ def login_view(request):
         login(request, user)
         return _role_redirect(user)
 
-    return render(request, "accounts/login.html", {"form": form})
+    return render(
+        request,
+        "accounts/login.html",
+        {
+            "form": form,
+            "auth_base_template": _auth_base_template(request),
+        },
+    )
 
 
 def signup_view(request):
@@ -58,7 +65,14 @@ def signup_view(request):
         messages.success(request, "Your account was created successfully.")
         return _role_redirect(user)
 
-    return render(request, "accounts/signup.html", {"form": form})
+    return render(
+        request,
+        "accounts/signup.html",
+        {
+            "form": form,
+            "auth_base_template": _auth_base_template(request),
+        },
+    )
 
 
 @login_required(login_url="accounts:login")
@@ -328,6 +342,18 @@ def notification_status_view(request):
         )
 
     return JsonResponse(response_data)
+
+def _auth_base_template(request):
+    """Use the clean shell only when opened by the installed application."""
+    if request.GET.get("app") == "1":
+        request.session["app_shell"] = True
+    elif request.GET.get("web") == "1":
+        request.session.pop("app_shell", None)
+
+    if request.session.get("app_shell"):
+        return "accounts/app_auth_base.html"
+    return "accounts/auth_base.html"
+
 
 def _role_redirect(user):
     if user.role == User.Role.SUPERVISOR:

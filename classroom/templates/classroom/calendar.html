@@ -45,8 +45,8 @@
         </div>
     {% elif request.user.role == "parent" %}
         <form class="calendar-selector" method="get">
-            <label for="learner_id">Connected learner</label>
-            <select class="form-select" id="learner_id" name="learner_id" onchange="this.form.submit()">
+            <label for="learner">Connected learner</label>
+            <select class="form-select" id="learner" name="learner" onchange="this.form.submit()">
                 {% for learner in linked_students %}
                     <option value="{{ learner.pk }}" {% if selected_learner.pk == learner.pk %}selected{% endif %}>
                         {{ learner.firstname }} {{ learner.lastname }}
@@ -60,19 +60,19 @@
 
     <nav class="calendar-filters" aria-label="Calendar filters">
         <a class="{% if selected_filter == 'all' %}active{% endif %}"
-           href="?filter=all{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner_id={{ selected_learner.pk }}{% endif %}">
+           href="?filter=all{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner={{ selected_learner.pk }}{% endif %}">
             All
         </a>
         <a class="{% if selected_filter == 'school' %}active{% endif %}"
-           href="?filter=school{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner_id={{ selected_learner.pk }}{% endif %}">
+           href="?filter=school{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner={{ selected_learner.pk }}{% endif %}">
             School
         </a>
         <a class="{% if selected_filter == 'classes' %}active{% endif %}"
-           href="?filter=classes{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner_id={{ selected_learner.pk }}{% endif %}">
+           href="?filter=classes{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner={{ selected_learner.pk }}{% endif %}">
             Classes
         </a>
         <a class="{% if selected_filter == 'deadlines' %}active{% endif %}"
-           href="?filter=deadlines{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner_id={{ selected_learner.pk }}{% endif %}">
+           href="?filter=deadlines{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner={{ selected_learner.pk }}{% endif %}">
             Deadlines
         </a>
     </nav>
@@ -81,14 +81,14 @@
         <div class="role-calendar-main">
             <section class="role-month-card">
                 <div class="role-month-toolbar">
-                    <a href="?year={{ previous_year }}&month={{ previous_month }}&filter={{ selected_filter }}{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner_id={{ selected_learner.pk }}{% endif %}"
+                    <a href="?year={{ previous_year }}&month={{ previous_month }}&filter={{ selected_filter }}{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner={{ selected_learner.pk }}{% endif %}"
                        aria-label="Previous month">
                         <i class="bi bi-chevron-left"></i>
                     </a>
 
                     <h2>{{ calendar_month_name }} {{ calendar_year }}</h2>
 
-                    <a href="?year={{ next_year }}&month={{ next_month }}&filter={{ selected_filter }}{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner_id={{ selected_learner.pk }}{% endif %}"
+                    <a href="?year={{ next_year }}&month={{ next_month }}&filter={{ selected_filter }}{% if selected_classroom %}&classroom_id={{ selected_classroom.pk }}{% endif %}{% if selected_learner %}&learner={{ selected_learner.pk }}{% endif %}"
                        aria-label="Next month">
                         <i class="bi bi-chevron-right"></i>
                     </a>

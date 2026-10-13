@@ -3,6 +3,24 @@
     background: linear-gradient(145deg, #f7fbff 0%, #edf5ff 100%);
 }
 
+.app-auth-page .shared-auth-section {
+    display: flex;
+    min-height: 100dvh;
+    align-items: center;
+}
+
+.auth-container { width: 100%; }
+
+.auth-message-area {
+    position: fixed;
+    z-index: 20;
+    top: 16px;
+    right: 16px;
+    width: min(420px, calc(100% - 32px));
+}
+
+.auth-mobile-brand { display: none; }
+
 .shared-auth-card {
     display: grid;
     max-width: 1180px;
@@ -208,6 +226,79 @@
     .auth-heading h1,
     .signup-heading h1 {
         font-size: 1.65rem;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .app-auth-page .shared-auth-section {
+        padding: 0;
+        background: #fff;
+    }
+
+    .app-auth-page .shared-auth-section > .auth-container {
+        max-width: none;
+        min-height: 100dvh;
+        padding: 0;
+    }
+
+    .app-auth-page .shared-auth-card {
+        min-height: 100dvh;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .app-auth-page .shared-auth-visual { display: none; }
+
+    .app-auth-page .shared-auth-form-panel {
+        display: flex;
+        min-height: 100dvh;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        padding: max(28px, env(safe-area-inset-top)) 22px max(28px, env(safe-area-inset-bottom));
+    }
+
+    .app-auth-page .auth-mobile-brand {
+        display: flex;
+        width: 100%;
+        max-width: 470px;
+        align-items: center;
+        gap: 11px;
+        margin-bottom: 34px;
+    }
+
+    .app-auth-page .auth-mobile-brand > span {
+        display: grid;
+        width: 50px;
+        height: 50px;
+        place-items: center;
+        color: #075fd3;
+        font-weight: 800;
+        border: 2px solid #075fd3;
+        border-radius: 50%;
+    }
+
+    .app-auth-page .auth-mobile-brand div,
+    .app-auth-page .auth-mobile-brand strong,
+    .app-auth-page .auth-mobile-brand small { display: block; }
+
+    .app-auth-page .auth-mobile-brand strong {
+        color: #071a3a;
+        font-size: 15px;
+    }
+
+    .app-auth-page .auth-mobile-brand small {
+        margin-top: 2px;
+        color: #6d7480;
+        font-size: 12px;
+    }
+
+    .app-auth-page .shared-login-box { width: 100%; }
+
+    .app-auth-page .auth-heading-icon {
+        width: 54px;
+        height: 54px;
     }
 }
 

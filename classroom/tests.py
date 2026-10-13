@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import date, timedelta
 from io import BytesIO
 import json
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
 
@@ -21,6 +22,8 @@ from classroom.models import (
     AttendanceDay,
     AttendanceRecord,
     Announcement,
+    ActivitySubmission,
+    ClassPost,
     SectionResponse,
     SectionQuestion,
 )
@@ -415,6 +418,74 @@ class ModuleSubmissionFlowTests(TestCase):
         self.assertIn(submission, response.context["submissions_to_review"])
         self.assertContains(response, "Submitted Module 1")
 
+    def test_teacher_can_open_student_performance_report(self):
+        ModuleSubmission.objects.create(
+            module=self.module,
+            student=self.student,
+            status=ModuleSubmission.Status.GRADED,
+            score=8,
+            feedback="Good work.",
+        )
+        self.client.force_login(self.teacher_user)
+
+        response = self.client.get(
+            reverse(
+                "classroom:student_performance_report",
+                args=[self.classroom.pk, self.student.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Student Performance Report")
+        self.assertContains(response, self.student.firstname)
+        self.assertContains(response, self.module.title)
+        self.assertContains(response, "Good work.")
+
+        self.client.force_login(self.student_user)
+        denied = self.client.get(
+            reverse(
+                "classroom:student_performance_report",
+                args=[self.classroom.pk, self.student.pk],
+            )
+        )
+        self.assertEqual(denied.status_code, 403)
+
+    def test_activity_appears_in_teacher_workload_and_student_dashboard(self):
+        activity = ClassPost.objects.create(
+            classroom=self.classroom,
+            teacher=self.teacher,
+            post_type=ClassPost.PostType.ACTIVITY,
+            title="Reflection Activity",
+            content="Write a short reflection.",
+            due_date=timezone.now() + timedelta(days=1),
+            score=10,
+            is_published=True,
+        )
+        self.client.force_login(self.student_user)
+        student_dashboard = self.client.get(reverse("classroom:dashboard"))
+        self.assertContains(student_dashboard, "Reflection Activity")
+
+        submission = ActivitySubmission.objects.create(
+            activity=activity,
+            student=self.student,
+            method=ActivitySubmission.Method.TEXT,
+            text_response="My reflection.",
+            status=ActivitySubmission.Status.SUBMITTED,
+            submitted_at=timezone.now(),
+        )
+
+        self.client.force_login(self.teacher_user)
+        dashboard = self.client.get(reverse("classroom:dashboard"))
+        tasks = self.client.get(reverse("classroom:tasks"))
+
+        self.assertIn(
+            submission,
+            dashboard.context["activity_submissions_to_review"],
+        )
+        self.assertIn(activity, tasks.context["review_activities"])
+        self.assertContains(tasks, "Reflection Activity")
+
+
     def test_student_generates_combined_pdf_and_teacher_grades_it(self):
         source_buffer = BytesIO()
         source_writer = PdfWriter()
@@ -771,3 +842,42 @@ class AttendanceTests(TestCase):
             reverse("classroom:attendance", args=[self.classroom.pk])
         )
         self.assertEqual(response.status_code, 403)
+
+    def test_student_can_view_read_only_attendance_inside_class(self):
+        attendance_day = AttendanceDay.objects.create(
+            classroom=self.classroom,
+            date="2026-09-17",
+            day_type=AttendanceDay.DayType.CLASS_DAY,
+            recorded_by=self.teacher,
+        )
+        AttendanceRecord.objects.create(
+            attendance_day=attendance_day,
+            student=self.student,
+            status=AttendanceRecord.Status.PRESENT,
+        )
+
+        self.client.force_login(self.student_user)
+        response = self.client.get(
+            reverse("classroom:class_page", args=[self.classroom.pk])
+            + "?tab=attendance&month=2026-09"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "My Attendance")
+        self.assertContains(response, self.classroom.class_name)
+        self.assertContains(response, "September 2026")
+        self.assertEqual(response.context["attendance_summary"]["totals"]["present"], 1)
+
+    def test_old_student_attendance_url_redirects_to_class_tab(self):
+        self.client.force_login(self.student_user)
+        response = self.client.get(
+            reverse("classroom:student_attendance", args=[self.classroom.pk])
+            + "?month=2026-09"
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("classroom:class_page", args=[self.classroom.pk])
+            + "?tab=attendance&month=2026-09",
+            fetch_redirect_response=False,
+        )

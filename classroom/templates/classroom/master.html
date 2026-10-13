@@ -97,13 +97,23 @@
                 <div class="header-actions">
 
                 {% if messaging_enabled %}
-                <button class="header-icon message-panel-trigger"
-                        id="messagePanelTrigger"
-                        type="button"
-                        aria-label="Messages"
-                        aria-expanded="false">
+                <button
+                    class="header-icon message-panel-trigger"
+                    id="messagePanelTrigger"
+                    type="button"
+                    aria-label="Messages"
+                    aria-expanded="false"
+                    data-message-status-url="{% url 'classroom:message_status' %}"
+                >
                     <i class="bi bi-chat-dots"></i>
-                    <span class="message-navigation-badge {% if unread_message_count == 0 %}d-none{% endif %}">{{ unread_message_count }}</span>
+
+                    <span
+                        class="message-navigation-badge
+                            {% if unread_message_count == 0 %}d-none{% endif %}"
+                        data-message-count
+                    >
+                        {{ unread_message_count }}
+                    </span>
                 </button>
                 {% endif %}
 
@@ -405,8 +415,18 @@
         <a class="mobile-tab {% if current_page == 'message_inbox' or current_page == 'message_conversation' %}active{% endif %}"
            href="{% url 'classroom:message_inbox' %}">
             <span class="mobile-message-icon">
-                {% if current_page == 'message_inbox' or current_page == 'message_conversation' %}<i class="bi bi-chat-dots-fill"></i>{% else %}<i class="bi bi-chat-dots"></i>{% endif %}
-                {% if unread_message_count %}<b>{{ unread_message_count }}</b>{% endif %}
+                {% if current_page == 'message_inbox' or current_page == 'message_conversation' %}
+                    <i class="bi bi-chat-dots-fill"></i>
+                {% else %}
+                    <i class="bi bi-chat-dots"></i>
+                {% endif %}
+
+                <b
+                    class="{% if unread_message_count == 0 %}d-none{% endif %}"
+                    data-message-count
+                >
+                    {{ unread_message_count }}
+                </b>
             </span>
             <span>Messages</span>
         </a>

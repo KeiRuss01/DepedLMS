@@ -55,6 +55,157 @@
     margin: 20px 0 0;
 }
 
+.progress-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 22px;
+}
+
+.progress-overview-card {
+    padding: 18px;
+    border: 1px solid #dce3ec;
+    border-radius: 14px;
+    background: #ffffff;
+}
+
+.progress-overview-card span,
+.progress-overview-card small {
+    display: block;
+    color: #64748b;
+}
+
+.progress-overview-card strong {
+    display: block;
+    margin: 5px 0;
+    color: #102a56;
+    font-size: 26px;
+}
+
+.progress-completion-card {
+    margin-bottom: 22px;
+}
+
+.progress-completion-card .progress {
+    height: 8px;
+    margin-top: 18px;
+}
+
+.progress-status-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 22px;
+    margin-top: 16px;
+    color: #64748b;
+    font-size: 13px;
+}
+
+.progress-status-summary strong {
+    margin-left: 5px;
+    color: #102a56;
+}
+
+.progress-report-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.progress-attention-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid #e5eaf0;
+}
+
+.progress-attention-item:last-child {
+    border-bottom: 0;
+}
+
+.progress-attention-item small {
+    display: block;
+    margin-top: 4px;
+    color: #64748b;
+}
+
+.progress-attention-item > span {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.overview-attendance-values {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.overview-attendance-values span {
+    padding: 14px;
+    border-radius: 10px;
+    background: #f5f7fa;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.overview-attendance-values strong {
+    display: block;
+    margin-top: 4px;
+    color: #102a56;
+    font-size: 20px;
+}
+
+.attendance-report-month {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 18px;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.performance-task-table th {
+    background: #f5f7fa;
+    color: #1e293b;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.performance-task-table th,
+.performance-task-table td {
+    padding: 14px;
+    vertical-align: middle;
+}
+
+.performance-task-table .task-status {
+    display: inline-flex;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: #eef2f7;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.performance-task-table .status-returned {
+    background: #fff1f2;
+    color: #b91c1c;
+}
+
+.performance-task-table .status-completed {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.performance-task-table .status-submitted {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
 .progress-grade-table th {
     background: #f5f7fa;
     color: #1e293b;
@@ -86,6 +237,21 @@
 
 .attendance-controls {
     margin-bottom: 22px;
+}
+
+.attendance-tab-heading {
+    align-items: center;
+}
+
+.attendance-tab-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.attendance-tab-actions form,
+.attendance-tab-actions .form-control {
+    width: 190px;
 }
 
 .attendance-controls form {
@@ -345,6 +511,10 @@
 }
 
 @media (max-width: 1199.98px) {
+    .progress-overview-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
     .attendance-summary-grid {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -355,6 +525,10 @@
 }
 
 @media (max-width: 767.98px) {
+    .progress-report-grid {
+        grid-template-columns: 1fr;
+    }
+
     .attendance-controls form {
         grid-template-columns: 1fr;
     }
@@ -366,9 +540,24 @@
     .attendance-day {
         min-height: 90px;
     }
+
+    .attendance-tab-heading,
+    .attendance-tab-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .attendance-tab-actions form,
+    .attendance-tab-actions .form-control {
+        width: 100%;
+    }
 }
 
 @media (max-width: 420px) {
+    .progress-overview-grid {
+        grid-template-columns: 1fr;
+    }
+
     .attendance-summary-grid {
         grid-template-columns: 1fr;
     }
@@ -381,6 +570,10 @@
     .learner-selection,
     .read-only-label,
     .card-heading button {
+        display: none !important;
+    }
+
+    .no-print {
         display: none !important;
     }
 

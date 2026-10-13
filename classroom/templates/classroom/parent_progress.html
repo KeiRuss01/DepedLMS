@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}
-Learner Progress | District 1 Classroom
+{% if student_attendance_only %}My Attendance{% else %}Learner Progress{% endif %} | District 1 Classroom
 {% endblock %}
 
 {% block extra_css %}
@@ -16,8 +16,8 @@ Learner Progress | District 1 Classroom
 
 <section class="dashboard-heading progress-heading">
     <div>
-        <h2>Learner Progress</h2>
-        <p>View your learner's released grades and attendance.</p>
+        <h2>{% if student_attendance_only %}My Attendance{% else %}Learner Progress{% endif %}</h2>
+        <p>{% if student_attendance_only %}View your daily record and monthly attendance summary.{% else %}View task completion, released grades, and attendance.{% endif %}</p>
     </div>
 
     <span class="read-only-label">
@@ -26,8 +26,9 @@ Learner Progress | District 1 Classroom
     </span>
 </section>
 
-{% if linked_students %}
+{% if selected_student %}
 
+{% if not student_view %}
 <form method="get" class="learner-selection">
     <input
         type="hidden"
@@ -55,10 +56,19 @@ Learner Progress | District 1 Classroom
         {% endfor %}
     </select>
 </form>
+{% endif %}
 
-<nav class="progress-tabs">
+{% if not student_attendance_only %}<nav class="progress-tabs">
     <a
-        href="?learner={{ selected_student.pk }}&tab=grades"
+        href="?tab=overview{% if not student_view %}&learner={{ selected_student.pk }}{% endif %}"
+        class="{% if active_tab == 'overview' %}active{% endif %}"
+    >
+        <i class="bi bi-speedometer2"></i>
+        Overview
+    </a>
+
+    <a
+        href="?tab=grades{% if not student_view %}&learner={{ selected_student.pk }}{% endif %}"
         class="{% if active_tab == 'grades' %}active{% endif %}"
     >
         <i class="bi bi-bar-chart"></i>
@@ -66,15 +76,115 @@ Learner Progress | District 1 Classroom
     </a>
 
     <a
-        href="?learner={{ selected_student.pk }}&tab=attendance"
+        href="?tab=attendance{% if not student_view %}&learner={{ selected_student.pk }}{% endif %}"
         class="{% if active_tab == 'attendance' %}active{% endif %}"
     >
         <i class="bi bi-person-check"></i>
         Attendance
     </a>
-</nav>
+</nav>{% endif %}
 
-{% if active_tab == "grades" %}
+{% if active_tab == "overview" %}
+
+<div class="progress-overview-grid">
+    <article class="progress-overview-card">
+        <span>All Tasks</span>
+        <strong>{{ task_overview.total_tasks }}</strong>
+        <small>Published Modules and Activities</small>
+    </article>
+
+    <article class="progress-overview-card">
+        <span>Completed</span>
+        <strong>{{ task_overview.completed_tasks }}</strong>
+        <small>{{ task_overview.progress_percent }}% completion</small>
+    </article>
+
+    <article class="progress-overview-card">
+        <span>In Progress</span>
+        <strong>{{ task_overview.status_counts.in_progress }}</strong>
+        <small>Draft work saved</small>
+    </article>
+
+    <article class="progress-overview-card">
+        <span>Returned</span>
+        <strong>{{ task_overview.status_counts.returned }}</strong>
+        <small>Needs revision</small>
+    </article>
+</div>
+
+<section class="classroom-card progress-completion-card">
+    <div class="card-heading">
+        <div>
+            <h3>Task Completion</h3>
+            <p class="text-muted mb-0">
+                {{ task_overview.completed_tasks }} of {{ task_overview.total_tasks }} tasks completed
+            </p>
+        </div>
+        <strong>{{ task_overview.progress_percent }}%</strong>
+    </div>
+
+    <div class="progress" role="progressbar" aria-valuenow="{{ task_overview.progress_percent }}" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar" style="width: {{ task_overview.progress_percent }}%"></div>
+    </div>
+
+    <div class="progress-status-summary">
+        <span>To Do <strong>{{ task_overview.status_counts.to_do }}</strong></span>
+        <span>In Progress <strong>{{ task_overview.status_counts.in_progress }}</strong></span>
+        <span>Submitted <strong>{{ task_overview.status_counts.submitted }}</strong></span>
+        <span>Returned <strong>{{ task_overview.status_counts.returned }}</strong></span>
+        <span>Completed <strong>{{ task_overview.status_counts.completed }}</strong></span>
+    </div>
+</section>
+
+<div class="progress-report-grid">
+    <section class="classroom-card">
+        <div class="card-heading">
+            <h3>Needs Attention</h3>
+            <a href="{% url 'classroom:tasks' %}{% if not student_view %}?learner={{ selected_student.pk }}{% endif %}">View Tasks</a>
+        </div>
+
+        {% for task in attention_tasks %}
+            <article class="progress-attention-item">
+                <div>
+                    <strong>{{ task.title }}</strong>
+                    <small>{{ task.task_type }} · {{ task.classroom.subject }}</small>
+                </div>
+                <span class="{% if task.is_overdue %}text-danger{% endif %}">
+                    {% if task.status == "returned" %}Returned{% else %}Overdue{% endif %}
+                </span>
+            </article>
+        {% empty %}
+            <div class="dashboard-empty-card compact">
+                <i class="bi bi-check2-circle"></i>
+                <h4>No current concerns</h4>
+                <p>Overdue and returned work will appear here.</p>
+            </div>
+        {% endfor %}
+    </section>
+
+    <section class="classroom-card">
+        <div class="card-heading">
+            <h3>Current Attendance</h3>
+            <a href="?tab=attendance{% if not student_view %}&learner={{ selected_student.pk }}{% endif %}{% if selected_classroom %}&classroom={{ selected_classroom.pk }}{% endif %}">View Details</a>
+        </div>
+
+        {% if attendance_summary %}
+            <p class="text-muted">{{ selected_classroom.subject }} · {{ attendance_summary.month_label }}</p>
+            <div class="overview-attendance-values">
+                <span>Present <strong>{{ attendance_summary.totals.present }}</strong></span>
+                <span>Absent <strong>{{ attendance_summary.totals.absent }}</strong></span>
+                <span>Tardy <strong>{{ attendance_summary.totals.late }}</strong></span>
+            </div>
+        {% else %}
+            <div class="dashboard-empty-card compact">
+                <h4>No attendance records</h4>
+                <p>Attendance appears after enrollment in a class.</p>
+            </div>
+        {% endif %}
+    </section>
+</div>
+
+{% elif active_tab == "grades" %}
 
 <section class="classroom-card">
     <div class="card-heading">
@@ -189,11 +299,11 @@ Learner Progress | District 1 Classroom
 <section class="attendance-controls">
     <form method="get">
         <input type="hidden" name="tab" value="attendance">
-        <input
+        {% if not student_view %}<input
             type="hidden"
             name="learner"
             value="{{ selected_student.pk }}"
-        >
+        >{% endif %}
 
         <div>
             <label for="classroom">Class</label>
@@ -312,7 +422,7 @@ Learner Progress | District 1 Classroom
     <section class="classroom-card attendance-calendar-card">
         <div class="attendance-month-heading">
             <a
-                href="?tab=attendance&learner={{ selected_student.pk }}&classroom={{ selected_classroom.pk }}&month={{ attendance_summary.previous_month }}"
+                href="?tab=attendance{% if not student_view %}&learner={{ selected_student.pk }}{% endif %}&classroom={{ selected_classroom.pk }}&month={{ attendance_summary.previous_month }}"
                 class="btn btn-light border"
                 aria-label="Previous month"
             >
@@ -322,7 +432,7 @@ Learner Progress | District 1 Classroom
             <h3>{{ attendance_summary.month_label }}</h3>
 
             <a
-                href="?tab=attendance&learner={{ selected_student.pk }}&classroom={{ selected_classroom.pk }}&month={{ attendance_summary.next_month }}"
+                href="?tab=attendance{% if not student_view %}&learner={{ selected_student.pk }}{% endif %}&classroom={{ selected_classroom.pk }}&month={{ attendance_summary.next_month }}"
                 class="btn btn-light border"
                 aria-label="Next month"
             >
@@ -497,15 +607,15 @@ Learner Progress | District 1 Classroom
     <h3>No linked learner</h3>
 
     <p>
-        Connect your Parent account to a Student first.
+        {% if student_view %}Your Student profile is not available.{% else %}Connect your Parent account to a Student first.{% endif %}
     </p>
 
-    <a
+    {% if not student_view %}<a
         href="{% url 'classroom:parent_children' %}"
         class="btn btn-primary"
     >
         Manage Learners
-    </a>
+    </a>{% endif %}
 </div>
 
 {% endif %}

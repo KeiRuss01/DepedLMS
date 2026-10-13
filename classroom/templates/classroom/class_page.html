@@ -4,6 +4,9 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'classroom/css/modules.css' %}?v=1">
 <link rel="stylesheet" href="{% static 'classroom/css/activities.css' %}?v=1">
+{% if active_tab == 'attendance' %}
+<link rel="stylesheet" href="{% static 'classroom/css/parent-progress.css' %}?v=2">
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
@@ -164,8 +167,9 @@
 
     </a>
     {% elif is_student %}
-    <a href="{% url 'classroom:student_progress' %}?tab=attendance&amp;classroom={{ classroom.pk }}"
-       class="class-navigation-link">
+    <a href="{% url 'classroom:class_page' classroom.pk %}?tab=attendance"
+       class="class-navigation-link
+       {% if active_tab == 'attendance' %}active{% endif %}">
 
         <i class="bi bi-calendar2-check"></i>
 
@@ -710,6 +714,14 @@
                 Enrolled
             </span>
 
+            {% if is_teacher %}
+            <a href="{% url 'classroom:student_performance_report' classroom.pk enrollment.student.pk %}"
+               class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-bar-chart me-1"></i>
+                View Report
+            </a>
+            {% endif %}
+
 
         </div>
 
@@ -729,6 +741,15 @@
 
 
     </section>
+
+
+    <!-- ==================================================
+         STUDENT ATTENDANCE TAB
+    ================================================== -->
+
+    {% elif active_tab == "attendance" %}
+
+        {% include "classroom/_student_attendance.html" %}
 
 
 
