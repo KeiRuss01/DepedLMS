@@ -202,21 +202,6 @@
             Your answers, drawings, and added pages are saved automatically.
         </div>
 
-        <div class="mobile-text-controls">
-            <label for="mobileTextSize">Text size</label>
-
-            <select id="mobileTextSize" class="form-select">
-                <option value="0.020">Small</option>
-                <option value="0.026" selected>Normal</option>
-                <option value="0.034">Large</option>
-                <option value="0.044">Extra large</option>
-            </select>
-
-            <small>
-                Choose Move and tap existing text before changing its size.
-            </small>
-        </div>
-
     </section>
 
     <dialog id="answerPageDialog" class="answer-page-dialog">
@@ -313,13 +298,56 @@
                 </button>
             </header>
 
-            <textarea
-                id="extraPageEssayEditor"
-                class="extra-page-essay-editor"
-                maxlength="50000"
-                placeholder="Write your answer here..."
+            <section
+                id="extraPageEssaySection"
+                class="extra-page-essay-section"
                 hidden
-            ></textarea>
+            >
+                <div class="extra-page-essay-toolbar">
+                    <label for="extraPageEssaySize">
+                        Text size
+                    </label>
+
+                    <select
+                        id="extraPageEssaySize"
+                        class="form-select form-select-sm"
+                    >
+                        <option value="14">Small</option>
+                        <option value="16" selected>Normal</option>
+                        <option value="18">Large</option>
+                        <option value="20">Extra large</option>
+                    </select>
+
+                    <button
+                        id="extraPageEssayBold"
+                        type="button"
+                        class="essay-format-button"
+                        aria-label="Bold"
+                        aria-pressed="false"
+                    >
+                        <i class="bi bi-type-bold"></i>
+                    </button>
+
+                    <button
+                        id="extraPageEssayItalic"
+                        type="button"
+                        class="essay-format-button"
+                        aria-label="Italic"
+                        aria-pressed="false"
+                    >
+                        <i class="bi bi-type-italic"></i>
+                    </button>
+                </div>
+
+                <div
+                    id="extraPageEssayEditor"
+                    class="extra-page-essay-editor"
+                    contenteditable="true"
+                    role="textbox"
+                    aria-multiline="true"
+                    data-placeholder="Write your answer here..."
+                ></div>
+            </section>
 
             <section
                 id="extraPageDrawingEditor"

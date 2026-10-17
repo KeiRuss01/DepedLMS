@@ -225,10 +225,10 @@ class ProfileUpdateForm(forms.ModelForm):
     profile_picture = forms.ImageField(
         required=False,
         label="Profile picture",
-        widget=forms.ClearableFileInput(
+        widget=forms.FileInput(
             attrs={
-                "class": "form-control",
-                "accept": ".jpg,.jpeg,.png,.webp",
+                "class": "profile-photo-input",
+                "accept": "image/jpeg,image/png,image/webp",
             }
         ),
     )

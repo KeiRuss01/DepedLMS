@@ -61,55 +61,137 @@
     </header>
 
     <!-- Left navigation -->
+    <!-- Left navigation -->
     <aside class="sv-sidebar">
         <div class="sv-nav-section">Main</div>
-        <a class="sv-nav-link {% block nav_dashboard %}{% endblock %}" href="{% if request.user.role == 'principal' %}{% url 'supervisor:principal_dashboard' %}{% else %}{% url 'supervisor:dashboard' %}{% endif %}">
-            <i class="bi bi-grid-1x2"></i> Dashboard
+
+        <a
+            class="sv-nav-link {% block nav_dashboard %}{% endblock %}"
+            href="{% if request.user.role == 'principal' %}{% url 'supervisor:principal_dashboard' %}{% else %}{% url 'supervisor:dashboard' %}{% endif %}"
+        >
+            <i class="bi bi-grid-1x2"></i>
+            Dashboard
         </a>
 
         <div class="sv-nav-section">Management</div>
-        {% if request.user.role == 'supervisor' %}
-        <a class="sv-nav-link {% block nav_schools %}{% endblock %}" href="{% url 'supervisor:schools' %}"><i class="bi bi-building"></i> Schools</a>
-        <a class="sv-nav-link {% block nav_principals %}{% endblock %}" href="{% url 'supervisor:principals' %}"><i class="bi bi-person-badge"></i> Principals</a>
-        <a
-            class="sv-nav-link {% block nav_calendar %}{% endblock %}"
-            href="{% url 'supervisor:district_calendar' %}"
-        >
-            <i class="bi bi-calendar3"></i>
-            District Calendar
-        </a>
-        <a
-            class="sv-nav-link {% block nav_supervision %}{% endblock %}"
-            href="{% url 'supervisor:supervision' %}"
-        >
-            <i class="bi bi-clipboard-check"></i>
-            Supervision
-        </a>
-        <a class="sv-nav-link {% block nav_district_teachers %}{% endblock %}" href="{% url 'supervisor:teachers' %}"><i class="bi bi-person-workspace"></i> Teachers</a>
-        <a class="sv-nav-link {% block nav_district_students %}{% endblock %}" href="{% url 'supervisor:students' %}"><i class="bi bi-mortarboard"></i> Students</a>
-        <a class="sv-nav-link disabled" href="#"><i class="bi bi-people"></i> Parents</a>
+
+        {% if request.user.role == "supervisor" %}
+            <a
+                class="sv-nav-link {% block nav_schools %}{% endblock %}"
+                href="{% url 'supervisor:schools' %}"
+            >
+                <i class="bi bi-building"></i>
+                Schools
+            </a>
+
+            <a
+                class="sv-nav-link {% block nav_principals %}{% endblock %}"
+                href="{% url 'supervisor:principals' %}"
+            >
+                <i class="bi bi-person-badge"></i>
+                Principals
+            </a>
+
+            <a
+                class="sv-nav-link {% block nav_calendar %}{% endblock %}"
+                href="{% url 'supervisor:district_calendar' %}"
+            >
+                <i class="bi bi-calendar3"></i>
+                District Calendar
+            </a>
+
+            <a
+                class="sv-nav-link {% block nav_district_teachers %}{% endblock %}"
+                href="{% url 'supervisor:teachers' %}"
+            >
+                <i class="bi bi-person-workspace"></i>
+                Teachers
+            </a>
+
+            <a
+                class="sv-nav-link {% block nav_district_students %}{% endblock %}"
+                href="{% url 'supervisor:students' %}"
+            >
+                <i class="bi bi-mortarboard"></i>
+                Students
+            </a>
+
+            <a class="sv-nav-link disabled" href="#">
+                <i class="bi bi-people"></i>
+                Parents
+            </a>
+
         {% else %}
-        {% if request.user.principal_profile %}
-        <a class="sv-nav-link {% block nav_school_overview %}{% endblock %}"
-           href="{% url 'supervisor:school_detail' request.user.principal_profile.school_id %}">
-            <i class="bi bi-bar-chart-line"></i> School Overview
-        </a>
-        {% else %}
-        <a class="sv-nav-link disabled" href="#"><i class="bi bi-bar-chart-line"></i> School Overview</a>
-        {% endif %}
-        <a class="sv-nav-link {% block nav_school_profile %}{% endblock %}" href="{% url 'supervisor:principal_school_profile' %}"><i class="bi bi-building"></i> School Profile</a>
-        <a class="sv-nav-link {% block nav_teachers %}{% endblock %}" href="{% url 'supervisor:teachers' %}"><i class="bi bi-person-workspace"></i> Teachers</a>
-        <a class="sv-nav-link {% block nav_students %}{% endblock %}" href="{% url 'supervisor:students' %}"><i class="bi bi-mortarboard"></i> Students</a>
-        <a class="sv-nav-link {% block nav_classes %}{% endblock %}" href="{% url 'supervisor:classes' %}"><i class="bi bi-journal-bookmark"></i> Classes</a>
+            {% if request.user.principal_profile %}
+                <a
+                    class="sv-nav-link {% block nav_school_overview %}{% endblock %}"
+                    href="{% url 'supervisor:school_detail' request.user.principal_profile.school_id %}"
+                >
+                    <i class="bi bi-bar-chart-line"></i>
+                    School Overview
+                </a>
+            {% else %}
+                <a class="sv-nav-link disabled" href="#">
+                    <i class="bi bi-bar-chart-line"></i>
+                    School Overview
+                </a>
+            {% endif %}
+
+            <a
+                class="sv-nav-link {% block nav_school_profile %}{% endblock %}"
+                href="{% url 'supervisor:principal_school_profile' %}"
+            >
+                <i class="bi bi-building"></i>
+                School Profile
+            </a>
+
+            <a
+                class="sv-nav-link {% block nav_principal_calendar %}{% endblock %}"
+                href="{% url 'supervisor:principal_calendar' %}"
+            >
+                <i class="bi bi-calendar3"></i>
+                School Calendar
+            </a>
+
+            <a
+                class="sv-nav-link {% block nav_teachers %}{% endblock %}"
+                href="{% url 'supervisor:teachers' %}"
+            >
+                <i class="bi bi-person-workspace"></i>
+                Teachers
+            </a>
+
+            <a
+                class="sv-nav-link {% block nav_students %}{% endblock %}"
+                href="{% url 'supervisor:students' %}"
+            >
+                <i class="bi bi-mortarboard"></i>
+                Students
+            </a>
+
+            <a
+                class="sv-nav-link {% block nav_classes %}{% endblock %}"
+                href="{% url 'supervisor:classes' %}"
+            >
+                <i class="bi bi-journal-bookmark"></i>
+                Classes
+            </a>
         {% endif %}
 
         <div class="sv-nav-section">System</div>
-        {% if request.user.role == 'supervisor' %}
-        <a class="sv-nav-link {% block nav_reports %}{% endblock %}" href="{% url 'supervisor:district_performance_report' %}"><i class="bi bi-bar-chart"></i> Reports</a>
-        {% else %}
-        <a class="sv-nav-link disabled" href="#"><i class="bi bi-bar-chart"></i> Reports</a>
-        {% endif %}
-        <a class="sv-nav-link disabled" href="#"><i class="bi bi-sliders"></i> Settings</a>
+
+        <a
+            class="sv-nav-link {% block nav_reports %}{% endblock %}"
+            href="{% if request.user.role == 'supervisor' %}{% url 'supervisor:district_performance_report' %}{% else %}{% url 'supervisor:principal_grade_reports' %}{% endif %}"
+        >
+            {% if request.user.role == "supervisor" %}
+                <i class="bi bi-bar-chart"></i>
+                Reports
+            {% else %}
+                <i class="bi bi-file-earmark-bar-graph"></i>
+                School Reports
+            {% endif %}
+        </a>
     </aside>
 
     <!-- Page content -->

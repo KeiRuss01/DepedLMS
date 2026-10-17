@@ -21,8 +21,11 @@ from .models import Announcement, CalendarEvent, Classroom, ClassEnrollment
 from pathlib import Path
 from decimal import Decimal, InvalidOperation
 from datetime import date, timedelta
+from html import escape as html_escape
+from html.parser import HTMLParser
 import calendar as month_calendar
 import json
+import re
 
 from supervisor.models import SchoolAnnouncement
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -68,18 +71,21 @@ from .notification_services import (
     notify_term_grade_released,
 )
 from .gradebook import (
+    build_final_grade_report_snapshot,
     build_released_student_summary,
     build_summary,
     build_term_record,
     next_item_position,
     sync_module_grade_item,
     sync_module_grade_score,
+    validate_final_grade_report,
 )
 from .gradebook_forms import GradeItemForm, GradebookSettingsForm
 from .models import (
     AttendanceDay,
     AttendanceRecord,
     GradeItem,
+    GradeReportSubmission,
     GradeScore,
     GradebookSettings,
 )
@@ -2102,6 +2108,60 @@ def _clean_mobile_annotations(value):
     return cleaned_annotations
 
 
+ESSAY_FONT_SIZES = {14, 16, 18, 20}
+
+
+class _EssayHTMLSanitizer(HTMLParser):
+    """Keep only the small formatting subset supported by the essay editor."""
+
+    allowed_tags = {"b", "i", "br", "div", "p", "span"}
+    tag_aliases = {"strong": "b", "em": "i"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        tag = self.tag_aliases.get(tag.lower(), tag.lower())
+        if tag not in self.allowed_tags:
+            return
+        if tag == "br":
+            self.parts.append("<br>")
+            return
+        if tag == "span":
+            style = dict(attrs).get("style", "")
+            match = re.search(r"font-size\s*:\s*(\d+)px", style, re.IGNORECASE)
+            size = int(match.group(1)) if match else 16
+            if size not in ESSAY_FONT_SIZES:
+                size = 16
+            self.parts.append(f'<span style="font-size: {size}px">')
+            return
+        self.parts.append(f"<{tag}>")
+
+    def handle_startendtag(self, tag, attrs):
+        if tag.lower() == "br":
+            self.parts.append("<br>")
+
+    def handle_endtag(self, tag):
+        tag = self.tag_aliases.get(tag.lower(), tag.lower())
+        if tag in self.allowed_tags and tag != "br":
+            self.parts.append(f"</{tag}>")
+
+    def handle_data(self, data):
+        self.parts.append(html_escape(data, quote=False))
+
+
+def _clean_essay_html(value):
+    if not isinstance(value, str):
+        raise ValidationError("The formatted written answer is invalid.")
+    if len(value) > 100000:
+        raise ValidationError("The formatted written answer is too large.")
+    cleaner = _EssayHTMLSanitizer()
+    cleaner.feed(value)
+    cleaner.close()
+    return "".join(cleaner.parts)
+
+
 def _serialize_extra_page(extra_page):
     file_url = ""
     if extra_page.uploaded_file:
@@ -2115,6 +2175,10 @@ def _serialize_extra_page(extra_page):
         "related_pdf_page": extra_page.related_pdf_page,
         "position": extra_page.position,
         "essay_text": extra_page.essay_text,
+        "essay_html": extra_page.essay_html,
+        "essay_font_size": extra_page.essay_font_size,
+        "essay_bold": extra_page.essay_bold,
+        "essay_italic": extra_page.essay_italic,
         "drawing_data": extra_page.drawing_data,
         "original_name": extra_page.original_name,
         "caption": extra_page.caption,
@@ -2338,11 +2402,55 @@ def module_extra_page_update_view(request, extra_page_id):
                 return JsonResponse({"error": "The related Module page is invalid."}, status=400)
             extra_page.related_pdf_page = related_pdf_page
 
-    if extra_page.page_type == SubmissionExtraPage.PageType.ESSAY and "essay_text" in data:
-        essay_text = data["essay_text"]
-        if not isinstance(essay_text, str):
-            return JsonResponse({"error": "The written answer is invalid."}, status=400)
-        extra_page.essay_text = essay_text[:50000]
+    if extra_page.page_type == SubmissionExtraPage.PageType.ESSAY:
+        if "essay_text" in data:
+            essay_text = data["essay_text"]
+
+            if not isinstance(essay_text, str):
+                return JsonResponse(
+                    {"error": "The written answer is invalid."},
+                    status=400,
+                )
+
+            extra_page.essay_text = essay_text[:50000]
+
+        if "essay_html" in data:
+            try:
+                extra_page.essay_html = _clean_essay_html(data["essay_html"])
+            except ValidationError as error:
+                return JsonResponse(
+                    {"error": "; ".join(error.messages)},
+                    status=400,
+                )
+
+        if "essay_font_size" in data:
+            try:
+                font_size = int(data["essay_font_size"])
+            except (TypeError, ValueError):
+                return JsonResponse(
+                    {"error": "Select a valid text size."},
+                    status=400,
+                )
+
+            if font_size not in {14, 16, 18, 20}:
+                return JsonResponse(
+                    {"error": "Select a valid text size."},
+                    status=400,
+                )
+
+            extra_page.essay_font_size = font_size
+
+        for field_name in ["essay_bold", "essay_italic"]:
+            if field_name in data:
+                value = data[field_name]
+
+                if not isinstance(value, bool):
+                    return JsonResponse(
+                        {"error": "The text formatting is invalid."},
+                        status=400,
+                    )
+
+                setattr(extra_page, field_name, value)
 
     if extra_page.page_type == SubmissionExtraPage.PageType.DRAWING and "drawing_data" in data:
         drawing_data = data["drawing_data"]
@@ -2699,6 +2807,17 @@ def gradebook_view(request, classroom_id):
     visible_students = enrolled if is_teacher else [current_student]
 
     settings, _ = GradebookSettings.objects.get_or_create(classroom=classroom)
+    grade_report = GradeReportSubmission.objects.filter(
+        classroom=classroom,
+    ).first()
+
+    report_locked = bool(
+        grade_report
+        and grade_report.status in {
+            GradeReportSubmission.Status.SUBMITTED,
+            GradeReportSubmission.Status.APPROVED,
+        }
+    )
     # This also backfills gradebook columns for Modules made before the
     # gradebook feature was introduced.
     for module in classroom.modules.all().order_by("created_at", "pk"):
@@ -2713,7 +2832,57 @@ def gradebook_view(request, classroom_id):
             raise PermissionDenied("Only the Teacher can change grades.")
         action = request.POST.get("action")
 
-        if action == "add_item":
+        if report_locked:
+            messages.error(
+                request,
+                "This final report is locked while waiting for the Principal.",
+            )
+            return redirect(
+                f"{request.path}?view=summary"
+            )
+
+        if action == "submit_final_report":
+            report_errors = validate_final_grade_report(
+                classroom,
+                enrolled,
+            )
+
+            if report_errors:
+                for error in report_errors:
+                    messages.error(request, error)
+
+                return redirect(
+                    f"{request.path}?view=summary"
+                )
+
+            snapshot = build_final_grade_report_snapshot(
+                classroom,
+                enrolled,
+            )
+
+            GradeReportSubmission.objects.update_or_create(
+                classroom=classroom,
+                defaults={
+                    "status": GradeReportSubmission.Status.SUBMITTED,
+                    "submitted_by": request.user,
+                    "submitted_at": timezone.now(),
+                    "reviewed_by": None,
+                    "reviewed_at": None,
+                    "principal_comment": "",
+                    "snapshot": snapshot,
+                },
+            )
+
+            messages.success(
+                request,
+                "The final class report was submitted to the Principal.",
+            )
+
+            return redirect(
+                f"{request.path}?view=summary"
+            )
+
+        elif action == "add_item":
             item_form = GradeItemForm(request.POST)
             if item_form.is_valid():
                 item = item_form.save(commit=False)
@@ -2919,6 +3088,8 @@ def gradebook_view(request, classroom_id):
         "student_term_row": record["rows"][0] if record["rows"] else None,
         "male_rows": [row for row in record["rows"] if row["student"].gender == Student.Gender.MALE],
         "female_rows": [row for row in record["rows"] if row["student"].gender == Student.Gender.FEMALE],
+        "grade_report": grade_report,
+        "report_locked": report_locked,
     })
 
 
@@ -2929,6 +3100,24 @@ def grade_item_delete_view(request, item_id):
     classroom, is_teacher, current_student = _gradebook_access(request, item.classroom_id)
     if not is_teacher:
         raise PermissionDenied("Only the Teacher can remove grade items.")
+
+    report_locked = GradeReportSubmission.objects.filter(
+        classroom=classroom,
+        status__in=[
+            GradeReportSubmission.Status.SUBMITTED,
+            GradeReportSubmission.Status.APPROVED,
+        ],
+    ).exists()
+
+    if report_locked:
+        messages.error(
+            request,
+            "Grade items cannot be removed while the final report is locked.",
+        )
+        return redirect(
+            f"{reverse('classroom:gradebook', args=[classroom.pk])}?view=summary"
+        )
+    
     if item.module_id:
         messages.error(request, "A Module column is removed by deleting its Module, not from the gradebook.")
     else:

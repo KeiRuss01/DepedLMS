@@ -55,7 +55,50 @@
         </form>
         {% endif %}
         {% endif %}
-        <button type="button" class="btn btn-outline-dark" onclick="window.print()"><i class="bi bi-printer"></i> Print / Save PDF</button>
+        <button type="button" class="btn btn-outline-dark" onclick="window.print()">
+            <i class="bi bi-printer"></i> Print / Save PDF
+        </button>
+
+        {% if is_teacher and display == "summary" %}
+        {% if grade_report.status == "submitted" %}
+            <span class="grade-report-status is-submitted">
+                <i class="bi bi-clock-history"></i>
+                Submitted to Principal
+            </span>
+
+        {% elif grade_report.status == "approved" %}
+            <span class="grade-report-status is-approved">
+                <i class="bi bi-check-circle"></i>
+                Approved by Principal
+            </span>
+
+        {% else %}
+            <form method="post" class="d-inline">
+                {% csrf_token %}
+                <input
+                    type="hidden"
+                    name="action"
+                    value="submit_final_report"
+                >
+
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                    onclick="return confirm(
+                        'Submit the final class report to the Principal? Editing will be locked until the report is returned.'
+                    )"
+                >
+                    <i class="bi bi-send"></i>
+
+                    {% if grade_report.status == "returned" %}
+                        Resubmit to Principal
+                    {% else %}
+                        Submit to Principal
+                    {% endif %}
+                </button>
+            </form>
+        {% endif %}
+    {% endif %}
     </div>
 </section>
 
@@ -64,6 +107,27 @@
     <a href="?term=2" class="{% if display == 'record' and term == '2' %}active{% endif %}">Term 2</a>
     <a href="?term=3" class="{% if display == 'record' and term == '3' %}active{% endif %}">Term 3</a>
     {% if is_teacher %}<a href="?view=summary" class="{% if display == 'summary' %}active{% endif %}">Summary of Grades</a>{% endif %}
+    {% if is_teacher and display == "summary" and grade_report %}
+    <section class="grade-report-message no-print">
+        <div>
+            <strong>{{ grade_report.get_status_display }}</strong>
+
+            {% if grade_report.submitted_at %}
+                <small>
+                    Submitted
+                    {{ grade_report.submitted_at|date:"F j, Y g:i A" }}
+                </small>
+            {% endif %}
+        </div>
+
+        {% if grade_report.status == "returned" %}
+            <p>
+                <strong>Principal’s comment:</strong>
+                {{ grade_report.principal_comment|default:"Please review and correct the report." }}
+            </p>
+        {% endif %}
+    </section>
+    {% endif %}
 </div>
 
 {% if is_student %}

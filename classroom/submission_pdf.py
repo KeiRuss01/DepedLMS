@@ -2,6 +2,7 @@
 
 from io import BytesIO
 from pathlib import Path
+import re
 from xml.sax.saxutils import escape
 
 from django.core.exceptions import ValidationError
@@ -54,7 +55,10 @@ def _page_overlay(page_width, page_height, annotations):
         height = _number(annotation.get("height")) * page_height
 
         if tool == "type":
-            font_size = max(8, _number(annotation.get("size"), 0.026) * page_height)
+            font_size = max(
+                7,
+                _number(annotation.get("size"), 0.018) * page_height
+            )
             pdf.setFillColor(_color(annotation.get("color")))
             pdf.setFont("Helvetica", font_size)
             text = pdf.beginText(x, page_height - top_y - font_size)
@@ -147,12 +151,23 @@ def _essay_pdf(extra_page, submission):
         textColor=colors.HexColor("#667085"),
         spaceAfter=16,
     )
+    if extra_page.essay_bold and extra_page.essay_italic:
+        answer_font = "Helvetica-BoldOblique"
+    elif extra_page.essay_bold:
+        answer_font = "Helvetica-Bold"
+    elif extra_page.essay_italic:
+        answer_font = "Helvetica-Oblique"
+    else:
+        answer_font = "Helvetica"
+
+    answer_size = extra_page.essay_font_size or 16
+
     answer_style = ParagraphStyle(
         "AnswerBody",
         parent=styles["BodyText"],
-        fontName="Helvetica",
-        fontSize=11,
-        leading=17,
+        fontName=answer_font,
+        fontSize=answer_size,
+        leading=answer_size * 1.55,
         textColor=colors.HexColor("#102448"),
         spaceAfter=9,
     )
@@ -179,9 +194,23 @@ def _essay_pdf(extra_page, submission):
             meta_style,
         ),
     ]
-    paragraphs = extra_page.essay_text.splitlines() or [""]
-    for paragraph in paragraphs:
-        story.append(Paragraph(escape(paragraph) or "&nbsp;", answer_style))
+    if extra_page.essay_html:
+        answer_html = extra_page.essay_html
+        answer_html = re.sub(r"<(?:div|p)(?:\s[^>]*)?>", "", answer_html, flags=re.I)
+        answer_html = re.sub(r"</(?:div|p)>", "<br/>", answer_html, flags=re.I)
+        answer_html = re.sub(
+            r'<span\s+style="font-size:\s*(14|16|18|20)px">',
+            r'<font size="\1">',
+            answer_html,
+            flags=re.I,
+        )
+        answer_html = re.sub(r"</span>", "</font>", answer_html, flags=re.I)
+        answer_html = re.sub(r"<br\s*/?>", "<br/>", answer_html, flags=re.I)
+        story.append(Paragraph(answer_html or "&nbsp;", answer_style))
+    else:
+        paragraphs = extra_page.essay_text.splitlines() or [""]
+        for paragraph in paragraphs:
+            story.append(Paragraph(escape(paragraph) or "&nbsp;", answer_style))
     document.build(story)
     output.seek(0)
     return output

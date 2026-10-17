@@ -637,6 +637,31 @@ body.classroom-body {
         padding-bottom: 105px;
     }
 
+    .mobile-notification-link {
+        display: grid;
+        flex: 0 0 40px;
+        width: 40px;
+        height: 40px;
+        place-items: center;
+        color: var(--classroom-navy);
+        border-radius: 50%;
+    }
+
+    .mobile-notification-link:hover,
+    .mobile-notification-link:focus {
+        color: var(--classroom-blue);
+        background: var(--classroom-blue-light);
+    }
+
+    .mobile-notification-link i {
+        font-size: 19px;
+    }
+
+    /* Mobile opens the complete notification page. */
+    .notification-menu {
+        display: none;
+    }
+
     .learning-dock {
         display: none;
     }
@@ -696,8 +721,18 @@ body.classroom-body {
         display: none;
     }
 
-    .header-icon:first-child {
-        display: none;
+    .header-actions {
+        margin-left: auto;
+        gap: 6px;
+    }
+
+    .user-summary {
+        margin-left: 0;
+    }
+
+    .mobile-notification-link .notification-count {
+        top: -2px;
+        right: -3px;
     }
 
     .classroom-main {
@@ -1665,19 +1700,45 @@ body.classroom-body {
 
     .class-navigation {
         justify-content: flex-start;
+        gap: 4px;
+        padding: 6px;
+        overflow-x: auto;
         border-radius: 10px;
+        scroll-behavior: smooth;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
     }
 
     .class-navigation-link {
-        padding: 10px 14px;
+        display: flex;
+        min-width: 82px;
+        min-height: 60px;
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        padding: 8px 10px;
+        border-radius: 9px;
+        scroll-snap-align: start;
     }
 
     .class-navigation-link span {
-        display: none;
+        display: block;
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1;
+        white-space: nowrap;
     }
 
     .class-navigation-link i {
-        font-size: 18px;
+        font-size: 19px;
+        line-height: 1;
+    }
+
+    .class-navigation-link.active span,
+    .class-navigation-link.active i {
+        color: #ffffff;
     }
 
     .class-tab-heading {
@@ -1993,5 +2054,40 @@ body.classroom-body {
     .family-link-row > .d-flex button,
     .family-link-row > .btn {
         width: 100%;
+    }
+}
+
+.mobile-notification-link {
+    position: relative;
+    display: none;
+    background: transparent;
+    border: 0;
+}
+
+@media (max-width: 991.98px) {
+    .header-actions .mobile-notification-link {
+        display: grid;
+        width: 40px;
+        height: 40px;
+        flex: 0 0 40px;
+        place-items: center;
+        color: var(--classroom-navy);
+        background: transparent;
+        border-radius: 50%;
+    }
+
+    .header-actions .mobile-notification-link:hover,
+    .header-actions .mobile-notification-link:focus {
+        color: var(--classroom-blue);
+        background: var(--classroom-blue-light);
+    }
+
+    .header-actions .mobile-notification-link i {
+        font-size: 19px;
+    }
+
+    .header-actions .mobile-notification-link .notification-count {
+        top: -2px;
+        right: -3px;
     }
 }
