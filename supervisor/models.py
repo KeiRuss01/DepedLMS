@@ -37,65 +37,89 @@ class SchoolAnnouncement(models.Model):
     def __str__(self):
         return f"{self.school} - {self.title}"
 
-class SupervisionVisit(models.Model):
-    class Status(models.TextChoices):
-        OPEN = "open", "Open"
-        IN_PROGRESS = "in_progress", "In progress"
-        COMPLETED = "completed", "Completed"
+class SchoolReportSubmission(models.Model):
 
-    visit_id = models.AutoField(primary_key=True)
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted to District"
+        RETURNED = "returned", "Returned for Correction"
+        ACKNOWLEDGED = "acknowledged", "Acknowledged by District"
+
+    report_id = models.AutoField(
+        primary_key=True,
+    )
 
     school = models.ForeignKey(
         School,
         on_delete=models.CASCADE,
-        related_name="supervision_visits",
+        related_name="final_report_submissions",
     )
 
-    supervisor = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-        related_name="supervision_visits",
-    )
-
-    visit_date = models.DateField()
-
-    title = models.CharField(
-        max_length=150,
-        help_text="Example: Classroom monitoring visit",
-    )
-
-    findings = models.TextField(
-        help_text="Record the observations or issues found.",
-    )
-
-    recommendations = models.TextField(
-        help_text="Record the recommended actions.",
-    )
-
-    action_owner = models.CharField(
-        max_length=150,
-        blank=True,
-        help_text="Example: School Principal or Grade 10 Teacher",
-    )
-
-    follow_up_date = models.DateField(
-        blank=True,
-        null=True,
+    school_year = models.CharField(
+        max_length=20,
     )
 
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
-        default=Status.OPEN,
+        default=Status.SUBMITTED,
     )
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="submitted_school_reports",
+    )
+
+    submitted_at = models.DateTimeField(
+        blank=True,
+        null=True,
+    )
+
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="reviewed_school_reports",
+        blank=True,
+        null=True,
+    )
+
+    reviewed_at = models.DateTimeField(
+        blank=True,
+        null=True,
+    )
+
+    district_comment = models.TextField(
+        blank=True,
+    )
+
+    snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
 
     class Meta:
-        db_table = "supervision_visit"
-        ordering = ["-visit_date", "-created_at"]
+        db_table = "school_report_submission"
+        ordering = ["-submitted_at"]
+
+        constraints = [
+            models.UniqueConstraint(
+                fields=["school", "school_year"],
+                name="unique_school_report_per_school_year",
+            )
+        ]
 
     def __str__(self):
-        return f"{self.school.school_name} - {self.title}"
+        return (
+            f"{self.school.school_name} - "
+            f"{self.school_year} - "
+            f"{self.get_status_display()}"
+        )
 

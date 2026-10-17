@@ -28,6 +28,66 @@ class SchoolAnnouncementForm(forms.ModelForm):
             "priority": forms.Select(attrs={"class": "form-select"}),
         }
 
+class SupervisionVisitForm(forms.ModelForm):
+    class Meta:
+        model = SupervisionVisit
+        fields = (
+            "school",
+            "visit_date",
+            "title",
+            "findings",
+            "recommendations",
+            "action_owner",
+            "follow_up_date",
+            "status",
+        )
+        widgets = {
+            "school": forms.Select(
+                attrs={"class": "form-select"},
+            ),
+            "visit_date": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                },
+            ),
+            "title": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Example: Classroom monitoring visit",
+                },
+            ),
+            "findings": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": "Write the observations or issues found...",
+                },
+            ),
+            "recommendations": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": "Write the recommended actions...",
+                },
+            ),
+            "action_owner": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Example: School Principal",
+                },
+            ),
+            "follow_up_date": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                },
+            ),
+            "status": forms.Select(
+                attrs={"class": "form-select"},
+            ),
+        }
+
 class DistrictAnnouncementForm(forms.ModelForm):
     all_schools = forms.BooleanField(
         required=False,

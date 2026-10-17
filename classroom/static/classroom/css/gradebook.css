@@ -140,6 +140,82 @@
     object-fit: contain;
 }
 
+.grade-report-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 13px;
+    border: 1px solid #dce3ee;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.grade-report-status.is-submitted {
+    border-color: #f3d58a;
+    background: #fff8e7;
+    color: #8a5a00;
+}
+
+.grade-report-status.is-approved {
+    border-color: #a8ddbd;
+    background: #eaf7ef;
+    color: #176139;
+}
+
+.grade-report-message {
+    margin-bottom: 15px;
+    padding: 14px 16px;
+    border: 1px solid #dce3ee;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.grade-report-message > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.grade-report-message strong {
+    color: #0b2854;
+}
+
+.grade-report-message small {
+    color: #667085;
+}
+
+.grade-report-message p {
+    margin: 12px 0 0;
+    padding-top: 12px;
+    border-top: 1px solid #eef1f5;
+    color: #4e5c70;
+    font-size: 13px;
+}
+
+@media (max-width: 767.98px) {
+    .gradebook-actions {
+        width: 100%;
+    }
+
+    .gradebook-actions > *,
+    .gradebook-actions form,
+    .gradebook-actions .btn,
+    .grade-report-status {
+        width: 100%;
+    }
+
+    .grade-report-status {
+        justify-content: center;
+    }
+
+    .grade-report-message > div {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
 @media print {
     .record-seal img {
         width: 48px;

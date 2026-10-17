@@ -1,8 +1,11 @@
 document.addEventListener("DOMContentLoaded", function () {
     const bell = document.querySelector(".notification-bell");
-    const countBadge = document.getElementById("notification-count");
 
-    if (!bell || !countBadge) {
+    const countBadges = document.querySelectorAll(
+        "[data-notification-count]"
+    );
+
+    if (!bell || countBadges.length === 0) {
         return;
     }
 
@@ -79,13 +82,15 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function updateBadge(count) {
-        countBadge.textContent = count;
+        countBadges.forEach((badge) => {
+            badge.textContent = count > 99 ? "99+" : count;
 
-        if (count > 0) {
-            countBadge.classList.remove("d-none");
-        } else {
-            countBadge.classList.add("d-none");
-        }
+            if (count > 0) {
+                badge.classList.remove("d-none");
+            } else {
+                badge.classList.add("d-none");
+            }
+        });
     }
 
     async function checkNotifications() {

@@ -28,6 +28,7 @@ from classroom.models import (
     Classroom,
     ClassPost,
     GradebookSettings,
+    GradeReportSubmission,
     Module,
     ModuleSubmission,
 )
@@ -35,7 +36,7 @@ from classroom.notification_services import (
     notify_calendar_event,
     notify_school_announcement,
 )
-from .models import SchoolAnnouncement
+from .models import SchoolAnnouncement, SupervisionVisit
 
 from .forms import (
     AcademicTermForm,
@@ -48,6 +49,8 @@ from .forms import (
     SchoolAnnouncementForm,
     TeacherAccountForm,
 )
+
+from .report_services import build_consolidated_learners
 
 
 def _is_supervisor(user):
@@ -238,22 +241,13 @@ def district_performance_report_view(request):
     if not _is_supervisor(request.user):
         messages.error(
             request,
-            "Only the District Supervisor can open this report.",
+            "Only the District Supervisor can open District Reports.",
         )
         return _administration_redirect(request.user)
 
-    schools = School.objects.order_by("school_name")
-
-    selected_school_id = request.GET.get("school", "")
-    selected_school = schools.filter(
-        pk=selected_school_id,
-    ).first() if selected_school_id else None
-
-    selected_year = request.GET.get("school_year", "")
-
-    selected_term = request.GET.get("term", "")
-    if selected_term not in {"1", "2", "3"}:
-        selected_term = ""
+    schools = School.objects.order_by(
+        "school_name",
+    )
 
     school_years = (
         Classroom.objects.filter(
@@ -264,29 +258,147 @@ def district_performance_report_view(request):
         .order_by("-school_year")
     )
 
-    report_schools = (
-        schools.filter(pk=selected_school.pk)
-        if selected_school
-        else schools
+    selected_year = request.GET.get(
+        "school_year",
+        "",
     )
 
-    report_rows = _build_school_monitoring(
-        schools=report_schools,
-        school_year=selected_year,
-        selected_term=selected_term,
+    if not selected_year:
+        selected_year = school_years.first() or ""
+
+    selected_school = request.GET.get(
+        "school",
+        "",
     )
+
+    selected_status = request.GET.get(
+        "status",
+        "",
+    )
+
+    if selected_status not in {
+        "",
+        "missing",
+        SchoolReportSubmission.Status.SUBMITTED,
+        SchoolReportSubmission.Status.RETURNED,
+        SchoolReportSubmission.Status.ACKNOWLEDGED,
+    }:
+        selected_status = ""
+
+    submissions = (
+        SchoolReportSubmission.objects.filter(
+            school_year=selected_year,
+        )
+        .select_related(
+            "school",
+            "submitted_by",
+            "reviewed_by",
+        )
+    )
+
+    submission_map = {
+        submission.school_id: submission
+        for submission in submissions
+    }
+
+    report_rows = []
+
+    for school in schools:
+        submission = submission_map.get(
+            school.pk,
+        )
+
+        row_status = (
+            submission.status
+            if submission
+            else "missing"
+        )
+
+        if (
+            selected_school
+            and str(school.pk) != selected_school
+        ):
+            continue
+
+        if (
+            selected_status
+            and row_status != selected_status
+        ):
+            continue
+
+        report_rows.append({
+            "school": school,
+            "submission": submission,
+            "status": row_status,
+        })
+
+    school_count = schools.count()
+
+    submitted_count = submissions.filter(
+        status=SchoolReportSubmission.Status.SUBMITTED,
+    ).count()
+
+    returned_count = submissions.filter(
+        status=SchoolReportSubmission.Status.RETURNED,
+    ).count()
+
+    acknowledged_count = submissions.filter(
+        status=SchoolReportSubmission.Status.ACKNOWLEDGED,
+    ).count()
+
+    missing_count = school_count - submissions.count()
 
     return render(
         request,
         "supervisor/district_performance_report.html",
         {
-            "report_rows": report_rows,
             "schools": schools,
             "school_years": school_years,
-            "selected_school": selected_school,
-            "selected_school_id": selected_school_id,
+            "report_rows": report_rows,
             "selected_year": selected_year,
-            "selected_term": selected_term,
+            "selected_school": selected_school,
+            "selected_status": selected_status,
+            "school_count": school_count,
+            "submitted_count": submitted_count,
+            "returned_count": returned_count,
+            "acknowledged_count": acknowledged_count,
+            "missing_count": missing_count,
+        },
+    )
+
+@login_required(login_url="supervisor:login")
+def supervision_visit_view(request):
+    if not _is_supervisor(request.user):
+        messages.error(
+            request,
+            "Only the District Supervisor can manage supervision records.",
+        )
+        return _administration_redirect(request.user)
+
+    form = SupervisionVisitForm(request.POST or None)
+
+    if request.method == "POST" and form.is_valid():
+        visit = form.save(commit=False)
+        visit.supervisor = request.user
+        visit.save()
+
+        messages.success(
+            request,
+            "Supervision record saved successfully.",
+        )
+        return redirect("supervisor:supervision")
+
+    visits = SupervisionVisit.objects.select_related(
+        "school",
+        "supervisor",
+    )
+
+    return render(
+        request,
+        "supervisor/supervision.html",
+        {
+            "form": form,
+            "visits": visits,
         },
     )
 
@@ -360,6 +472,272 @@ def principal_dashboard_view(request):
     }
     return render(request, "supervisor/principal_dashboard.html", context)
 
+@login_required(login_url="supervisor:login")
+def principal_grade_reports_view(request):
+    if not _is_principal(request.user):
+        messages.error(
+            request,
+            "Only the Principal can open school reports.",
+        )
+        return _administration_redirect(request.user)
+
+    principal = getattr(
+        request.user,
+        "principal_profile",
+        None,
+    )
+
+    if principal is None:
+        messages.error(
+            request,
+            "Your Principal profile is not connected to a school.",
+        )
+        return redirect("supervisor:principal_dashboard")
+
+    school = principal.school
+
+    all_classrooms = Classroom.objects.filter(
+        teacher__school=school,
+        is_archived=False,
+    ).select_related(
+        "teacher",
+        "final_grade_report",
+    )
+
+    school_years = (
+        all_classrooms
+        .values_list("school_year", flat=True)
+        .distinct()
+        .order_by("-school_year")
+    )
+
+    grade_levels = (
+        all_classrooms
+        .values_list("grade_level", flat=True)
+        .distinct()
+        .order_by("grade_level")
+    )
+
+    sections = (
+        all_classrooms
+        .values_list("section", flat=True)
+        .distinct()
+        .order_by("section")
+    )
+
+    selected_year = request.GET.get(
+        "school_year",
+        "",
+    )
+
+    selected_grade = request.GET.get(
+        "grade_level",
+        "",
+    )
+
+    selected_section = request.GET.get(
+        "section",
+        "",
+    )
+
+    selected_status = request.GET.get(
+        "status",
+        "",
+    )
+
+    allowed_statuses = {
+        "",
+        "missing",
+        GradeReportSubmission.Status.SUBMITTED,
+        GradeReportSubmission.Status.RETURNED,
+        GradeReportSubmission.Status.APPROVED,
+    }
+
+    if selected_status not in allowed_statuses:
+        selected_status = ""
+
+    classrooms = all_classrooms
+
+    if selected_year:
+        classrooms = classrooms.filter(
+            school_year=selected_year,
+        )
+
+    if selected_grade:
+        classrooms = classrooms.filter(
+            grade_level=selected_grade,
+        )
+
+    if selected_section:
+        classrooms = classrooms.filter(
+            section=selected_section,
+        )
+
+    classrooms = list(
+        classrooms.order_by(
+            "grade_level",
+            "section",
+            "subject",
+        )
+    )
+
+    class_rows = []
+
+    for classroom in classrooms:
+        report = getattr(
+            classroom,
+            "final_grade_report",
+            None,
+        )
+
+        row_status = (
+            report.status
+            if report
+            else "missing"
+        )
+
+        if (
+            selected_status
+            and row_status != selected_status
+        ):
+            continue
+
+        class_rows.append({
+            "classroom": classroom,
+            "report": report,
+            "status": row_status,
+        })
+
+    classroom_ids = [
+        classroom.pk
+        for classroom in classrooms
+    ]
+
+    report_counts = GradeReportSubmission.objects.filter(
+        classroom_id__in=classroom_ids,
+    )
+
+    expected_count = len(classroom_ids)
+
+    submitted_count = report_counts.filter(
+        status=GradeReportSubmission.Status.SUBMITTED,
+    ).count()
+
+    returned_count = report_counts.filter(
+        status=GradeReportSubmission.Status.RETURNED,
+    ).count()
+
+    approved_count = report_counts.filter(
+        status=GradeReportSubmission.Status.APPROVED,
+    ).count()
+
+    missing_count = (
+        expected_count - report_counts.count()
+    )
+
+    approved_reports = (
+        GradeReportSubmission.objects.filter(
+            classroom_id__in=classroom_ids,
+            status=GradeReportSubmission.Status.APPROVED,
+        )
+        .select_related(
+            "classroom",
+            "classroom__teacher",
+        )
+        .order_by(
+            "classroom__grade_level",
+            "classroom__section",
+            "classroom__subject",
+        )
+    )
+
+    learner_reports = build_consolidated_learners(
+        approved_reports
+    )
+
+    selected_tab = request.GET.get(
+        "tab",
+        "submissions",
+    )
+
+    if selected_tab not in {
+        "submissions",
+        "learners",
+    }:
+        selected_tab = "submissions"
+
+    return render(
+        request,
+        "supervisor/principal_grade_reports.html",
+        {
+            "school": school,
+            "class_rows": class_rows,
+            "learner_reports": learner_reports,
+            "school_years": school_years,
+            "grade_levels": grade_levels,
+            "sections": sections,
+            "selected_year": selected_year,
+            "selected_grade": selected_grade,
+            "selected_section": selected_section,
+            "selected_status": selected_status,
+            "selected_tab": selected_tab,
+            "expected_count": expected_count,
+            "submitted_count": submitted_count,
+            "returned_count": returned_count,
+            "approved_count": approved_count,
+            "missing_count": missing_count,
+        },
+    )
+
+@login_required(login_url="supervisor:login")
+def principal_grade_report_detail_view(
+    request,
+    report_id,
+):
+    if not _is_principal(request.user):
+        messages.error(
+            request,
+            "Only the Principal can review school reports.",
+        )
+        return _administration_redirect(request.user)
+
+    principal = getattr(
+        request.user,
+        "principal_profile",
+        None,
+    )
+
+    if principal is None:
+        return redirect(
+            "supervisor:principal_dashboard"
+        )
+
+    report = get_object_or_404(
+        GradeReportSubmission.objects.select_related(
+            "classroom",
+            "classroom__teacher",
+            "submitted_by",
+            "reviewed_by",
+        ),
+        pk=report_id,
+        classroom__teacher__school=principal.school,
+    )
+
+    snapshot = report.snapshot or {}
+
+    return render(
+        request,
+        "supervisor/principal_grade_report_detail.html",
+        {
+            "school": principal.school,
+            "report": report,
+            "snapshot": snapshot,
+            "learners": snapshot.get(
+                "learners",
+                [],
+            ),
+        },
+    )
 
 @login_required(login_url="supervisor:login")
 @require_POST
@@ -657,6 +1035,123 @@ def school_detail_view(request, school_id):
     }
     return render(request, "supervisor/school_detail.html", context)
 
+@login_required(login_url="supervisor:login")
+@require_POST
+@transaction.atomic
+def principal_grade_report_review_view(
+    request,
+    report_id,
+):
+    if not _is_principal(request.user):
+        messages.error(
+            request,
+            "Only the Principal can review school reports.",
+        )
+        return _administration_redirect(request.user)
+
+    principal = getattr(
+        request.user,
+        "principal_profile",
+        None,
+    )
+
+    if principal is None:
+        return redirect(
+            "supervisor:principal_dashboard"
+        )
+
+    report = get_object_or_404(
+        GradeReportSubmission.objects.select_related(
+            "classroom",
+        ),
+        pk=report_id,
+        classroom__teacher__school=principal.school,
+    )
+
+    if (
+        report.status
+        != GradeReportSubmission.Status.SUBMITTED
+    ):
+        messages.error(
+            request,
+            "Only submitted reports can be reviewed.",
+        )
+        return redirect(
+            "supervisor:principal_grade_report_detail",
+            report_id=report.pk,
+        )
+
+    action = request.POST.get(
+        "action",
+        "",
+    )
+
+    comment = request.POST.get(
+        "principal_comment",
+        "",
+    ).strip()
+
+    if action == "approve":
+        report.status = (
+            GradeReportSubmission.Status.APPROVED
+        )
+
+        success_message = (
+            "The final class report was approved."
+        )
+
+    elif action == "return":
+        if not comment:
+            messages.error(
+                request,
+                "Enter a correction comment before returning the report.",
+            )
+            return redirect(
+                "supervisor:principal_grade_report_detail",
+                report_id=report.pk,
+            )
+
+        report.status = (
+            GradeReportSubmission.Status.RETURNED
+        )
+
+        success_message = (
+            "The report was returned to the Teacher for correction."
+        )
+
+    else:
+        messages.error(
+            request,
+            "Invalid report action.",
+        )
+        return redirect(
+            "supervisor:principal_grade_report_detail",
+            report_id=report.pk,
+        )
+
+    report.principal_comment = comment
+    report.reviewed_by = request.user
+    report.reviewed_at = timezone.now()
+
+    report.save(
+        update_fields=[
+            "status",
+            "principal_comment",
+            "reviewed_by",
+            "reviewed_at",
+            "updated_at",
+        ]
+    )
+
+    messages.success(
+        request,
+        success_message,
+    )
+
+    return redirect(
+        "supervisor:principal_grade_report_detail",
+        report_id=report.pk,
+    )
 
 @login_required(login_url="supervisor:login")
 def student_list_view(request):

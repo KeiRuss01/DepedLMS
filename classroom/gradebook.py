@@ -272,6 +272,146 @@ def build_summary(classroom, students):
         })
     return rows
 
+def validate_final_grade_report(classroom, students):
+    """
+    Return validation messages that prevent an incomplete
+    final report from being submitted.
+    """
+
+    errors = []
+
+    if not students:
+        errors.append(
+            "This class has no enrolled learners."
+        )
+        return errors
+
+    settings, _ = GradebookSettings.objects.get_or_create(
+        classroom=classroom,
+    )
+
+    unreleased_terms = [
+        term
+        for term in ("1", "2", "3")
+        if not getattr(settings, f"term_{term}_released")
+    ]
+
+    if unreleased_terms:
+        term_names = ", ".join(
+            f"Term {term}" for term in unreleased_terms
+        )
+        errors.append(
+            f"Release {term_names} before submitting the final report."
+        )
+
+    total_missing_scores = 0
+
+    for term in ("1", "2", "3"):
+        items = list(
+            GradeItem.objects.filter(
+                classroom=classroom,
+                term=term,
+            )
+        )
+
+        if not items:
+            errors.append(
+                f"Term {term} does not have any grade items."
+            )
+            continue
+
+        expected_scores = len(students) * len(items)
+
+        recorded_scores = GradeScore.objects.filter(
+            item__in=items,
+            student__in=students,
+        ).count()
+
+        total_missing_scores += (
+            expected_scores - recorded_scores
+        )
+
+    if total_missing_scores:
+        errors.append(
+            f"{total_missing_scores} learner score entries are still missing."
+        )
+
+    summary = build_summary(
+        classroom,
+        students,
+    )
+
+    missing_final_grades = sum(
+        1
+        for row in summary
+        if row["final"] is None
+    )
+
+    if missing_final_grades:
+        errors.append(
+            f"{missing_final_grades} learners do not have a final grade."
+        )
+
+    return errors
+
+
+def build_final_grade_report_snapshot(classroom, students):
+    """
+    Create a JSON-safe copy of the final class report.
+    """
+
+    rows = build_summary(
+        classroom,
+        students,
+    )
+
+    return {
+        "classroom_id": classroom.pk,
+        "class_name": classroom.class_name,
+        "subject": classroom.subject,
+        "grade_level": classroom.grade_level,
+        "section": classroom.section,
+        "school_year": classroom.school_year,
+        "teacher": (
+            f"{classroom.teacher.firstname} "
+            f"{classroom.teacher.lastname}"
+        ),
+        "school": classroom.teacher.school.school_name,
+        "learners": [
+            {
+                "student_id": row["student"].pk,
+                "lrn": row["student"].lrn,
+                "name": (
+                    f"{row['student'].lastname}, "
+                    f"{row['student'].firstname}"
+                ),
+                "gender": row["student"].gender,
+                "term_1": (
+                    int(row["term_1"])
+                    if row["term_1"] is not None
+                    else None
+                ),
+                "term_2": (
+                    int(row["term_2"])
+                    if row["term_2"] is not None
+                    else None
+                ),
+                "term_3": (
+                    int(row["term_3"])
+                    if row["term_3"] is not None
+                    else None
+                ),
+                "final_grade": (
+                    int(row["final"])
+                    if row["final"] is not None
+                    else None
+                ),
+                "remark": row["remark"],
+            }
+            for row in rows
+        ],
+    }
+
 def build_released_student_summary(student, classrooms):
     """
     Build the Parent's three-term grade summary.

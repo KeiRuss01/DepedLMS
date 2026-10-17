@@ -1,0 +1,200 @@
+{% extends "supervisor/master2.html" %}
+{% load static %}
+
+{% block title %}Review Grade Report{% endblock %}
+{% block nav_reports %}active{% endblock %}
+
+{% block extra_css %}
+<link
+    href="{% static 'supervisor/css/principal_reports.css' %}?v=1"
+    rel="stylesheet"
+>
+{% endblock %}
+
+{% block content %}
+<a
+    href="{% url 'supervisor:principal_grade_reports' %}"
+    class="sv-back-link no-print"
+>
+    <i class="bi bi-arrow-left"></i>
+    Back to School Reports
+</a>
+
+<header class="report-detail-heading">
+    <div>
+        <h1 class="sv-page-title h4">
+            {{ snapshot.subject|default:report.classroom.subject }}
+        </h1>
+
+        <p class="sv-page-subtitle mb-0">
+            {{ snapshot.grade_level|default:report.classroom.grade_level }}
+            ·
+            {{ snapshot.section|default:report.classroom.section }}
+            ·
+            {{ snapshot.school_year|default:report.classroom.school_year }}
+        </p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 no-print">
+        <span class="report-badge report-{{ report.status }}">
+            {{ report.get_status_display }}
+        </span>
+
+        <button
+            type="button"
+            class="btn btn-outline-primary"
+            onclick="window.print()"
+        >
+            <i class="bi bi-printer me-2"></i>
+            Print / Save PDF
+        </button>
+    </div>
+</header>
+
+<section class="sv-card report-information">
+    <div>
+        <small>Teacher</small>
+        <strong>
+            {{ snapshot.teacher|default:report.classroom.teacher }}
+        </strong>
+    </div>
+
+    <div>
+        <small>Subject</small>
+        <strong>
+            {{ snapshot.subject|default:report.classroom.subject }}
+        </strong>
+    </div>
+
+    <div>
+        <small>Grade and section</small>
+        <strong>
+            {{ snapshot.grade_level|default:report.classroom.grade_level }}
+            ·
+            {{ snapshot.section|default:report.classroom.section }}
+        </strong>
+    </div>
+
+    <div>
+        <small>Submitted</small>
+        <strong>
+            {{ report.submitted_at|date:"F j, Y g:i A" }}
+        </strong>
+    </div>
+</section>
+
+<section class="sv-card report-detail-table">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Learner</th>
+                    <th>LRN</th>
+                    <th>Term 1</th>
+                    <th>Term 2</th>
+                    <th>Term 3</th>
+                    <th>Final grade</th>
+                    <th>Remark</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for learner in learners %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+
+                        <td>
+                            <strong>{{ learner.name }}</strong>
+                        </td>
+
+                        <td>{{ learner.lrn }}</td>
+                        <td>{{ learner.term_1|default_if_none:"—" }}</td>
+                        <td>{{ learner.term_2|default_if_none:"—" }}</td>
+                        <td>{{ learner.term_3|default_if_none:"—" }}</td>
+
+                        <td>
+                            <strong>
+                                {{ learner.final_grade|default_if_none:"—" }}
+                            </strong>
+                        </td>
+
+                        <td>{{ learner.remark|default:"—" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td
+                            colspan="8"
+                            class="text-center text-muted py-5"
+                        >
+                            This report does not contain learner records.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% if report.status == "submitted" %}
+<section class="sv-card principal-review-card no-print">
+    <h2>Principal Review</h2>
+
+    <p>
+        Approve the report or return it to the Teacher
+        with a correction comment.
+    </p>
+
+    <form
+        method="post"
+        action="{% url 'supervisor:principal_grade_report_review' report.pk %}"
+    >
+        {% csrf_token %}
+
+        <label
+            for="principal_comment"
+            class="form-label"
+        >
+            Review comment
+        </label>
+
+        <textarea
+            name="principal_comment"
+            id="principal_comment"
+            class="form-control"
+            rows="4"
+            placeholder="Required when returning the report"
+        ></textarea>
+
+        <div class="review-actions">
+            <button
+                type="submit"
+                name="action"
+                value="return"
+                class="btn btn-outline-danger"
+            >
+                <i class="bi bi-arrow-return-left me-2"></i>
+                Return for Correction
+            </button>
+
+            <button
+                type="submit"
+                name="action"
+                value="approve"
+                class="btn btn-primary"
+                onclick="return confirm('Approve this final class report?')"
+            >
+                <i class="bi bi-check-circle me-2"></i>
+                Approve Report
+            </button>
+        </div>
+    </form>
+</section>
+
+{% elif report.principal_comment %}
+<section class="sv-card principal-comment-card">
+    <small>Principal’s comment</small>
+    <p>{{ report.principal_comment }}</p>
+</section>
+{% endif %}
+{% endblock %}

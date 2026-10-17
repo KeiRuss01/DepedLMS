@@ -117,6 +117,22 @@
                 </button>
                 {% endif %}
 
+                <a
+                    class="header-icon mobile-notification-link"
+                    href="{% url 'accounts:notifications' %}"
+                    aria-label="Open notifications"
+                >
+                    <i class="bi bi-bell"></i>
+
+                    <span
+                        class="notification-count
+                            {% if unread_notification_count == 0 %}d-none{% endif %}"
+                        data-notification-count
+                    >
+                        {{ unread_notification_count }}
+                    </span>
+                </a>
+
                 <div class="dropdown notification-menu">
 
                     <button class="header-icon notification-bell"
@@ -130,9 +146,12 @@
 
                         <i class="bi bi-bell"></i>
 
-                        <span id="notification-count"
+                        <span
+                            id="notification-count"
                             class="notification-count
-                                    {% if unread_notification_count == 0 %}d-none{% endif %}">
+                                {% if unread_notification_count == 0 %}d-none{% endif %}"
+                            data-notification-count
+                        >
                             {{ unread_notification_count }}
                         </span>
                     </button>

@@ -125,10 +125,55 @@
     width: 100%;
 }
 
+.profile-photo-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
 .profile-photo-control {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
     margin-top: 18px;
     text-align: center;
     width: 100%;
+}
+
+.profile-upload-label {
+    width: 100%;
+    max-width: 170px;
+}
+
+.profile-selected-file {
+    display: block;
+    width: 100%;
+    margin-top: 9px;
+    overflow: hidden;
+    color: #66748b;
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.student-class-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    margin-top: 18px;
+    padding: 12px 14px;
+    border: 1px solid #f1d18a;
+    border-radius: 10px;
+    background: #fff8e7;
+    color: #775300;
+    font-size: 0.8rem;
+}
+
+.student-class-warning i {
+    flex: 0 0 auto;
 }
 
 .profile-upload-label {

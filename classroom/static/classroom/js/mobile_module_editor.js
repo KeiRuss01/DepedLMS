@@ -23,7 +23,8 @@ async function startMobileModuleEditor(editor) {
     const errorBox = document.getElementById("mobilePdfError");
     const draftStatus = document.getElementById("mobileDraftStatus");
     const undoButton = document.getElementById("mobileUndo");
-    const textSizeSelect = document.getElementById("mobileTextSize");
+    // Change this value to adjust the default size of answers typed on the PDF.
+    const DEFAULT_PDF_TEXT_SIZE = 0.018;
 
     let pdfDocument = null;
     let currentPage = 1;
@@ -38,7 +39,6 @@ async function startMobileModuleEditor(editor) {
     let saveAgain = false;
     let undoHistory = [];
     let selectedAnnotationId = null;
-    let activeTextSize = 0.026;
 
     function createId() {
         if (window.crypto && window.crypto.randomUUID) {
@@ -89,6 +89,151 @@ async function startMobileModuleEditor(editor) {
         }
 
         draftStatus.textContent = message;
+    }
+
+    function essayButtonEnabled(button) {
+        return button?.getAttribute("aria-pressed") === "true";
+    }
+
+    function setEssayButtonState(button, enabled) {
+        if (!button) {
+            return;
+        }
+
+        button.setAttribute("aria-pressed", String(enabled));
+        button.classList.toggle("is-active", enabled);
+    }
+
+    function saveEssaySelection() {
+        const selection = window.getSelection();
+        if (
+            !selection ||
+            selection.rangeCount === 0 ||
+            !essayEditor?.contains(selection.anchorNode)
+        ) {
+            return;
+        }
+        savedEssayRange = selection.getRangeAt(0).cloneRange();
+    }
+
+    function restoreEssaySelection() {
+        if (!savedEssayRange) {
+            return false;
+        }
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(savedEssayRange);
+        return true;
+    }
+
+    function updateEssayToolbarState() {
+        if (!essayEditor) {
+            return;
+        }
+        setEssayButtonState(
+            essayBoldButton,
+            document.queryCommandState("bold")
+        );
+        setEssayButtonState(
+            essayItalicButton,
+            document.queryCommandState("italic")
+        );
+    }
+
+    function formatEssaySelection(command) {
+        if (!restoreEssaySelection()) {
+            essayEditor.focus();
+        }
+        document.execCommand(command, false, null);
+        saveEssaySelection();
+        updateEssayToolbarState();
+        scheduleExtraPageSave();
+    }
+
+    function removeOldFontSizes(fragment) {
+        fragment
+            .querySelectorAll('font[size], span[style*="font-size"]')
+            .forEach((element) => {
+                element.replaceWith(...element.childNodes);
+            });
+    }
+
+    function formatEssaySize() {
+        if (!restoreEssaySelection()) {
+            essayEditor.focus();
+        }
+
+        const selection = window.getSelection();
+
+        if (!selection || selection.rangeCount === 0) {
+            return;
+        }
+
+        const selectedSize =
+            Number(essaySizeSelect?.value) || 16;
+
+        const range = selection.getRangeAt(0);
+        const sizeWrapper = document.createElement("span");
+
+        sizeWrapper.style.fontSize = `${selectedSize}px`;
+
+        /*
+        * No text is selected.
+        * Create an insertion point for newly typed text.
+        */
+        if (range.collapsed) {
+            const marker = document.createTextNode("\u200B");
+
+            sizeWrapper.appendChild(marker);
+            range.insertNode(sizeWrapper);
+
+            const newRange = document.createRange();
+
+            newRange.setStart(marker, marker.length);
+            newRange.collapse(true);
+
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+
+            savedEssayRange = newRange.cloneRange();
+        } else {
+            /*
+            * Text is selected.
+            * Remove older nested size wrappers before applying
+            * the new exact pixel size.
+            */
+            const selectedContent = range.extractContents();
+
+            removeOldFontSizes(selectedContent);
+            sizeWrapper.appendChild(selectedContent);
+            range.insertNode(sizeWrapper);
+
+            const newRange = document.createRange();
+
+            newRange.selectNodeContents(sizeWrapper);
+
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+
+            savedEssayRange = newRange.cloneRange();
+        }
+
+        essayEditor.focus();
+        scheduleExtraPageSave();
+    }
+
+    function essayPageChanges() {
+        const plainText = essayEditor.innerText
+            .replaceAll("\u200B", "")
+            .slice(0, 50000);
+
+        const formattedText = essayEditor.innerHTML
+            .replaceAll("\u200B", "");
+
+        return {
+            essay_text: plainText,
+            essay_html: formattedText,
+        };
     }
 
     async function requestJson(url, options = {}) {
@@ -382,10 +527,9 @@ async function startMobileModuleEditor(editor) {
 
         if (annotation.tool === "type") {
             const fontSize = Math.max(
-                15,
-                Number(annotation.size || 0.026) * height
+                11,
+                Number(annotation.size || DEFAULT_PDF_TEXT_SIZE) * height
             );
-
             annotationContext.fillStyle =
                 annotation.color || "#0b57d0";
 
@@ -658,7 +802,7 @@ async function startMobileModuleEditor(editor) {
                     y: point.y,
                     width: 0.3,
                     height: 0.05,
-                    size: activeTextSize,
+                    size: DEFAULT_PDF_TEXT_SIZE,
                     color: "#0b57d0",
                     text: answer.trim(),
                 });
@@ -695,12 +839,6 @@ async function startMobileModuleEditor(editor) {
             if (!annotation) {
                 drawAnnotations();
                 return;
-            }
-
-            if (annotation.tool === "type" && textSizeSelect) {
-                textSizeSelect.value = String(
-                    Number(annotation.size || 0.026)
-                );
             }
 
             saveUndoSnapshot();
@@ -935,22 +1073,6 @@ async function startMobileModuleEditor(editor) {
             updateUndoButton();
             scheduleAnnotationSave();
         });
-
-        textSizeSelect?.addEventListener("change", () => {
-            activeTextSize = Number(textSizeSelect.value) || 0.026;
-            const selected = annotations.find(
-                (annotation) => annotation.id === selectedAnnotationId
-            );
-
-            if (!selected || selected.tool !== "type") {
-                return;
-            }
-
-            saveUndoSnapshot();
-            selected.size = activeTextSize;
-            drawAnnotations();
-            scheduleAnnotationSave();
-        });
     }
 
     function disableEditor(message) {
@@ -959,7 +1081,6 @@ async function startMobileModuleEditor(editor) {
                 "[data-mobile-tool], " +
                 "#openAnswerPageDialog, " +
                 "#mobileOutputUpload, " +
-                "#mobileTextSize, " +
                 "#mobileUndo"
             )
             .forEach((element) => {
@@ -993,6 +1114,22 @@ async function startMobileModuleEditor(editor) {
         "extraPageEssayEditor"
     );
 
+    const essaySection = document.getElementById(
+    "extraPageEssaySection"
+    );
+
+    const essaySizeSelect = document.getElementById(
+        "extraPageEssaySize"
+    );
+
+    const essayBoldButton = document.getElementById(
+        "extraPageEssayBold"
+    );
+
+    const essayItalicButton = document.getElementById(
+        "extraPageEssayItalic"
+    );
+
     const drawingEditor = document.getElementById(
         "extraPageDrawingEditor"
     );
@@ -1006,6 +1143,7 @@ async function startMobileModuleEditor(editor) {
     let activeExtraPage = null;
     let extraPageSaveTimer = null;
     let drawingStroke = null;
+    let savedEssayRange = null;
 
     async function createExtraPage(pageType, file = null) {
         const formData = new FormData();
@@ -1085,9 +1223,10 @@ async function startMobileModuleEditor(editor) {
 
         extraPageSaveTimer = window.setTimeout(() => {
             if (activeExtraPage.page_type === "essay") {
-                updateExtraPage(activeExtraPage, {
-                    essay_text: essayEditor.value,
-                });
+                updateExtraPage(
+                    activeExtraPage,
+                    essayPageChanges()
+                );
             }
 
             if (activeExtraPage.page_type === "drawing") {
@@ -1241,15 +1380,37 @@ async function startMobileModuleEditor(editor) {
         editorDialogTitle.textContent =
             activeExtraPage.title;
 
-        essayEditor.hidden =
+        essaySection.hidden =
             activeExtraPage.page_type !== "essay";
 
         drawingEditor.hidden =
             activeExtraPage.page_type !== "drawing";
 
         if (activeExtraPage.page_type === "essay") {
-            essayEditor.value =
-                activeExtraPage.essay_text || "";
+            if (activeExtraPage.essay_html) {
+                essayEditor.innerHTML = activeExtraPage.essay_html;
+            } else {
+                essayEditor.textContent =
+                    activeExtraPage.essay_text || "";
+
+                let legacyHtml = essayEditor.innerHTML;
+                if (activeExtraPage.essay_bold) {
+                    legacyHtml = `<b>${legacyHtml}</b>`;
+                }
+                if (activeExtraPage.essay_italic) {
+                    legacyHtml = `<i>${legacyHtml}</i>`;
+                }
+                if (Number(activeExtraPage.essay_font_size) !== 16) {
+                    const size = Number(activeExtraPage.essay_font_size) || 16;
+                    legacyHtml = `<span style="font-size: ${size}px">${legacyHtml}</span>`;
+                }
+                essayEditor.innerHTML = legacyHtml;
+            }
+
+            savedEssayRange = null;
+            essaySizeSelect.value = "16";
+            setEssayButtonState(essayBoldButton, false);
+            setEssayButtonState(essayItalicButton, false);
         }
 
         if (activeExtraPage.page_type === "drawing") {
@@ -1436,8 +1597,43 @@ async function startMobileModuleEditor(editor) {
 
     essayEditor?.addEventListener(
         "input",
-        scheduleExtraPageSave
+        () => {
+            saveEssaySelection();
+            updateEssayToolbarState();
+            scheduleExtraPageSave();
+        }
     );
+
+    essayEditor?.addEventListener("keyup", () => {
+        saveEssaySelection();
+        updateEssayToolbarState();
+    });
+
+    essayEditor?.addEventListener("mouseup", () => {
+        saveEssaySelection();
+        updateEssayToolbarState();
+    });
+
+    essaySizeSelect?.addEventListener("pointerdown", saveEssaySelection);
+    essaySizeSelect?.addEventListener("change", () => {
+        formatEssaySize();
+    });
+
+    essayBoldButton?.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        saveEssaySelection();
+    });
+    essayBoldButton?.addEventListener("click", () => {
+        formatEssaySelection("bold");
+    });
+
+    essayItalicButton?.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        saveEssaySelection();
+    });
+    essayItalicButton?.addEventListener("click", () => {
+        formatEssaySelection("italic");
+    });
 
     document
         .getElementById("closeExtraPageEditor")
@@ -1452,9 +1648,10 @@ async function startMobileModuleEditor(editor) {
             activeExtraPage &&
             activeExtraPage.page_type === "essay"
         ) {
-            updateExtraPage(activeExtraPage, {
-                essay_text: essayEditor.value,
-            });
+            updateExtraPage(
+                activeExtraPage,
+                essayPageChanges()
+            );
         }
 
         if (

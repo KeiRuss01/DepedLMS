@@ -116,26 +116,66 @@ def profile_view(request):
     else:
         form = ProfileUpdateForm(instance=user)
 
-    student_enrollments = []
+    student_grade_level = ""
+    student_section = ""
+    student_class_warning = False
 
     if user.role == User.Role.STUDENT and profile:
         from classroom.models import ClassEnrollment
 
-        student_enrollments = (
+        approved_enrollments = (
             profile.class_enrollments
-            .filter(status=ClassEnrollment.Status.APPROVED)
-            .select_related("classroom")
-            .order_by(
-                "classroom__grade_level",
-                "classroom__section",
+            .filter(
+                status=ClassEnrollment.Status.APPROVED,
+                classroom__is_archived=False,
             )
+            .select_related("classroom")
         )
 
-    context = {
-        "profile": profile,
-        "profile_form": form,
-        "student_enrollments": student_enrollments,
-    }
+        grade_levels = list(
+            approved_enrollments
+            .values_list(
+                "classroom__grade_level",
+                flat=True,
+            )
+            .distinct()
+            .order_by("classroom__grade_level")
+        )
+
+        sections = list(
+            approved_enrollments
+            .values_list(
+                "classroom__section",
+                flat=True,
+            )
+            .distinct()
+            .order_by("classroom__section")
+        )
+
+        student_grade_level = (
+            ", ".join(grade_levels)
+            if grade_levels
+            else "Not assigned"
+        )
+
+        student_section = (
+            ", ".join(sections)
+            if sections
+            else "Not assigned"
+        )
+
+        student_class_warning = (
+            len(grade_levels) > 1
+            or len(sections) > 1
+        )
+
+        context = {
+            "profile": profile,
+            "profile_form": form,
+            "student_grade_level": student_grade_level,
+            "student_section": student_section,
+            "student_class_warning": student_class_warning,
+        }
 
     return render(
         request,

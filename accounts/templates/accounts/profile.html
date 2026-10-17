@@ -55,29 +55,50 @@
                 <div class="profile-photo-section">
 
                     <div class="profile-photo">
-                        {% if request.user.profile_picture %}
-                            <img src="{{ request.user.profile_picture.url }}"
-                                 alt="{{ request.user.full_name }}">
-                        {% else %}
-                            <span>
-                                {{ request.user.full_name|default:request.user.email|slice:":2"|upper }}
-                            </span>
-                        {% endif %}
+                        <img
+                            id="profilePhotoPreview"
+                            {% if request.user.profile_picture %}
+                                src="{{ request.user.profile_picture.url }}"
+                            {% else %}
+                                hidden
+                            {% endif %}
+                            alt="{{ request.user.full_name }}"
+                        >
+
+                        <span
+                            id="profilePhotoInitials"
+                            {% if request.user.profile_picture %}hidden{% endif %}
+                        >
+                            {{ request.user.full_name|default:request.user.email|slice:":2"|upper }}
+                        </span>
                     </div>
 
                     <div class="profile-photo-control">
-                        <label for="{{ profile_form.profile_picture.id_for_label }}"
-                               class="profile-upload-label">
+                        {{ profile_form.profile_picture }}
+
+                        <label
+                            for="{{ profile_form.profile_picture.id_for_label }}"
+                            class="profile-upload-label"
+                        >
                             <i class="bi bi-camera"></i>
                             Change photo
                         </label>
 
-                        {{ profile_form.profile_picture }}
+                        <span
+                            class="profile-selected-file"
+                            id="profileSelectedFile"
+                        >
+                            No new photo selected
+                        </span>
 
-                        <small>JPG, PNG or WEBP up to 2 MB</small>
+                        <small>
+                            JPG, PNG or WEBP up to 2 MB
+                        </small>
 
                         {% for error in profile_form.profile_picture.errors %}
-                            <span class="field-error">{{ error }}</span>
+                            <span class="field-error">
+                                {{ error }}
+                            </span>
                         {% endfor %}
                     </div>
 
@@ -229,44 +250,40 @@
                                 {{ profile.lrn|default:"Not provided" }}
                             </div>
                         </div>
-
-                    </div>
-
-                    <div class="enrollment-section">
-                        <h3>Current Classes</h3>
-
-                        {% if student_enrollments %}
-                            <div class="enrollment-list">
-                                {% for enrollment in student_enrollments %}
-                                    <div class="enrollment-item">
-                                        <div>
-                                            <strong>
-                                                {{ enrollment.classroom.subject }}
-                                            </strong>
-
-                                            <span>
-                                                {{ enrollment.classroom.class_name }}
-                                            </span>
-                                        </div>
-
-                                        <div class="enrollment-details">
-                                            <span>
-                                                {{ enrollment.classroom.grade_level }}
-                                            </span>
-
-                                            <span>
-                                                {{ enrollment.classroom.section }}
-                                            </span>
-                                        </div>
-                                    </div>
-                                {% endfor %}
+                        <div class="account-field">
+                            <div class="field-heading">
+                                <label>Grade level</label>
+                                <span>Based on joined classes</span>
                             </div>
-                        {% else %}
-                            <p class="empty-information">
-                                You are not currently enrolled in a class.
-                            </p>
-                        {% endif %}
+
+                            <div class="readonly-field">
+                                {{ student_grade_level }}
+                            </div>
+                        </div>
+
+                        <div class="account-field">
+                            <div class="field-heading">
+                                <label>Section</label>
+                                <span>Based on joined classes</span>
+                            </div>
+
+                            <div class="readonly-field">
+                                {{ student_section }}
+                            </div>
+                        </div>
+
                     </div>
+                    {% if student_class_warning %}
+                    <div class="student-class-warning">
+                        <i class="bi bi-exclamation-triangle"></i>
+
+                        <span>
+                            Your joined classes contain different grade or
+                            section assignments. Please contact your Teacher
+                            if one of them is incorrect.
+                        </span>
+                    </div>
+                    {% endif %}
                 </article>
 
             {% endif %}
@@ -281,4 +298,50 @@
         </form>
     </section>
 </div>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const input = document.getElementById(
+        "{{ profile_form.profile_picture.id_for_label }}"
+    );
+
+    const preview = document.getElementById(
+        "profilePhotoPreview"
+    );
+
+    const initials = document.getElementById(
+        "profilePhotoInitials"
+    );
+
+    const selectedFile = document.getElementById(
+        "profileSelectedFile"
+    );
+
+    if (!input) {
+        return;
+    }
+
+    input.addEventListener("change", function () {
+        const file = input.files[0];
+
+        if (!file) {
+            selectedFile.textContent = "No new photo selected";
+            return;
+        }
+
+        selectedFile.textContent = file.name;
+
+        const reader = new FileReader();
+
+        reader.addEventListener("load", function () {
+            preview.src = reader.result;
+            preview.hidden = false;
+            initials.hidden = true;
+        });
+
+        reader.readAsDataURL(file);
+    });
+});
+</script>
 {% endblock %}

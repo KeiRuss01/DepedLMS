@@ -1056,6 +1056,18 @@ class SubmissionExtraPage(models.Model):
     position = models.PositiveIntegerField(default=1)
 
     essay_text = models.TextField(blank=True)
+    essay_html = models.TextField(blank=True)
+
+    essay_font_size = models.PositiveSmallIntegerField(
+        default=16,
+        validators=[
+            MinValueValidator(12),
+            MaxValueValidator(24),
+        ],
+    )
+
+    essay_bold = models.BooleanField(default=False)
+    essay_italic = models.BooleanField(default=False)
 
     drawing_data = models.JSONField(
         default=list,
@@ -1352,6 +1364,84 @@ class GradeScore(models.Model):
     def __str__(self):
         return f"{self.student} - {self.item}: {self.score}"
 
+# =========================================================
+# FINAL GRADE REPORT SUBMISSION
+# =========================================================
+
+class GradeReportSubmission(models.Model):
+
+    class Status(models.TextChoices):
+        SUBMITTED = "submitted", "Submitted to Principal"
+        RETURNED = "returned", "Returned for Correction"
+        APPROVED = "approved", "Approved"
+
+    report_id = models.AutoField(primary_key=True)
+
+    classroom = models.OneToOneField(
+        Classroom,
+        on_delete=models.CASCADE,
+        related_name="final_grade_report",
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.SUBMITTED,
+    )
+
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="submitted_grade_reports",
+    )
+
+    submitted_at = models.DateTimeField(
+        blank=True,
+        null=True,
+    )
+
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="reviewed_grade_reports",
+        blank=True,
+        null=True,
+    )
+
+    reviewed_at = models.DateTimeField(
+        blank=True,
+        null=True,
+    )
+
+    principal_comment = models.TextField(
+        blank=True,
+    )
+
+    # Keeps the exact report that was submitted even if live records
+    # are changed later.
+    snapshot = models.JSONField(
+        default=dict,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    class Meta:
+        db_table = "grade_report_submission"
+        ordering = ["-submitted_at"]
+
+    def __str__(self):
+        return (
+            f"{self.classroom.class_name} - "
+            f"{self.classroom.school_year} - "
+            f"{self.get_status_display()}"
+        )
 
 # =========================================================
 # DAILY ATTENDANCE
