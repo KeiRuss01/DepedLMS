@@ -18,13 +18,160 @@
     <div class="sv-stat-card"><i class="bi bi-journal-bookmark"></i><span><strong>{{ class_count }}</strong><small>Classes</small></span></div>
 </div>
 
-<div class="sv-card">
-    <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
+<div class="sv-card mb-4">
+    <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-3">
         <div>
-            <h2 class="h6 fw-bold mb-1">School monitoring</h2>
-            <p class="mb-0 text-muted small">Open a school to view its Principal, Teachers, Students, and classes.</p>
+            <h2 class="h6 fw-bold mb-1">School Monitoring</h2>
+            <p class="mb-0 text-muted small">
+                Read-only learning and attendance summary for each school.
+            </p>
         </div>
-        <a class="btn btn-primary" href="{% url 'supervisor:schools' %}">View Schools</a>
+
+        <div class="d-flex flex-wrap gap-2">
+            <a
+                class="btn btn-outline-primary"
+                href="{% url 'supervisor:schools' %}"
+            >
+                Open School List
+            </a>
+
+            <a
+                class="btn btn-primary"
+                href="{% url 'supervisor:district_performance_report' %}"
+            >
+                Performance Report
+            </a>
+        </div>
     </div>
+
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>School</th>
+                    <th>Teachers</th>
+                    <th>Students</th>
+                    <th>Classes</th>
+                    <th>Modules</th>
+                    <th>Activities</th>
+                    <th>Review</th>
+                    <th>Overdue</th>
+                    <th>Attendance</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for row in school_monitoring %}
+                    <tr>
+                        <td>
+                            <a
+                                href="{% url 'supervisor:school_detail' row.school.pk %}"
+                                class="fw-semibold text-decoration-none"
+                            >
+                                {{ row.school.school_name }}
+                            </a>
+                        </td>
+
+                        <td>{{ row.teacher_count }}</td>
+                        <td>{{ row.student_count }}</td>
+                        <td>{{ row.class_count }}</td>
+                        <td>{{ row.module_count }}</td>
+                        <td>{{ row.activity_count }}</td>
+
+                        <td>
+                            {% if row.pending_review %}
+                                <span class="text-warning fw-semibold">
+                                    {{ row.pending_review }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">0</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if row.overdue_work %}
+                                <span class="text-danger fw-semibold">
+                                    {{ row.overdue_work }}
+                                </span>
+                            {% else %}
+                                <span class="text-muted">0</span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if row.attendance_pending %}
+                                <span class="text-warning fw-semibold">
+                                    {{ row.attendance_pending }} pending
+                                </span>
+                            {% else %}
+                                <span class="text-success">
+                                    Recorded
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">
+                            No schools are registered yet.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="sv-card mt-4">
+    <h2 class="h6 fw-bold mb-1">Post District Announcement</h2>
+    <p class="text-muted small mb-3">
+        Notify users in every school or only selected schools.
+    </p>
+
+    <form method="post" action="{% url 'supervisor:district_announcement_create' %}">
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label class="form-label" for="{{ district_announcement_form.title.id_for_label }}">
+                Title
+            </label>
+            {{ district_announcement_form.title }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="{{ district_announcement_form.content.id_for_label }}">
+                Content
+            </label>
+            {{ district_announcement_form.content }}
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="{{ district_announcement_form.priority.id_for_label }}">
+                Priority
+            </label>
+            {{ district_announcement_form.priority }}
+        </div>
+
+        <div class="form-check mb-3">
+            {{ district_announcement_form.all_schools }}
+            <label class="form-check-label" for="{{ district_announcement_form.all_schools.id_for_label }}">
+                Send to all schools
+            </label>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="{{ district_announcement_form.target_schools.id_for_label }}">
+                Selected schools
+            </label>
+            {{ district_announcement_form.target_schools }}
+            <div class="form-text">
+                Used only when “Send to all schools” is unchecked.
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            Post Announcement
+        </button>
+    </form>
 </div>
 {% endblock %}

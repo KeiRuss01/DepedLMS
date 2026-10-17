@@ -2,19 +2,45 @@
 {% load static %}
 
 {% block title %}Teachers{% endblock %}
-{% block nav_teachers %}active{% endblock %}
+{% block nav_district_teachers %}active{% endblock %}
 {% block extra_css %}<link href="{% static 'supervisor/css/principals.css' %}" rel="stylesheet">{% endblock %}
 
 {% block content %}
 <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-4">
     <div>
         <h1 class="sv-page-title h4">Teachers</h1>
-        <p class="sv-page-subtitle mb-0">{{ school.school_name }} Teacher accounts.</p>
+        <p class="sv-page-subtitle mb-0">
+            {% if is_supervisor_view %}
+                Teacher accounts across all schools.
+            {% else %}
+                {{ school.school_name }} Teacher accounts.
+            {% endif %}
+        </p>
     </div>
+    {% if not is_supervisor_view %}
     <a class="btn btn-primary" href="{% url 'supervisor:teacher_create' %}">
         <i class="bi bi-person-plus me-2"></i>Add Teacher
     </a>
+    {% endif %}
 </div>
+
+{% if is_supervisor_view %}
+<div class="sv-card mb-4">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-12 col-md-8">
+            <label class="form-label" for="teacher-school">Select school</label>
+            <select id="teacher-school" name="school" class="form-select" onchange="this.form.submit()">
+                <option value="">Choose a school</option>
+                {% for item in schools %}
+                    <option value="{{ item.pk }}" {% if selected_school_id|stringformat:"s" == item.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ item.school_name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+{% endif %}
 
 {% if teachers %}
 <div class="sv-card p-0 overflow-hidden">
@@ -27,6 +53,7 @@
                     <th>Account</th>
                     <th>Profile</th>
                     <th class="text-end">Classes</th>
+                    {% if is_supervisor_view %}<th>Manage status</th>{% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -40,6 +67,7 @@
                                 <small>{{ teacher.user.email }}</small>
                             </span>
                         </div>
+                        <a class="small" href="{% url 'supervisor:teacher_detail' teacher.teacher_id %}">View profile</a>
                     </td>
                     <td>{{ teacher.school.school_name }}</td>
                     <td><span class="status-badge status-{{ teacher.user.status }}">{{ teacher.user.get_status_display }}</span></td>
@@ -56,6 +84,20 @@
                             View Classes
                         </button>
                     </td>
+                    {% if is_supervisor_view %}
+                    <td>
+                        <form method="post" action="{% url 'supervisor:account_status' teacher.user.pk %}" class="d-flex gap-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.path }}">
+                            <select name="status" class="form-select form-select-sm">
+                                <option value="active" {% if teacher.user.status == "active" %}selected{% endif %}>Active</option>
+                                <option value="inactive" {% if teacher.user.status == "inactive" %}selected{% endif %}>Inactive</option>
+                                <option value="suspended" {% if teacher.user.status == "suspended" %}selected{% endif %}>Suspended</option>
+                            </select>
+                            <button class="btn btn-sm btn-outline-primary">Save</button>
+                        </form>
+                    </td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -98,9 +140,14 @@
 {% else %}
 <div class="sv-card principal-empty text-center">
     <i class="bi bi-person-workspace"></i>
-    <h2>No Teacher accounts yet</h2>
-    <p>Create a basic account so a Teacher can sign in to the Classroom Portal.</p>
-    <a class="btn btn-primary" href="{% url 'supervisor:teacher_create' %}">Add Teacher</a>
+    {% if is_supervisor_view and not school %}
+        <h2>Select a school</h2>
+        <p>Choose a school above to view its Teacher accounts.</p>
+    {% else %}
+        <h2>No Teacher accounts yet</h2>
+        <p>Create a basic account so a Teacher can sign in to the Classroom Portal.</p>
+        {% if not is_supervisor_view %}<a class="btn btn-primary" href="{% url 'supervisor:teacher_create' %}">Add Teacher</a>{% endif %}
+    {% endif %}
 </div>
 {% endif %}
 {% endblock %}

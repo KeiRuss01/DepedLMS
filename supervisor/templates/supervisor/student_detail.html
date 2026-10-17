@@ -1,0 +1,47 @@
+{% extends "supervisor/master2.html" %}
+
+{% block title %}Student Profile{% endblock %}
+{% block nav_district_students %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-sm-row justify-content-between gap-3 mb-4">
+    <div>
+        <a href="{% url 'supervisor:students' %}?school={{ student.school.pk }}" class="small">← Back to Students</a>
+        <h1 class="sv-page-title h4 mt-2">{{ student.firstname }} {{ student.lastname }}</h1>
+        <p class="sv-page-subtitle mb-0">{{ student.school.school_name }}</p>
+    </div>
+    <span class="status-badge status-{{ student.user.status }} align-self-start">{{ student.user.get_status_display }}</span>
+</div>
+
+<div class="row g-4">
+    <div class="col-12 col-lg-5">
+        <div class="sv-card">
+            <h2 class="h6 fw-bold mb-3">Student Information</h2>
+            <dl class="row mb-0">
+                <dt class="col-sm-5">LRN</dt><dd class="col-sm-7">{{ student.lrn }}</dd>
+                <dt class="col-sm-5">Email</dt><dd class="col-sm-7">{{ student.user.email }}</dd>
+                <dt class="col-sm-5">Gender</dt><dd class="col-sm-7">{{ student.get_gender_display }}</dd>
+                <dt class="col-sm-5">Enrollment</dt><dd class="col-sm-7">{{ student.get_acc_status_display }}</dd>
+                <dt class="col-sm-5">Parent</dt><dd class="col-sm-7">{{ student.parent|default:"Not linked" }}</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-7">
+        <div class="sv-card">
+            <h2 class="h6 fw-bold mb-3">Enrolled classes</h2>
+            <div class="list-group list-group-flush">
+                {% for enrollment in enrollments %}
+                    <div class="list-group-item px-0">
+                        <strong>{{ enrollment.classroom.class_name }}</strong>
+                        <small class="d-block text-muted">{{ enrollment.classroom.subject }} · {{ enrollment.classroom.grade_level }} · Section {{ enrollment.classroom.section }}</small>
+                        <small class="d-block text-muted">Teacher: {{ enrollment.classroom.teacher }}</small>
+                    </div>
+                {% empty %}
+                    <p class="text-muted mb-0">This Student has no approved classes yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -11,6 +11,11 @@ from accounts.models import User
 
 from .forms import ActivityForm, ActivityReviewForm, ActivitySubmissionForm
 from .gradebook import sync_activity_grade_item, sync_activity_grade_score
+from .notification_services import (
+    notify_activity_feedback,
+    notify_activity_published,
+    notify_activity_submission,
+)
 from .models import (
     ActivitySubmission,
     ClassEnrollment,
@@ -79,6 +84,7 @@ def activity_create_view(request, classroom_id):
 
         if activity.is_published:
             sync_activity_grade_item(activity)
+            notify_activity_published(activity)
             messages.success(request, "Activity published to the class.")
         else:
             messages.success(request, "Activity saved as a draft.")
@@ -98,6 +104,7 @@ def activity_edit_view(request, activity_id):
     if not is_teacher:
         raise PermissionDenied("Only the Teacher can edit this activity.")
 
+    was_published = activity.is_published
     form = ActivityForm(
         request.POST or None,
         request.FILES or None,
@@ -114,6 +121,8 @@ def activity_edit_view(request, activity_id):
 
         if activity.is_published:
             sync_activity_grade_item(activity)
+            if not was_published:
+                notify_activity_published(activity)
             messages.success(request, "Activity updated and published.")
         else:
             messages.success(request, "Activity changes saved as a draft.")
@@ -193,7 +202,14 @@ def activity_detail_view(request, activity_id):
                     messages.success(request, "Draft saved.")
 
                 submission.save()
-                return redirect("classroom:activity_detail", activity_id=activity.pk)
+
+                if submission.status == ActivitySubmission.Status.SUBMITTED:
+                    notify_activity_submission(submission)
+
+                return redirect(
+                    "classroom:activity_detail",
+                    activity_id=activity.pk,
+                )
         else:
             submission_form = ActivitySubmissionForm(
                 instance=submission,
@@ -239,10 +255,13 @@ def activity_status_view(request, activity_id):
         messages.success(request, "Activity deleted.")
         return redirect(f"/classroom/classes/{classroom_id}/classroom/?tab=activities")
     if action in ["publish", "unpublish"]:
+        was_published = activity.is_published
         activity.is_published = action == "publish"
         activity.save(update_fields=["is_published", "updated_at"])
         if activity.is_published:
             sync_activity_grade_item(activity)
+            if not was_published:
+                notify_activity_published(activity)
     elif action in ["close", "reopen"]:
         activity.is_closed = action == "close"
         activity.save(update_fields=["is_closed", "updated_at"])

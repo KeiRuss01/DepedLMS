@@ -1,9 +1,11 @@
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
+from django.db import transaction
 from django.db.models import Q
 import calendar
 from django.utils import timezone
@@ -11,24 +13,32 @@ from django.utils import timezone
 from accounts.models import Principal, School, Student, Teacher, User
 from classroom.models import (
     AcademicTerm,
+    ActivitySubmission,
+    AttendanceDay,
     CalendarEvent,
-    Classroom,
     ClassEnrollment,
+    Classroom,
+    ClassPost,
+    GradebookSettings,
+    Module,
+    ModuleSubmission,
 )
 from classroom.notification_services import (
     notify_calendar_event,
     notify_school_announcement,
 )
-from .models import SchoolAnnouncement
+from .models import SchoolAnnouncement, SupervisionVisit
 
 from .forms import (
     AcademicTermForm,
     AdministrationLoginForm,
+    DistrictAnnouncementForm,
     DistrictCalendarEventForm,
     PrincipalAccountForm,
     SchoolCalendarEventForm,
     SchoolProfileForm,
     SchoolAnnouncementForm,
+    SupervisionVisitForm,
     TeacherAccountForm,
 )
 
@@ -63,6 +73,141 @@ def login_view(request):
 
     return render(request, "supervisor/login.html", {"form": form})
 
+def _build_school_monitoring(
+    schools=None,
+    school_year="",
+    selected_term="",
+):
+    """
+    Build a read-only monitoring summary for each school.
+    """
+
+    if schools is None:
+        schools = School.objects.order_by("school_name")
+
+    today = timezone.localdate()
+    now = timezone.now()
+    monitoring = []
+
+    for school in schools:
+        classrooms = Classroom.objects.filter(
+            teacher__school=school,
+            is_archived=False,
+        )
+
+        if school_year:
+            classrooms = classrooms.filter(
+                school_year=school_year,
+            )
+
+        modules = Module.objects.filter(
+            classroom__in=classrooms,
+            status=Module.Status.PUBLISHED,
+        )
+
+        activities = ClassPost.objects.filter(
+            classroom__in=classrooms,
+            post_type=ClassPost.PostType.ACTIVITY,
+            is_published=True,
+        )
+
+        module_submissions = ModuleSubmission.objects.filter(
+            module__in=modules,
+        )
+
+        activity_submissions = ActivitySubmission.objects.filter(
+            activity__in=activities,
+        )
+
+        pending_review = (
+            module_submissions.filter(
+                status=ModuleSubmission.Status.SUBMITTED,
+            ).count()
+            + activity_submissions.filter(
+                status=ActivitySubmission.Status.SUBMITTED,
+            ).count()
+        )
+
+        completed_work = (
+            module_submissions.filter(
+                status=ModuleSubmission.Status.GRADED,
+            ).count()
+            + activity_submissions.filter(
+                status=ActivitySubmission.Status.GRADED,
+            ).count()
+        )
+
+        returned_work = (
+            module_submissions.filter(
+                status=ModuleSubmission.Status.RETURNED,
+            ).count()
+            + activity_submissions.filter(
+                status=ActivitySubmission.Status.RETURNED,
+            ).count()
+        )
+
+        overdue_work = (
+            module_submissions.filter(
+                module__due_at__lt=now,
+                status__in=[
+                    ModuleSubmission.Status.DRAFT,
+                    ModuleSubmission.Status.RETURNED,
+                ],
+            ).count()
+            + activity_submissions.filter(
+                activity__due_date__lt=now,
+                status__in=[
+                    ActivitySubmission.Status.DRAFT,
+                    ActivitySubmission.Status.RETURNED,
+                ],
+            ).count()
+        )
+
+        attendance_pending = 0
+
+        if today.weekday() < 5:
+            attendance_pending = classrooms.exclude(
+                attendance_days__date=today,
+            ).count()
+
+        gradebook_filter = {}
+
+        if selected_term in {"1", "2", "3"}:
+            gradebook_filter[
+                f"term_{selected_term}_released"
+            ] = True
+        else:
+            gradebook_filter = {
+                "term_1_released": True,
+            }
+
+        released_gradebooks = GradebookSettings.objects.filter(
+            classroom__in=classrooms,
+            **gradebook_filter,
+        ).count()
+
+        monitoring.append({
+            "school": school,
+            "teacher_count": Teacher.objects.filter(
+                school=school,
+                user__status=User.Status.ACTIVE,
+            ).count(),
+            "student_count": Student.objects.filter(
+                school=school,
+                user__status=User.Status.ACTIVE,
+            ).count(),
+            "class_count": classrooms.count(),
+            "module_count": modules.count(),
+            "activity_count": activities.count(),
+            "pending_review": pending_review,
+            "completed_work": completed_work,
+            "returned_work": returned_work,
+            "overdue_work": overdue_work,
+            "attendance_pending": attendance_pending,
+            "released_gradebooks": released_gradebooks,
+        })
+
+    return monitoring
 
 @login_required(login_url="supervisor:login")
 def dashboard_view(request):
@@ -76,8 +221,143 @@ def dashboard_view(request):
         "teacher_count": Teacher.objects.count(),
         "student_count": Student.objects.count(),
         "class_count": Classroom.objects.count(),
+        "school_monitoring": _build_school_monitoring(),
+        "district_announcement_form": DistrictAnnouncementForm(),
     }
     return render(request, "supervisor/dashboard.html", context)
+
+@login_required(login_url="supervisor:login")
+def district_performance_report_view(request):
+    if not _is_supervisor(request.user):
+        messages.error(
+            request,
+            "Only the District Supervisor can open this report.",
+        )
+        return _administration_redirect(request.user)
+
+    schools = School.objects.order_by("school_name")
+
+    selected_school_id = request.GET.get("school", "")
+    selected_school = schools.filter(
+        pk=selected_school_id,
+    ).first() if selected_school_id else None
+
+    selected_year = request.GET.get("school_year", "")
+
+    selected_term = request.GET.get("term", "")
+    if selected_term not in {"1", "2", "3"}:
+        selected_term = ""
+
+    school_years = (
+        Classroom.objects.filter(
+            is_archived=False,
+        )
+        .values_list("school_year", flat=True)
+        .distinct()
+        .order_by("-school_year")
+    )
+
+    report_schools = (
+        schools.filter(pk=selected_school.pk)
+        if selected_school
+        else schools
+    )
+
+    report_rows = _build_school_monitoring(
+        schools=report_schools,
+        school_year=selected_year,
+        selected_term=selected_term,
+    )
+
+    return render(
+        request,
+        "supervisor/district_performance_report.html",
+        {
+            "report_rows": report_rows,
+            "schools": schools,
+            "school_years": school_years,
+            "selected_school": selected_school,
+            "selected_school_id": selected_school_id,
+            "selected_year": selected_year,
+            "selected_term": selected_term,
+        },
+    )
+
+@login_required(login_url="supervisor:login")
+def supervision_visit_view(request):
+    if not _is_supervisor(request.user):
+        messages.error(
+            request,
+            "Only the District Supervisor can manage supervision records.",
+        )
+        return _administration_redirect(request.user)
+
+    form = SupervisionVisitForm(request.POST or None)
+
+    if request.method == "POST" and form.is_valid():
+        visit = form.save(commit=False)
+        visit.supervisor = request.user
+        visit.save()
+
+        messages.success(
+            request,
+            "Supervision record saved successfully.",
+        )
+        return redirect("supervisor:supervision")
+
+    visits = SupervisionVisit.objects.select_related(
+        "school",
+        "supervisor",
+    )
+
+    return render(
+        request,
+        "supervisor/supervision.html",
+        {
+            "form": form,
+            "visits": visits,
+        },
+    )
+
+@login_required(login_url="supervisor:login")
+@require_POST
+@transaction.atomic
+def district_announcement_create_view(request):
+    if not _is_supervisor(request.user):
+        messages.error(
+            request,
+            "Only the District Supervisor can post district announcements.",
+        )
+        return _administration_redirect(request.user)
+
+    form = DistrictAnnouncementForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Complete the district announcement form.")
+        return redirect("supervisor:dashboard")
+
+    schools = (
+        School.objects.all()
+        if form.cleaned_data["all_schools"]
+        else form.cleaned_data["target_schools"]
+    )
+
+    created_count = 0
+    for school in schools:
+        announcement = SchoolAnnouncement.objects.create(
+            school=school,
+            posted_by=request.user,
+            title=form.cleaned_data["title"],
+            content=form.cleaned_data["content"],
+            priority=form.cleaned_data["priority"],
+        )
+        notify_school_announcement(announcement)
+        created_count += 1
+
+    messages.success(
+        request,
+        f"District announcement posted to {created_count} school(s).",
+    )
+    return redirect("supervisor:dashboard")
 
 
 
@@ -165,23 +445,37 @@ def principal_school_profile_view(request):
 
 @login_required(login_url="supervisor:login")
 def teacher_list_view(request):
-    if not _is_principal(request.user):
-        messages.error(request, "Only a Principal can manage Teacher accounts.")
+    if not (_is_principal(request.user) or _is_supervisor(request.user)):
+        messages.error(request, "You don't have access to the Teacher list.")
         return _administration_redirect(request.user)
 
     principal = getattr(request.user, "principal_profile", None)
-    if principal is None:
-        messages.error(request, "Your Principal profile is not connected to a school.")
-        return redirect("supervisor:principal_dashboard")
+    schools = School.objects.order_by("school_name") if _is_supervisor(request.user) else []
+    selected_school_id = request.GET.get("school") if _is_supervisor(request.user) else None
+    school = principal.school if principal else None
 
-    teachers = Teacher.objects.filter(school=principal.school).select_related(
+    if _is_supervisor(request.user) and selected_school_id:
+        school = schools.filter(pk=selected_school_id).first()
+
+    if _is_supervisor(request.user):
+        teachers = Teacher.objects.filter(school=school) if school else Teacher.objects.none()
+    else:
+        teachers = Teacher.objects.filter(school=school)
+
+    teachers = teachers.select_related(
         "user",
         "school",
     ).prefetch_related("created_classes").order_by("lastname", "firstname")
     return render(
         request,
         "supervisor/teachers.html",
-        {"teachers": teachers, "school": principal.school},
+        {
+            "teachers": teachers,
+            "school": school,
+            "schools": schools,
+            "selected_school_id": selected_school_id,
+            "is_supervisor_view": _is_supervisor(request.user),
+        },
     )
 
 
@@ -313,23 +607,145 @@ def school_detail_view(request, school_id):
 
 @login_required(login_url="supervisor:login")
 def student_list_view(request):
-    if not _is_principal(request.user):
-        messages.error(request, "Only a Principal can view this Student list.")
+    if not (_is_principal(request.user) or _is_supervisor(request.user)):
+        messages.error(request, "You don't have access to the Student list.")
         return _administration_redirect(request.user)
 
     principal = getattr(request.user, "principal_profile", None)
-    if principal is None:
+    if principal is None and _is_principal(request.user):
         messages.error(request, "Your Principal profile is not connected to a school.")
         return redirect("supervisor:principal_dashboard")
 
-    students = Student.objects.filter(school=principal.school).select_related(
+    schools = School.objects.order_by("school_name") if _is_supervisor(request.user) else []
+    selected_school_id = request.GET.get("school") if _is_supervisor(request.user) else None
+    school = principal.school if principal else None
+
+    if _is_supervisor(request.user) and selected_school_id:
+        school = schools.filter(pk=selected_school_id).first()
+
+    if _is_supervisor(request.user):
+        students = Student.objects.filter(school=school) if school else Student.objects.none()
+    else:
+        students = Student.objects.filter(school=school)
+
+    students = students.select_related(
         "user", "school"
     ).order_by("lastname", "firstname")
     return render(
         request,
         "supervisor/students.html",
-        {"students": students, "school": principal.school},
+        {
+            "students": students,
+            "school": school,
+            "schools": schools,
+            "selected_school_id": selected_school_id,
+            "is_supervisor_view": _is_supervisor(request.user),
+        },
     )
+
+
+@login_required(login_url="supervisor:login")
+def teacher_detail_view(request, teacher_id):
+    if not (_is_supervisor(request.user) or _is_principal(request.user)):
+        return _administration_redirect(request.user)
+
+    teacher = get_object_or_404(
+        Teacher.objects.select_related("user", "school").prefetch_related("created_classes"),
+        pk=teacher_id,
+    )
+
+    if _is_principal(request.user):
+        principal = getattr(request.user, "principal_profile", None)
+        if principal is None or principal.school_id != teacher.school_id:
+            raise PermissionDenied("You can only view Teachers in your school.")
+
+    return render(
+        request,
+        "supervisor/teacher_detail.html",
+        {"teacher": teacher},
+    )
+
+
+@login_required(login_url="supervisor:login")
+def student_detail_view(request, student_id):
+    if not (_is_supervisor(request.user) or _is_principal(request.user)):
+        return _administration_redirect(request.user)
+
+    student = get_object_or_404(
+        Student.objects.select_related("user", "school", "parent", "parent__user"),
+        pk=student_id,
+    )
+
+    if _is_principal(request.user):
+        principal = getattr(request.user, "principal_profile", None)
+        if principal is None or principal.school_id != student.school_id:
+            raise PermissionDenied("You can only view Students in your school.")
+
+    enrollments = ClassEnrollment.objects.filter(
+        student=student,
+        status=ClassEnrollment.Status.APPROVED,
+    ).select_related(
+        "classroom",
+        "classroom__teacher",
+        "classroom__teacher__user",
+    ).order_by("classroom__subject", "classroom__section")
+
+    return render(
+        request,
+        "supervisor/student_detail.html",
+        {
+            "student": student,
+            "enrollments": enrollments,
+        },
+    )
+
+
+@login_required(login_url="supervisor:login")
+@require_POST
+def account_status_view(request, user_id):
+    """Allow the District Supervisor to change managed account status."""
+
+    if not _is_supervisor(request.user):
+        messages.error(
+            request,
+            "Only the District Supervisor can change account status.",
+        )
+        return _administration_redirect(request.user)
+
+    target = get_object_or_404(User, pk=user_id)
+
+    managed_roles = {
+        User.Role.PRINCIPAL,
+        User.Role.TEACHER,
+        User.Role.STUDENT,
+    }
+
+    if (
+        target.role not in managed_roles
+        or target.pk == request.user.pk
+    ):
+        messages.error(request, "This account cannot be changed here.")
+        return redirect(request.POST.get("next") or "supervisor:dashboard")
+
+    new_status = request.POST.get("status")
+    valid_statuses = {
+        User.Status.ACTIVE,
+        User.Status.INACTIVE,
+        User.Status.SUSPENDED,
+    }
+
+    if new_status not in valid_statuses:
+        messages.error(request, "Select a valid account status.")
+        return redirect(request.POST.get("next") or "supervisor:dashboard")
+
+    target.status = new_status
+    target.save(update_fields=["status", "updated_at"])
+
+    messages.success(
+        request,
+        f"{target.email} is now {target.get_status_display()}.",
+    )
+    return redirect(request.POST.get("next") or "supervisor:dashboard")
 
 
 @login_required(login_url="supervisor:login")

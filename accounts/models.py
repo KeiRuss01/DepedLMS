@@ -562,6 +562,7 @@ class UserPreference(models.Model):
 class Notification(models.Model):
     class Type(models.TextChoices):
         MODULE = "module", "New Module"
+        ACTIVITY = "activity", "New Activity"
         DEADLINE = "deadline", "Deadline Reminder"
 
         CLASS_ANNOUNCEMENT = (

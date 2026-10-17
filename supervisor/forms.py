@@ -4,7 +4,7 @@ from django.db import transaction
 
 from accounts.models import Principal, School, Teacher, User
 from classroom.models import AcademicTerm, CalendarEvent
-from .models import SchoolAnnouncement
+from .models import SchoolAnnouncement, SupervisionVisit
 
 
 class SchoolAnnouncementForm(forms.ModelForm):
@@ -27,6 +27,110 @@ class SchoolAnnouncementForm(forms.ModelForm):
             ),
             "priority": forms.Select(attrs={"class": "form-select"}),
         }
+
+class SupervisionVisitForm(forms.ModelForm):
+    class Meta:
+        model = SupervisionVisit
+        fields = (
+            "school",
+            "visit_date",
+            "title",
+            "findings",
+            "recommendations",
+            "action_owner",
+            "follow_up_date",
+            "status",
+        )
+        widgets = {
+            "school": forms.Select(
+                attrs={"class": "form-select"},
+            ),
+            "visit_date": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                },
+            ),
+            "title": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Example: Classroom monitoring visit",
+                },
+            ),
+            "findings": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": "Write the observations or issues found...",
+                },
+            ),
+            "recommendations": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": "Write the recommended actions...",
+                },
+            ),
+            "action_owner": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "Example: School Principal",
+                },
+            ),
+            "follow_up_date": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                },
+            ),
+            "status": forms.Select(
+                attrs={"class": "form-select"},
+            ),
+        }
+
+class DistrictAnnouncementForm(forms.ModelForm):
+    all_schools = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Send to all schools",
+    )
+    target_schools = forms.ModelMultipleChoiceField(
+        queryset=School.objects.all().order_by("school_name"),
+        required=False,
+        label="Selected schools",
+        widget=forms.SelectMultiple(attrs={"class": "form-select"}),
+    )
+
+    class Meta:
+        model = SchoolAnnouncement
+        fields = ("title", "content", "priority")
+        widgets = {
+            "title": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "District announcement title",
+                }
+            ),
+            "content": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": "Write the district announcement...",
+                }
+            ),
+            "priority": forms.Select(attrs={"class": "form-select"}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        if not cleaned_data.get("all_schools") and not cleaned_data.get(
+            "target_schools"
+        ):
+            self.add_error(
+                "target_schools",
+                "Select at least one school or choose all schools.",
+            )
+        return cleaned_data
 
 
 class AdministrationLoginForm(forms.Form):

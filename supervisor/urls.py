@@ -8,6 +8,21 @@ urlpatterns = [
     path("login/", views.login_view, name="login"),
     path("logout/", views.logout_view, name="logout"),
     path("dashboard/", views.dashboard_view, name="dashboard"),
+    path(
+        "reports/performance/",
+        views.district_performance_report_view,
+        name="district_performance_report",
+    ),
+    path(
+        "supervision/",
+        views.supervision_visit_view,
+        name="supervision",
+    ),
+    path(
+        "announcements/create/",
+        views.district_announcement_create_view,
+        name="district_announcement_create",
+    ),
     path("principal/dashboard/", views.principal_dashboard_view, name="principal_dashboard"),
     path(
         "principal/announcements/create/",
@@ -16,8 +31,23 @@ urlpatterns = [
     ),
     path("school-profile/", views.principal_school_profile_view, name="principal_school_profile"),
     path("teachers/", views.teacher_list_view, name="teachers"),
+    path(
+        "teachers/<int:teacher_id>/",
+        views.teacher_detail_view,
+        name="teacher_detail",
+    ),
     path("teachers/create/", views.teacher_create_view, name="teacher_create"),
     path("students/", views.student_list_view, name="students"),
+    path(
+        "students/<int:student_id>/",
+        views.student_detail_view,
+        name="student_detail",
+    ),
+    path(
+        "accounts/<int:user_id>/status/",
+        views.account_status_view,
+        name="account_status",
+    ),
     path("classes/", views.class_list_view, name="classes"),
     path("principals/", views.principal_list_view, name="principals"),
     path("principals/create/", views.principal_create_view, name="principal_create"),

@@ -26,6 +26,7 @@
                     <th>Assigned School</th>
                     <th>Account</th>
                     <th>Profile</th>
+                    <th>Manage status</th>
                 </tr>
             </thead>
             <tbody>
@@ -48,6 +49,18 @@
                         {% else %}
                             <span class="text-muted"><i class="bi bi-clock me-1"></i>Basic account</span>
                         {% endif %}
+                    </td>
+                    <td>
+                        <form method="post" action="{% url 'supervisor:account_status' principal.user.pk %}" class="d-flex gap-2">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.path }}">
+                            <select name="status" class="form-select form-select-sm">
+                                <option value="active" {% if principal.user.status == "active" %}selected{% endif %}>Active</option>
+                                <option value="inactive" {% if principal.user.status == "inactive" %}selected{% endif %}>Inactive</option>
+                                <option value="suspended" {% if principal.user.status == "suspended" %}selected{% endif %}>Suspended</option>
+                            </select>
+                            <button class="btn btn-sm btn-outline-primary">Save</button>
+                        </form>
                     </td>
                 </tr>
                 {% endfor %}

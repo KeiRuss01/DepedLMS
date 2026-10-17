@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'accounts',
     'supervisor',
     'classroom',
+    'sms_notifications',
 ]
 
 MIDDLEWARE = [
@@ -164,3 +165,14 @@ AUTHENTICATION_BACKENDS = [
 PRIVATE_LEARNING_ROOT = BASE_DIR.parent / "DepedLMS-private"
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
+
+
+# SMS API Philippines. Keep the key in .env, never in source control.
+SMS_ENABLED = os.environ.get("SMS_ENABLED", "False").lower() == "true"
+SMS_API_URL = os.environ.get(
+    "SMS_API_URL",
+    "https://smsapiph.onrender.com/api/v1/send/sms",
+)
+SMS_API_KEY = os.environ.get("SMS_API_KEY", "")
+SMS_BATCH_SIZE = int(os.environ.get("SMS_BATCH_SIZE", "5"))
+SMS_MAX_RETRIES = int(os.environ.get("SMS_MAX_RETRIES", "3"))

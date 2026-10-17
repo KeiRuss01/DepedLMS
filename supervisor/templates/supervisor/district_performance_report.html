@@ -1,0 +1,136 @@
+{% extends "supervisor/master2.html" %}
+
+{% block title %}District Performance Report{% endblock %}
+{% block nav_reports %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-sm-row justify-content-between gap-3 mb-4">
+    <div>
+        <h1 class="sv-page-title h4">District Performance Report</h1>
+        <p class="sv-page-subtitle mb-0">
+            Read-only monitoring summary for schools in District 1.
+        </p>
+    </div>
+
+    <button
+        type="button"
+        class="btn btn-outline-primary align-self-sm-start"
+        onclick="window.print()"
+    >
+        <i class="bi bi-printer me-2"></i>
+        Print / Save PDF
+    </button>
+</div>
+
+<div class="sv-card mb-4">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-12 col-md-4">
+            <label class="form-label" for="school">School</label>
+            <select name="school" id="school" class="form-select">
+                <option value="">All schools</option>
+
+                {% for school in schools %}
+                    <option
+                        value="{{ school.pk }}"
+                        {% if selected_school_id|stringformat:"s" == school.pk|stringformat:"s" %}
+                            selected
+                        {% endif %}
+                    >
+                        {{ school.school_name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-12 col-md-3">
+            <label class="form-label" for="school_year">
+                School year
+            </label>
+            <select name="school_year" id="school_year" class="form-select">
+                <option value="">All school years</option>
+
+                {% for year in school_years %}
+                    <option
+                        value="{{ year }}"
+                        {% if selected_year == year %}
+                            selected
+                        {% endif %}
+                    >
+                        {{ year }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-12 col-md-3">
+            <label class="form-label" for="term">Term</label>
+            <select name="term" id="term" class="form-select">
+                <option value="">All terms</option>
+                <option value="1" {% if selected_term == "1" %}selected{% endif %}>
+                    Term 1
+                </option>
+                <option value="2" {% if selected_term == "2" %}selected{% endif %}>
+                    Term 2
+                </option>
+                <option value="3" {% if selected_term == "3" %}selected{% endif %}>
+                    Term 3
+                </option>
+            </select>
+        </div>
+
+        <div class="col-12 col-md-2">
+            <button class="btn btn-primary w-100">
+                Apply
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="sv-card">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>School</th>
+                    <th>Teachers</th>
+                    <th>Students</th>
+                    <th>Classes</th>
+                    <th>Modules</th>
+                    <th>Activities</th>
+                    <th>Pending review</th>
+                    <th>Completed</th>
+                    <th>Returned</th>
+                    <th>Overdue</th>
+                    <th>Grades released</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for row in report_rows %}
+                    <tr>
+                        <td>
+                            <strong>{{ row.school.school_name }}</strong>
+                        </td>
+                        <td>{{ row.teacher_count }}</td>
+                        <td>{{ row.student_count }}</td>
+                        <td>{{ row.class_count }}</td>
+                        <td>{{ row.module_count }}</td>
+                        <td>{{ row.activity_count }}</td>
+                        <td>{{ row.pending_review }}</td>
+                        <td>{{ row.completed_work }}</td>
+                        <td>{{ row.returned_work }}</td>
+                        <td>{{ row.overdue_work }}</td>
+                        <td>{{ row.released_gradebooks }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="11" class="text-center text-muted py-4">
+                            No report data is available.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
