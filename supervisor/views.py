@@ -10,7 +10,15 @@ from django.db.models import Q
 import calendar
 from django.utils import timezone
 
-from accounts.models import Principal, School, Student, Teacher, User
+from accounts.models import (
+    Parent,
+    ParentStudentLink,
+    Principal,
+    School,
+    Student,
+    Teacher,
+    User,
+)
 from classroom.models import (
     AcademicTerm,
     ActivitySubmission,
@@ -27,7 +35,7 @@ from classroom.notification_services import (
     notify_calendar_event,
     notify_school_announcement,
 )
-from .models import SchoolAnnouncement, SupervisionVisit
+from .models import SchoolAnnouncement
 
 from .forms import (
     AcademicTermForm,
@@ -38,7 +46,6 @@ from .forms import (
     SchoolCalendarEventForm,
     SchoolProfileForm,
     SchoolAnnouncementForm,
-    SupervisionVisitForm,
     TeacherAccountForm,
 )
 
@@ -284,42 +291,6 @@ def district_performance_report_view(request):
     )
 
 @login_required(login_url="supervisor:login")
-def supervision_visit_view(request):
-    if not _is_supervisor(request.user):
-        messages.error(
-            request,
-            "Only the District Supervisor can manage supervision records.",
-        )
-        return _administration_redirect(request.user)
-
-    form = SupervisionVisitForm(request.POST or None)
-
-    if request.method == "POST" and form.is_valid():
-        visit = form.save(commit=False)
-        visit.supervisor = request.user
-        visit.save()
-
-        messages.success(
-            request,
-            "Supervision record saved successfully.",
-        )
-        return redirect("supervisor:supervision")
-
-    visits = SupervisionVisit.objects.select_related(
-        "school",
-        "supervisor",
-    )
-
-    return render(
-        request,
-        "supervisor/supervision.html",
-        {
-            "form": form,
-            "visits": visits,
-        },
-    )
-
-@login_required(login_url="supervisor:login")
 @require_POST
 @transaction.atomic
 def district_announcement_create_view(request):
@@ -462,6 +433,18 @@ def teacher_list_view(request):
     else:
         teachers = Teacher.objects.filter(school=school)
 
+    search_query = request.GET.get("q", "").strip()
+    if search_query:
+        for search_term in search_query.split():
+            teachers = teachers.filter(
+                Q(firstname__icontains=search_term)
+                | Q(middlename__icontains=search_term)
+                | Q(lastname__icontains=search_term)
+                | Q(suffix__icontains=search_term)
+                | Q(employee_id__icontains=search_term)
+                | Q(user__email__icontains=search_term)
+            )
+
     teachers = teachers.select_related(
         "user",
         "school",
@@ -475,6 +458,7 @@ def teacher_list_view(request):
             "schools": schools,
             "selected_school_id": selected_school_id,
             "is_supervisor_view": _is_supervisor(request.user),
+            "search_query": search_query,
         },
     )
 
@@ -515,14 +499,56 @@ def principal_list_view(request):
         messages.error(request, "Only the District Supervisor can manage Principal accounts.")
         return _administration_redirect(request.user)
 
-    principals = Principal.objects.select_related("user", "school").order_by(
+    search_query = request.GET.get("q", "").strip()
+    principals = Principal.objects.select_related("user", "school")
+    if search_query:
+        principals = principals.filter(
+            Q(firstname__icontains=search_query)
+            | Q(middlename__icontains=search_query)
+            | Q(lastname__icontains=search_query)
+            | Q(suffix__icontains=search_query)
+            | Q(employee_id__icontains=search_query)
+            | Q(user__email__icontains=search_query)
+            | Q(school__school_name__icontains=search_query)
+            | Q(school__school_id_number__icontains=search_query)
+        )
+
+    principals = principals.order_by(
         "lastname",
         "firstname",
     )
     return render(
         request,
         "supervisor/principals.html",
-        {"principals": principals},
+        {
+            "principals": principals,
+            "search_query": search_query,
+        },
+    )
+
+
+@login_required(login_url="supervisor:login")
+def principal_detail_view(request, principal_id):
+    if not _is_supervisor(request.user):
+        messages.error(request, "Only the District Supervisor can view Principal details.")
+        return _administration_redirect(request.user)
+
+    principal = get_object_or_404(
+        Principal.objects.select_related("user", "school"),
+        pk=principal_id,
+    )
+    school = principal.school
+    return render(
+        request,
+        "supervisor/principal_detail.html",
+        {
+            "principal": principal,
+            "school": school,
+            "teacher_count": Teacher.objects.filter(school=school).count(),
+            "student_count": Student.objects.filter(school=school).count(),
+            "class_count": Classroom.objects.filter(teacher__school=school).count(),
+            "announcement_count": SchoolAnnouncement.objects.filter(school=school).count(),
+        },
     )
 
 
@@ -559,10 +585,25 @@ def school_list_view(request):
         messages.error(request, "You don't have access to the supervisor portal.")
         return redirect("supervisor:login")
 
-    schools = School.objects.select_related().prefetch_related("principals").order_by(
+    search_query = request.GET.get("q", "").strip()
+    schools = School.objects.select_related().prefetch_related("principals")
+    if search_query:
+        schools = schools.filter(
+            Q(school_name__icontains=search_query)
+            | Q(school_id_number__icontains=search_query)
+            | Q(region__icontains=search_query)
+            | Q(division__icontains=search_query)
+            | Q(district__icontains=search_query)
+            | Q(address__icontains=search_query)
+        )
+    schools = schools.order_by(
         "school_name"
     )
-    return render(request, "supervisor/schools.html", {"schools": schools})
+    return render(
+        request,
+        "supervisor/schools.html",
+        {"schools": schools, "search_query": search_query},
+    )
 
 
 @login_required(login_url="supervisor:login")
@@ -587,6 +628,17 @@ def school_detail_view(request, school_id):
     students = Student.objects.filter(school=school).select_related("user").order_by(
         "lastname", "firstname"
     )
+    student_count = students.count()
+    student_search = request.GET.get("q", "").strip()
+    if student_search:
+        for search_term in student_search.split():
+            students = students.filter(
+                Q(firstname__icontains=search_term)
+                | Q(middlename__icontains=search_term)
+                | Q(lastname__icontains=search_term)
+                | Q(suffix__icontains=search_term)
+                | Q(lrn__icontains=search_term)
+            )
     classes = Classroom.objects.filter(teacher__school=school).select_related(
         "teacher", "teacher__user"
     ).order_by("teacher__lastname", "subject", "section")
@@ -599,8 +651,9 @@ def school_detail_view(request, school_id):
         "classes": classes,
         "principal_count": principals.count(),
         "teacher_count": teachers.count(),
-        "student_count": students.count(),
+        "student_count": student_count,
         "class_count": classes.count(),
+        "student_search": student_search,
     }
     return render(request, "supervisor/school_detail.html", context)
 
@@ -628,6 +681,17 @@ def student_list_view(request):
     else:
         students = Student.objects.filter(school=school)
 
+    search_query = request.GET.get("q", "").strip()
+    if search_query:
+        for search_term in search_query.split():
+            students = students.filter(
+                Q(firstname__icontains=search_term)
+                | Q(middlename__icontains=search_term)
+                | Q(lastname__icontains=search_term)
+                | Q(suffix__icontains=search_term)
+                | Q(lrn__icontains=search_term)
+            )
+
     students = students.select_related(
         "user", "school"
     ).order_by("lastname", "firstname")
@@ -640,6 +704,7 @@ def student_list_view(request):
             "schools": schools,
             "selected_school_id": selected_school_id,
             "is_supervisor_view": _is_supervisor(request.user),
+            "search_query": search_query,
         },
     )
 
@@ -696,6 +761,132 @@ def student_detail_view(request, student_id):
         {
             "student": student,
             "enrollments": enrollments,
+        },
+    )
+
+
+def _parent_student_records(parent):
+    """Combine current Parent–Student links with legacy profile links."""
+    records_by_student = {}
+
+    for link in parent.student_links.all():
+        records_by_student[link.student_id] = {
+            "student": link.student,
+            "relationship": link.get_relationship_display(),
+            "link_status": link.get_status_display(),
+        }
+
+    for student in parent.children.all():
+        records_by_student.setdefault(
+            student.pk,
+            {
+                "student": student,
+                "relationship": parent.get_relationship_display(),
+                "link_status": "Parent profile link",
+            },
+        )
+
+    if parent.student_id:
+        student = parent.student
+        records_by_student.setdefault(
+            student.pk,
+            {
+                "student": student,
+                "relationship": parent.get_relationship_display(),
+                "link_status": "Parent profile link",
+            },
+        )
+
+    return sorted(
+        records_by_student.values(),
+        key=lambda record: (
+            record["student"].lastname.lower(),
+            record["student"].firstname.lower(),
+        ),
+    )
+
+
+@login_required(login_url="supervisor:login")
+def parent_list_view(request):
+    if not _is_supervisor(request.user):
+        messages.error(request, "Only the District Supervisor can manage Parent accounts.")
+        return _administration_redirect(request.user)
+
+    search_query = request.GET.get("q", "").strip()
+    parents = Parent.objects.select_related(
+        "user",
+        "student",
+        "student__school",
+        "student__user",
+    ).prefetch_related(
+        "student_links__student__school",
+        "student_links__student__user",
+        "children__school",
+        "children__user",
+    )
+
+    if search_query:
+        for search_term in search_query.split():
+            parents = parents.filter(
+                Q(firstname__icontains=search_term)
+                | Q(middlename__icontains=search_term)
+                | Q(lastname__icontains=search_term)
+                | Q(user__email__icontains=search_term)
+                | Q(user__phone_number__icontains=search_term)
+                | Q(student_links__student__firstname__icontains=search_term)
+                | Q(student_links__student__middlename__icontains=search_term)
+                | Q(student_links__student__lastname__icontains=search_term)
+                | Q(student_links__student__lrn__icontains=search_term)
+                | Q(children__firstname__icontains=search_term)
+                | Q(children__middlename__icontains=search_term)
+                | Q(children__lastname__icontains=search_term)
+                | Q(children__lrn__icontains=search_term)
+                | Q(student__firstname__icontains=search_term)
+                | Q(student__middlename__icontains=search_term)
+                | Q(student__lastname__icontains=search_term)
+                | Q(student__lrn__icontains=search_term)
+            )
+
+    parents = list(parents.distinct().order_by("lastname", "firstname"))
+    for parent in parents:
+        parent.admin_student_records = _parent_student_records(parent)
+
+    return render(
+        request,
+        "supervisor/parents.html",
+        {
+            "parents": parents,
+            "search_query": search_query,
+        },
+    )
+
+
+@login_required(login_url="supervisor:login")
+def parent_detail_view(request, parent_id):
+    if not _is_supervisor(request.user):
+        messages.error(request, "Only the District Supervisor can view Parent details.")
+        return _administration_redirect(request.user)
+
+    parent = get_object_or_404(
+        Parent.objects.select_related(
+            "user",
+            "student",
+            "student__school",
+            "student__user",
+        ).prefetch_related(
+            "student_links__student__school",
+            "student_links__student__user",
+            "children__school",
+            "children__user",
+        ),
+        pk=parent_id,
+    )
+    return render(
+        request,
+        "supervisor/parent_detail.html",
+        {
+            "parent": parent,
+            "student_records": _parent_student_records(parent),
         },
     )
 
@@ -936,13 +1127,6 @@ def district_calendar_view(request):
         "supervisor_profile",
         None,
     )
-
-    if supervisor is None:
-        messages.error(
-            request,
-            "Your Supervisor profile was not found.",
-        )
-        return redirect("supervisor:dashboard")
 
     editing_event = None
     edit_event_id = request.POST.get("event_id") or request.GET.get("edit_event")

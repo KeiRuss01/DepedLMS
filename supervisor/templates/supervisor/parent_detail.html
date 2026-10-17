@@ -1,0 +1,68 @@
+{% extends "supervisor/master2.html" %}
+{% load static %}
+
+{% block title %}Parent Profile{% endblock %}
+{% block nav_parents %}active{% endblock %}
+{% block extra_css %}<link href="{% static 'supervisor/css/principals.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-sm-row justify-content-between gap-3 mb-4">
+    <div>
+        <a href="{% url 'supervisor:parents' %}?q={{ request.GET.q|urlencode }}" class="small">← Back to Parents</a>
+        <h1 class="sv-page-title h4 mt-2">{{ parent.firstname }}{% if parent.middlename %} {{ parent.middlename }}{% endif %} {{ parent.lastname }}</h1>
+        <p class="sv-page-subtitle mb-0">{{ parent.get_relationship_display }}</p>
+    </div>
+    <span class="status-badge status-{{ parent.user.status }} align-self-start">{{ parent.user.get_status_display }}</span>
+</div>
+
+<div class="row g-4">
+    <div class="col-12 col-lg-5">
+        <section class="sv-card h-100">
+            <h2 class="h6 fw-bold mb-3">Parent Information</h2>
+            <dl class="row mb-0">
+                <dt class="col-sm-5">First name</dt><dd class="col-sm-7">{{ parent.firstname }}</dd>
+                <dt class="col-sm-5">Middle name</dt><dd class="col-sm-7">{{ parent.middlename|default:"—" }}</dd>
+                <dt class="col-sm-5">Last name</dt><dd class="col-sm-7">{{ parent.lastname }}</dd>
+                <dt class="col-sm-5">Relationship</dt><dd class="col-sm-7">{{ parent.get_relationship_display }}</dd>
+            </dl>
+        </section>
+    </div>
+    <div class="col-12 col-lg-7">
+        <section class="sv-card h-100">
+            <h2 class="h6 fw-bold mb-3">Account Information</h2>
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Email</dt><dd class="col-sm-8">{{ parent.user.email }}</dd>
+                <dt class="col-sm-4">Phone number</dt><dd class="col-sm-8">{{ parent.user.phone_number|default:"—" }}</dd>
+                <dt class="col-sm-4">Account status</dt><dd class="col-sm-8">{{ parent.user.get_status_display }}</dd>
+                <dt class="col-sm-4">Account created</dt><dd class="col-sm-8">{{ parent.user.created_at|date:"M j, Y, g:i A" }}</dd>
+                <dt class="col-sm-4">Last updated</dt><dd class="col-sm-8">{{ parent.user.updated_at|date:"M j, Y, g:i A" }}</dd>
+            </dl>
+        </section>
+    </div>
+    <div class="col-12">
+        <section class="sv-card">
+            <h2 class="h6 fw-bold mb-1">Linked Students</h2>
+            <p class="text-muted mb-3">Student records and Parent connection status.</p>
+            {% for record in student_records %}
+                <div class="border rounded p-3 mb-3">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between gap-2">
+                        <div>
+                            <strong>{{ record.student.firstname }}{% if record.student.middlename %} {{ record.student.middlename }}{% endif %} {{ record.student.lastname }}{% if record.student.suffix %} {{ record.student.suffix }}{% endif %}</strong>
+                            <div class="text-muted small">LRN: {{ record.student.lrn }}</div>
+                        </div>
+                        <span class="badge text-bg-light align-self-start">{{ record.link_status }}</span>
+                    </div>
+                    <dl class="row mt-3 mb-0">
+                        <dt class="col-sm-3">Relationship</dt><dd class="col-sm-9">{{ record.relationship }}</dd>
+                        <dt class="col-sm-3">School</dt><dd class="col-sm-9">{{ record.student.school.school_name }}</dd>
+                        <dt class="col-sm-3">Student account</dt><dd class="col-sm-9">{{ record.student.user.get_status_display }}</dd>
+                        <dt class="col-sm-3">Enrollment</dt><dd class="col-sm-9">{{ record.student.get_acc_status_display }}</dd>
+                    </dl>
+                </div>
+            {% empty %}
+                <p class="text-muted mb-0">No student is linked to this Parent account.</p>
+            {% endfor %}
+        </section>
+    </div>
+</div>
+{% endblock %}

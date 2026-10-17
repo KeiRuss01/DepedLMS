@@ -1,0 +1,94 @@
+{% extends "supervisor/master2.html" %}
+{% load static %}
+
+{% block title %}Parents{% endblock %}
+{% block nav_parents %}active{% endblock %}
+{% block extra_css %}<link href="{% static 'supervisor/css/principals.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-4">
+    <div>
+        <h1 class="sv-page-title h4">Parent Management</h1>
+        <p class="sv-page-subtitle mb-0">View Parent accounts and their linked students.</p>
+    </div>
+</div>
+
+<form method="get" class="sv-card mb-4" role="search">
+    <label for="parent-search" class="form-label fw-semibold">Search Parents or students</label>
+    <div class="input-group">
+        <input
+            id="parent-search"
+            class="form-control"
+            type="search"
+            name="q"
+            value="{{ search_query }}"
+            placeholder="Parent name, email, phone, student name, or LRN"
+            aria-label="Search Parents and linked students"
+        >
+        <button class="btn btn-outline-primary" type="submit">
+            <i class="bi bi-search me-1"></i>Search
+        </button>
+        {% if search_query %}
+            <a class="btn btn-outline-secondary" href="{% url 'supervisor:parents' %}">Clear</a>
+        {% endif %}
+    </div>
+</form>
+
+{% if parents %}
+<div class="sv-card p-0 overflow-hidden">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0 principal-table">
+            <thead>
+                <tr>
+                    <th>Parent</th>
+                    <th>Relationship</th>
+                    <th>Linked student(s)</th>
+                    <th>Account</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for parent in parents %}
+                <tr>
+                    <td>
+                        <strong class="d-block">{{ parent.firstname }}{% if parent.middlename %} {{ parent.middlename }}{% endif %} {{ parent.lastname }}</strong>
+                        <small>{{ parent.user.email }}</small>
+                    </td>
+                    <td>{{ parent.get_relationship_display }}</td>
+                    <td>
+                        {% for record in parent.admin_student_records %}
+                            <div class="mb-1">
+                                {{ record.student.firstname }} {{ record.student.lastname }}
+                                <small class="text-muted">({{ record.student.lrn }})</small>
+                                <small class="d-block text-muted">{{ record.link_status }}</small>
+                            </div>
+                        {% empty %}
+                            <span class="text-muted">No student linked</span>
+                        {% endfor %}
+                    </td>
+                    <td><span class="status-badge status-{{ parent.user.status }}">{{ parent.user.get_status_display }}</span></td>
+                    <td>
+                        <a class="btn btn-sm btn-outline-primary" href="{% url 'supervisor:parent_detail' parent.parent_id %}?q={{ search_query|urlencode }}">
+                            <i class="bi bi-eye me-1"></i>View
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="sv-card principal-empty text-center">
+    <i class="bi bi-people"></i>
+    {% if search_query %}
+        <h2>No matching Parent accounts</h2>
+        <p>Try another Parent name, email, phone number, student name, or LRN.</p>
+        <a class="btn btn-outline-secondary" href="{% url 'supervisor:parents' %}">Clear search</a>
+    {% else %}
+        <h2>No Parent accounts yet</h2>
+        <p>Parent accounts will appear here after they register and connect to a student.</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

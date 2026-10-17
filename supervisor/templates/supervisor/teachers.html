@@ -24,23 +24,56 @@
     {% endif %}
 </div>
 
-{% if is_supervisor_view %}
 <div class="sv-card mb-4">
-    <form method="get" class="row g-2 align-items-end">
-        <div class="col-12 col-md-8">
-            <label class="form-label" for="teacher-school">Select school</label>
-            <select id="teacher-school" name="school" class="form-select" onchange="this.form.submit()">
-                <option value="">Choose a school</option>
-                {% for item in schools %}
-                    <option value="{{ item.pk }}" {% if selected_school_id|stringformat:"s" == item.pk|stringformat:"s" %}selected{% endif %}>
-                        {{ item.school_name }}
-                    </option>
-                {% endfor %}
-            </select>
+    <div class="row g-3 align-items-end">
+        {% if is_supervisor_view %}
+        <div class="col-12 col-md-4">
+            <form method="get">
+                <label class="form-label" for="teacher-school">Select school</label>
+                <select id="teacher-school" name="school" class="form-select" onchange="this.form.submit()">
+                    <option value="">Choose a school</option>
+                    {% for item in schools %}
+                        <option value="{{ item.pk }}" {% if selected_school_id|stringformat:"s" == item.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ item.school_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </form>
         </div>
-    </form>
+        {% endif %}
+        <div class="col-12 {% if is_supervisor_view %}col-md-8{% else %}col-md-10{% endif %}">
+            <form method="get" class="row g-2 align-items-end">
+                {% if is_supervisor_view and selected_school_id %}
+                    <input type="hidden" name="school" value="{{ selected_school_id }}">
+                {% endif %}
+                <div class="col">
+                    <label class="form-label" for="teacher-search">Search by teacher name, employee ID, or email</label>
+                    <input
+                        id="teacher-search"
+                        class="form-control"
+                        type="search"
+                        name="q"
+                        value="{{ search_query }}"
+                        placeholder="Enter a name, employee ID, or email"
+                        aria-label="Search teachers"
+                    >
+                </div>
+                <div class="col-auto d-flex gap-2">
+                    <button class="btn btn-outline-primary" type="submit">
+                        <i class="bi bi-search me-1"></i>Search
+                    </button>
+                    {% if search_query %}
+                        {% if is_supervisor_view and selected_school_id %}
+                            <a class="btn btn-outline-secondary" href="{% url 'supervisor:teachers' %}?school={{ selected_school_id|urlencode }}">Clear</a>
+                        {% else %}
+                            <a class="btn btn-outline-secondary" href="{% url 'supervisor:teachers' %}{% if is_supervisor_view %}?school={% endif %}">Clear</a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
-{% endif %}
 
 {% if teachers %}
 <div class="sv-card p-0 overflow-hidden">
@@ -53,6 +86,7 @@
                     <th>Account</th>
                     <th>Profile</th>
                     <th class="text-end">Classes</th>
+                    <th>Details</th>
                     {% if is_supervisor_view %}<th>Manage status</th>{% endif %}
                 </tr>
             </thead>
@@ -67,7 +101,6 @@
                                 <small>{{ teacher.user.email }}</small>
                             </span>
                         </div>
-                        <a class="small" href="{% url 'supervisor:teacher_detail' teacher.teacher_id %}">View profile</a>
                     </td>
                     <td>{{ teacher.school.school_name }}</td>
                     <td><span class="status-badge status-{{ teacher.user.status }}">{{ teacher.user.get_status_display }}</span></td>
@@ -83,6 +116,11 @@
                                 data-bs-toggle="modal" data-bs-target="#teacherClasses{{ teacher.teacher_id }}">
                             View Classes
                         </button>
+                    </td>
+                    <td>
+                        <a class="btn btn-sm btn-outline-primary" href="{% url 'supervisor:teacher_detail' teacher.teacher_id %}?school={{ selected_school_id|default:teacher.school_id|urlencode }}&amp;q={{ search_query|urlencode }}">
+                            <i class="bi bi-eye me-1"></i>View
+                        </a>
                     </td>
                     {% if is_supervisor_view %}
                     <td>
@@ -143,6 +181,14 @@
     {% if is_supervisor_view and not school %}
         <h2>Select a school</h2>
         <p>Choose a school above to view its Teacher accounts.</p>
+    {% elif search_query %}
+        <h2>No matching Teacher accounts</h2>
+        <p>Try another name, employee ID, or email address.</p>
+        {% if is_supervisor_view and selected_school_id %}
+            <a class="btn btn-outline-secondary" href="{% url 'supervisor:teachers' %}?school={{ selected_school_id|urlencode }}">Clear search</a>
+        {% else %}
+            <a class="btn btn-outline-secondary" href="{% url 'supervisor:teachers' %}{% if is_supervisor_view %}?school={% endif %}">Clear search</a>
+        {% endif %}
     {% else %}
         <h2>No Teacher accounts yet</h2>
         <p>Create a basic account so a Teacher can sign in to the Classroom Portal.</p>

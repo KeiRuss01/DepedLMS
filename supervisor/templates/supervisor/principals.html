@@ -16,6 +16,27 @@
     </a>
 </div>
 
+<form method="get" class="sv-card mb-4" role="search">
+    <label for="principal-search" class="form-label fw-semibold">Search Principal accounts</label>
+    <div class="input-group">
+        <input
+            id="principal-search"
+            class="form-control"
+            type="search"
+            name="q"
+            value="{{ search_query }}"
+            placeholder="Name, email, employee ID, or school"
+            aria-label="Search Principals"
+        >
+        <button class="btn btn-outline-primary" type="submit">
+            <i class="bi bi-search me-1"></i>Search
+        </button>
+        {% if search_query %}
+            <a class="btn btn-outline-secondary" href="{% url 'supervisor:principals' %}">Clear</a>
+        {% endif %}
+    </div>
+</form>
+
 {% if principals %}
 <div class="sv-card p-0 overflow-hidden">
     <div class="table-responsive">
@@ -26,6 +47,7 @@
                     <th>Assigned School</th>
                     <th>Account</th>
                     <th>Profile</th>
+                    <th>Details</th>
                     <th>Manage status</th>
                 </tr>
             </thead>
@@ -51,6 +73,11 @@
                         {% endif %}
                     </td>
                     <td>
+                        <a class="btn btn-sm btn-outline-primary" href="{% url 'supervisor:principal_detail' principal.principal_id %}">
+                            <i class="bi bi-eye me-1"></i>View
+                        </a>
+                    </td>
+                    <td>
                         <form method="post" action="{% url 'supervisor:account_status' principal.user.pk %}" class="d-flex gap-2">
                             {% csrf_token %}
                             <input type="hidden" name="next" value="{{ request.path }}">
@@ -71,9 +98,15 @@
 {% else %}
 <div class="sv-card principal-empty text-center">
     <i class="bi bi-person-badge"></i>
-    <h2>No Principal accounts yet</h2>
-    <p>Create a basic account so a Principal can sign in to the Administration Portal.</p>
-    <a class="btn btn-primary" href="{% url 'supervisor:principal_create' %}">Add Principal</a>
+    {% if search_query %}
+        <h2>No matching Principal accounts</h2>
+        <p>Try another name, email, employee ID, or school.</p>
+        <a class="btn btn-outline-secondary" href="{% url 'supervisor:principals' %}">Clear search</a>
+    {% else %}
+        <h2>No Principal accounts yet</h2>
+        <p>Create a basic account so a Principal can sign in to the Administration Portal.</p>
+        <a class="btn btn-primary" href="{% url 'supervisor:principal_create' %}">Add Principal</a>
+    {% endif %}
 </div>
 {% endif %}
 {% endblock %}

@@ -6,7 +6,7 @@
 {% block content %}
 <div class="d-flex flex-column flex-sm-row justify-content-between gap-3 mb-4">
     <div>
-        <a href="{% url 'supervisor:teachers' %}?school={{ teacher.school.pk }}" class="small">← Back to Teachers</a>
+        <a href="{% url 'supervisor:teachers' %}?school={{ request.GET.school|default:teacher.school.pk|urlencode }}&amp;q={{ request.GET.q|urlencode }}" class="small">← Back to Teachers</a>
         <h1 class="sv-page-title h4 mt-2">{{ teacher.firstname }} {{ teacher.lastname }}</h1>
         <p class="sv-page-subtitle mb-0">{{ teacher.school.school_name }}</p>
     </div>

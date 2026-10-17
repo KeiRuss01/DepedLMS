@@ -14,6 +14,27 @@
     <a class="btn btn-primary" href="{% url 'supervisor:school_create' %}"><i class="bi bi-plus-lg me-2"></i>Add School</a>
 </div>
 
+<form method="get" class="sv-card mb-4" role="search">
+    <label class="form-label fw-semibold" for="school-search">Search schools</label>
+    <div class="input-group">
+        <input
+            id="school-search"
+            class="form-control"
+            type="search"
+            name="q"
+            value="{{ search_query }}"
+            placeholder="School name, DepEd ID, region, division, or district"
+            aria-label="Search schools"
+        >
+        <button class="btn btn-outline-primary" type="submit">
+            <i class="bi bi-search me-1"></i>Search
+        </button>
+        {% if search_query %}
+            <a class="btn btn-outline-secondary" href="{% url 'supervisor:schools' %}">Clear</a>
+        {% endif %}
+    </div>
+</form>
+
 {% if schools %}
 <div class="row g-4">
     {% for school in schools %}
@@ -48,9 +69,15 @@
 {% else %}
 <div class="sv-card sv-empty-state text-center">
     <i class="bi bi-building-add"></i>
-    <h2>No schools yet</h2>
-    <p>Add the first school profile. You can start with only its name.</p>
-    <a class="btn btn-primary" href="{% url 'supervisor:school_create' %}">Add School</a>
+    {% if search_query %}
+        <h2>No matching schools</h2>
+        <p>Try another school name, DepEd ID, region, division, or district.</p>
+        <a class="btn btn-outline-secondary" href="{% url 'supervisor:schools' %}">Clear search</a>
+    {% else %}
+        <h2>No schools yet</h2>
+        <p>Add the first school profile. You can start with only its name.</p>
+        <a class="btn btn-primary" href="{% url 'supervisor:school_create' %}">Add School</a>
+    {% endif %}
 </div>
 {% endif %}
 {% endblock %}

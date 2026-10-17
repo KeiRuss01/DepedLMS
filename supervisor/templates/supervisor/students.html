@@ -22,37 +22,71 @@
     {% endif %}
 </div>
 
-{% if is_supervisor_view %}
 <div class="sv-card mb-4">
-    <form method="get" class="row g-2 align-items-end">
-        <div class="col-12 col-md-8">
-            <label class="form-label" for="student-school">Select school</label>
-            <select id="student-school" name="school" class="form-select" onchange="this.form.submit()">
-                <option value="">Choose a school</option>
-                {% for item in schools %}
-                    <option value="{{ item.pk }}" {% if selected_school_id|stringformat:"s" == item.pk|stringformat:"s" %}selected{% endif %}>
-                        {{ item.school_name }}
-                    </option>
-                {% endfor %}
-            </select>
+    <div class="row g-3 align-items-end">
+        {% if is_supervisor_view %}
+        <div class="col-12 col-md-4">
+            <form method="get">
+                <label class="form-label" for="student-school">Select school</label>
+                <select id="student-school" name="school" class="form-select" onchange="this.form.submit()">
+                    <option value="">Choose a school</option>
+                    {% for item in schools %}
+                        <option value="{{ item.pk }}" {% if selected_school_id|stringformat:"s" == item.pk|stringformat:"s" %}selected{% endif %}>
+                            {{ item.school_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </form>
         </div>
-    </form>
+        {% endif %}
+        <div class="col-12 {% if is_supervisor_view %}col-md-8{% else %}col-md-10{% endif %}">
+            <form method="get" class="row g-2 align-items-end">
+                {% if is_supervisor_view and selected_school_id %}
+                    <input type="hidden" name="school" value="{{ selected_school_id }}">
+                {% endif %}
+                <div class="col">
+                    <label class="form-label" for="student-search">Search by student name or LRN</label>
+                    <input
+                        id="student-search"
+                        class="form-control"
+                        type="search"
+                        name="q"
+                        value="{{ search_query }}"
+                        placeholder="Enter a student name or LRN"
+                        aria-label="Search students by name or LRN"
+                    >
+                </div>
+                <div class="col-auto d-flex gap-2">
+                    <button class="btn btn-outline-primary" type="submit">
+                        <i class="bi bi-search me-1"></i>Search
+                    </button>
+                    {% if search_query %}
+                        {% if is_supervisor_view and selected_school_id %}
+                            <a class="btn btn-outline-secondary" href="{% url 'supervisor:students' %}?school={{ selected_school_id|urlencode }}">Clear</a>
+                        {% else %}
+                            <a class="btn btn-outline-secondary" href="{% url 'supervisor:students' %}{% if is_supervisor_view %}?school={% endif %}">Clear</a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
-{% endif %}
 
 <div class="sv-card p-0 overflow-hidden">
     <div class="table-responsive">
         <table class="table align-middle mb-0 principal-table">
-            <thead><tr><th>Student</th><th>School</th><th>LRN</th><th>Gender</th><th>Account</th><th>Profile</th>{% if is_supervisor_view %}<th>Manage status</th>{% endif %}</tr></thead>
+            <thead><tr><th>Student</th><th>School</th><th>LRN</th><th>Gender</th><th>Account</th><th>Profile</th><th>Details</th>{% if is_supervisor_view %}<th>Manage status</th>{% endif %}</tr></thead>
             <tbody>
                 {% for student in students %}
                 <tr>
-                    <td><strong>{{ student.firstname }} {{ student.lastname }}</strong><small class="d-block">{{ student.user.email }}</small><a class="small" href="{% url 'supervisor:student_detail' student.student_id %}">View profile</a></td>
+                    <td><strong>{{ student.firstname }} {{ student.lastname }}</strong><small class="d-block">{{ student.user.email }}</small></td>
                     <td>{{ student.school.school_name }}</td>
                     <td>{{ student.lrn }}</td>
                     <td>{{ student.get_gender_display }}</td>
                     <td>{{ student.user.get_status_display }}</td>
                     <td>{{ student.get_acc_status_display }}</td>
+                    <td><a class="btn btn-sm btn-outline-primary" href="{% url 'supervisor:student_detail' student.student_id %}?school={{ selected_school_id|default:student.school_id|urlencode }}&amp;q={{ search_query|urlencode }}"><i class="bi bi-eye me-1"></i>View</a></td>
                     {% if is_supervisor_view %}
                     <td>
                         <form method="post" action="{% url 'supervisor:account_status' student.user.pk %}" class="d-flex gap-2">
@@ -69,7 +103,7 @@
                     {% endif %}
                 </tr>
                 {% empty %}
-                <tr><td colspan="7" class="text-center text-muted py-5">{% if is_supervisor_view and not school %}Choose a school above to view Students.{% else %}No Students are registered.{% endif %}</td></tr>
+                <tr><td colspan="{% if is_supervisor_view %}8{% else %}7{% endif %}" class="text-center text-muted py-5">{% if is_supervisor_view and not school %}Choose a school above to view Students.{% elif search_query %}No students matched that name or LRN.{% else %}No Students are registered.{% endif %}</td></tr>
                 {% endfor %}
             </tbody>
         </table>

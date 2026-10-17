@@ -1,0 +1,69 @@
+{% extends "supervisor/master2.html" %}
+
+{% block title %}Principal Profile{% endblock %}
+{% block nav_principals %}active{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-sm-row justify-content-between gap-3 mb-4">
+    <div>
+        <a href="{% url 'supervisor:principals' %}" class="small">← Back to Principals</a>
+        <h1 class="sv-page-title h4 mt-2">{{ principal.firstname }}{% if principal.middlename %} {{ principal.middlename }}{% endif %} {{ principal.lastname }}{% if principal.suffix %} {{ principal.suffix }}{% endif %}</h1>
+        <p class="sv-page-subtitle mb-0">{{ school.school_name }}</p>
+    </div>
+    <span class="status-badge status-{{ principal.user.status }} align-self-start">{{ principal.user.get_status_display }}</span>
+</div>
+
+<div class="row g-4">
+    <div class="col-12 col-lg-6">
+        <section class="sv-card h-100">
+            <h2 class="h6 fw-bold mb-3">Principal Information</h2>
+            <dl class="row mb-0">
+                <dt class="col-sm-5">First name</dt><dd class="col-sm-7">{{ principal.firstname }}</dd>
+                <dt class="col-sm-5">Middle name</dt><dd class="col-sm-7">{{ principal.middlename|default:"—" }}</dd>
+                <dt class="col-sm-5">Last name</dt><dd class="col-sm-7">{{ principal.lastname }}</dd>
+                <dt class="col-sm-5">Suffix</dt><dd class="col-sm-7">{{ principal.suffix|default:"—" }}</dd>
+                <dt class="col-sm-5">Employee ID</dt><dd class="col-sm-7">{{ principal.employee_id|default:"—" }}</dd>
+                <dt class="col-sm-5">Designation</dt><dd class="col-sm-7">{{ principal.designation|default:"Principal" }}</dd>
+            </dl>
+        </section>
+    </div>
+    <div class="col-12 col-lg-6">
+        <section class="sv-card h-100">
+            <h2 class="h6 fw-bold mb-3">Account Information</h2>
+            <dl class="row mb-0">
+                <dt class="col-sm-5">Email</dt><dd class="col-sm-7">{{ principal.user.email }}</dd>
+                <dt class="col-sm-5">Phone number</dt><dd class="col-sm-7">{{ principal.user.phone_number|default:"—" }}</dd>
+                <dt class="col-sm-5">Role</dt><dd class="col-sm-7">{{ principal.user.get_role_display }}</dd>
+                <dt class="col-sm-5">Account status</dt><dd class="col-sm-7">{{ principal.user.get_status_display }}</dd>
+                <dt class="col-sm-5">Account created</dt><dd class="col-sm-7">{{ principal.user.created_at|date:"M j, Y, g:i A" }}</dd>
+                <dt class="col-sm-5">Last updated</dt><dd class="col-sm-7">{{ principal.user.updated_at|date:"M j, Y, g:i A" }}</dd>
+            </dl>
+        </section>
+    </div>
+    <div class="col-12">
+        <section class="sv-card">
+            <div class="d-flex flex-column flex-sm-row justify-content-between gap-2 mb-3">
+                <div>
+                    <h2 class="h6 fw-bold mb-1">Assigned School</h2>
+                    <p class="text-muted mb-0">School information and current system records.</p>
+                </div>
+                <a class="btn btn-sm btn-outline-primary align-self-sm-start" href="{% url 'supervisor:school_detail' school.pk %}">View school</a>
+            </div>
+            <dl class="row mb-4">
+                <dt class="col-sm-3">School name</dt><dd class="col-sm-9">{{ school.school_name }}</dd>
+                <dt class="col-sm-3">DepEd School ID</dt><dd class="col-sm-9">{{ school.school_id_number|default:"—" }}</dd>
+                <dt class="col-sm-3">Region</dt><dd class="col-sm-9">{{ school.region|default:"—" }}</dd>
+                <dt class="col-sm-3">Division</dt><dd class="col-sm-9">{{ school.division|default:"—" }}</dd>
+                <dt class="col-sm-3">District</dt><dd class="col-sm-9">{{ school.district|default:"—" }}</dd>
+                <dt class="col-sm-3">Address</dt><dd class="col-sm-9">{{ school.address|default:"—"|linebreaksbr }}</dd>
+            </dl>
+            <div class="row g-3">
+                <div class="col-6 col-md-3"><div class="border rounded p-3"><small class="text-muted d-block">Teachers</small><strong>{{ teacher_count }}</strong></div></div>
+                <div class="col-6 col-md-3"><div class="border rounded p-3"><small class="text-muted d-block">Students</small><strong>{{ student_count }}</strong></div></div>
+                <div class="col-6 col-md-3"><div class="border rounded p-3"><small class="text-muted d-block">Classes</small><strong>{{ class_count }}</strong></div></div>
+                <div class="col-6 col-md-3"><div class="border rounded p-3"><small class="text-muted d-block">Announcements</small><strong>{{ announcement_count }}</strong></div></div>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
