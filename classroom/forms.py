@@ -1,6 +1,9 @@
 from django import forms
 
+from datetime import datetime, time
 from pathlib import Path
+
+from django.utils import timezone
 
 from accounts.models import ParentStudentLink
 
@@ -429,10 +432,12 @@ class ClassCalendarEventForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         self.fields["start_at"].input_formats = [
-            "%Y-%m-%dT%H:%M"
+            "%Y-%m-%dT%H:%M",
+            "%Y-%m-%d",
         ]
         self.fields["end_at"].input_formats = [
-            "%Y-%m-%dT%H:%M"
+            "%Y-%m-%dT%H:%M",
+            "%Y-%m-%d",
         ]
 
         # These are the only event types Teachers need.
@@ -460,6 +465,33 @@ class ClassCalendarEventForm(forms.ModelForm):
 
         start_at = cleaned_data.get("start_at")
         end_at = cleaned_data.get("end_at")
+        all_day = cleaned_data.get("all_day")
+
+        if all_day and start_at:
+            current_timezone = timezone.get_current_timezone()
+            start_date = (
+                timezone.localtime(start_at).date()
+                if timezone.is_aware(start_at)
+                else start_at.date()
+            )
+            end_date = start_date
+            if end_at:
+                end_date = (
+                    timezone.localtime(end_at).date()
+                    if timezone.is_aware(end_at)
+                    else end_at.date()
+                )
+
+            start_at = timezone.make_aware(
+                datetime.combine(start_date, time.min),
+                current_timezone,
+            )
+            end_at = timezone.make_aware(
+                datetime.combine(end_date, time.max),
+                current_timezone,
+            )
+            cleaned_data["start_at"] = start_at
+            cleaned_data["end_at"] = end_at
 
         if start_at and end_at and end_at < start_at:
             self.add_error(

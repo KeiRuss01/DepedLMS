@@ -8,52 +8,102 @@
 {% block auth_content %}
 <div class="login-box shared-login-box">
     <div class="auth-heading">
-        <span class="auth-heading-icon"><i class="bi bi-mortarboard-fill"></i></span>
+        <span class="auth-heading-icon">
+            <i class="bi bi-mortarboard-fill"></i>
+        </span>
         <h1>Classroom Portal</h1>
-        <p>Teacher, Student, and Parent sign in</p>
+        <p>Sign in using your District 1 LMS account</p>
     </div>
 
     {% if form.non_field_errors %}
-        <div class="alert alert-danger">{{ form.non_field_errors.0 }}</div>
+        <div class="alert alert-danger" role="alert">
+            {{ form.non_field_errors.0 }}
+        </div>
     {% endif %}
 
     <form method="post" novalidate>
         {% csrf_token %}
+
         <div class="auth-input mb-3">
             <i class="bi bi-envelope"></i>
-            <input class="form-control {% if form.email.errors %}is-invalid{% endif %}"
-                   id="id_email" name="email" type="email"
-                   value="{{ form.email.value|default:'' }}" placeholder="Email address"
-                   autocomplete="email" autofocus required>
-            {% if form.email.errors %}<div class="invalid-feedback">{{ form.email.errors.0 }}</div>{% endif %}
+            <input
+                class="form-control {% if form.email.errors %}is-invalid{% endif %}"
+                id="id_email"
+                name="email"
+                type="email"
+                value="{{ form.email.value|default:'' }}"
+                placeholder="Email address"
+                autocomplete="email"
+                autofocus
+                required
+            >
+            {% if form.email.errors %}
+                <div class="invalid-feedback">
+                    {{ form.email.errors.0 }}
+                </div>
+            {% endif %}
         </div>
 
         <div class="auth-input mb-2">
             <i class="bi bi-lock"></i>
-            <input class="form-control {% if form.password.errors %}is-invalid{% endif %}"
-                   id="id_password" name="password" type="password"
-                   placeholder="Password" autocomplete="current-password" required>
-            <button class="password-toggle" type="button" data-password-toggle="#id_password" aria-label="Show password">
+            <input
+                class="form-control {% if form.password.errors %}is-invalid{% endif %}"
+                id="id_password"
+                name="password"
+                type="password"
+                placeholder="Password"
+                autocomplete="current-password"
+                required
+            >
+
+            <button
+                class="password-toggle"
+                type="button"
+                data-password-toggle="#id_password"
+                aria-label="Show password"
+            >
                 <i class="bi bi-eye"></i>
             </button>
-            {% if form.password.errors %}<div class="invalid-feedback">{{ form.password.errors.0 }}</div>{% endif %}
+
+            {% if form.password.errors %}
+                <div class="invalid-feedback">
+                    {{ form.password.errors.0 }}
+                </div>
+            {% endif %}
         </div>
 
-        <div class="text-end mb-4"><span class="muted-link">Forgot password?</span></div>
+        <div class="login-options">
+            <span></span>
+            <span class="muted-link">Forgot password?</span>
+        </div>
+
         <button class="btn btn-auth-primary w-100" type="submit">
-            Login <i class="bi bi-arrow-right"></i>
+            Login
+            <i class="bi bi-arrow-right"></i>
         </button>
     </form>
 
-    <div class="or-divider"><span>OR</span></div>
+    <div class="signup-prompt">
+        <div class="signup-prompt-icon">
+            <i class="bi bi-person-plus"></i>
+        </div>
 
-    <button class="btn google-button w-100" type="button" disabled aria-disabled="true"
-            title="Google sign-in will be available later">
-        <span class="google-g">G</span> Sign in with Google
-    </button>
-    <p class="google-note">Google sign-in is not available yet.</p>
+        <div class="signup-prompt-content">
+            <strong>New to District 1 LMS?</strong>
+            <p>Create an account as a Student or Parent.</p>
+        </div>
 
-    <p class="switch-auth">Don’t have an account? <a href="{% url 'accounts:signup' %}">Sign up</a></p>
-    <p class="google-note">Public signup is for Students and Parents. Teachers receive an account from their Principal.</p>
+        <a
+            class="btn signup-prompt-button"
+            href="{% url 'accounts:signup' %}"
+        >
+            Sign up
+        </a>
+    </div>
+
+    <p class="staff-login-note">
+        <i class="bi bi-shield-check"></i>
+        Teacher accounts are issued by the assigned School Principal.
+    </p>
 </div>
 {% endblock %}

@@ -17,6 +17,7 @@
 .principal-form-section label span { color: var(--muted); font-size: .65rem; font-weight: 500; }
 .principal-form-section .form-control,
 .principal-form-section .form-select { min-height: 46px; border-color: var(--line); }
+.principal-form-section .form-control[readonly] { color: #17345f; font-weight: 700; background: #f3f7ff; }
 .form-text { color: var(--muted); font-size: .66rem; }
 .profile-later-note { display: flex; align-items: flex-start; gap: .65rem; padding: .9rem; color: #53657a; font-size: .75rem; line-height: 1.55; border-radius: .7rem; background: var(--sky); }
 .profile-later-note i { color: var(--royal); }

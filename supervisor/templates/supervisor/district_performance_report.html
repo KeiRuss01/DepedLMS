@@ -6,27 +6,58 @@
 
 {% block extra_css %}
 <link
-    href="{% static 'supervisor/css/principal_reports.css' %}?v=2"
+    href="{% static 'supervisor/css/principal_reports.css' %}?v=3"
     rel="stylesheet"
 >
 {% endblock %}
 
+<style>
+    .district-report-progress {
+        width: 100%;
+        height: 8px;
+        overflow: hidden;
+        border: 0;
+        border-radius: 999px;
+        background: #e5e7eb;
+        appearance: none;
+    }
+        
+    .district-report-progress::-webkit-progress-bar {
+        background: #e5e7eb;
+        border-radius: 999px;
+    }
+
+    .district-report-progress::-webkit-progress-value {
+        background: #1769ff;
+        border-radius: 999px;
+    }
+
+    .district-report-progress::-moz-progress-bar {
+        background: #1769ff;
+        border-radius: 999px;
+    }
+</style>
+
 {% block content %}
 <header class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
     <div>
-        <h1 class="sv-page-title h4">
-            District Reports
+        <span class="text-primary fw-bold small">
+            DISTRICT SUPERVISOR
+        </span>
+
+        <h1 class="sv-page-title h4 mt-1">
+            District End-of-School-Year Summary
         </h1>
 
         <p class="sv-page-subtitle mb-0">
-            Monitor finalized end-of-year reports
-            submitted by schools.
+            Read-only completion summary of finalized class records.
+            Individual grades and attendance remain at school level.
         </p>
     </div>
 
     <button
         type="button"
-        class="btn btn-outline-primary align-self-md-start"
+        class="btn btn-outline-primary align-self-md-start no-print"
         onclick="window.print()"
     >
         <i class="bi bi-printer me-2"></i>
@@ -34,10 +65,13 @@
     </button>
 </header>
 
-<section class="sv-card report-filter-card no-print">
+<section class="sv-card report-filter-card no-print mb-4">
     <form method="get" class="row g-3 align-items-end">
         <div class="col-12 col-md-4">
-            <label class="form-label" for="school">
+            <label
+                class="form-label"
+                for="school"
+            >
                 School
             </label>
 
@@ -46,7 +80,9 @@
                 id="school"
                 class="form-select"
             >
-                <option value="">All schools</option>
+                <option value="">
+                    All schools
+                </option>
 
                 {% for school in schools %}
                     <option
@@ -60,13 +96,16 @@
         </div>
 
         <div class="col-12 col-md-3">
-            <label class="form-label" for="school_year">
+            <label
+                class="form-label"
+                for="school-year"
+            >
                 School year
             </label>
 
             <select
                 name="school_year"
-                id="school_year"
+                id="school-year"
                 class="form-select"
             >
                 {% for year in school_years %}
@@ -76,13 +115,20 @@
                     >
                         {{ year }}
                     </option>
+                {% empty %}
+                    <option value="">
+                        No school years available
+                    </option>
                 {% endfor %}
             </select>
         </div>
 
         <div class="col-12 col-md-3">
-            <label class="form-label" for="status">
-                Status
+            <label
+                class="form-label"
+                for="status"
+            >
+                Completion status
             </label>
 
             <select
@@ -90,34 +136,39 @@
                 id="status"
                 class="form-select"
             >
-                <option value="">All statuses</option>
-
                 <option
-                    value="missing"
-                    {% if selected_status == "missing" %}selected{% endif %}
+                    value=""
+                    {% if not selected_status %}selected{% endif %}
                 >
-                    Not submitted
+                    All statuses
                 </option>
 
                 <option
-                    value="submitted"
-                    {% if selected_status == "submitted" %}selected{% endif %}
+                    value="complete"
+                    {% if selected_status == "complete" %}selected{% endif %}
                 >
-                    Waiting for review
+                    Complete
                 </option>
 
                 <option
-                    value="returned"
-                    {% if selected_status == "returned" %}selected{% endif %}
+                    value="in_progress"
+                    {% if selected_status == "in_progress" %}selected{% endif %}
                 >
-                    Returned
+                    In progress
                 </option>
 
                 <option
-                    value="acknowledged"
-                    {% if selected_status == "acknowledged" %}selected{% endif %}
+                    value="not_started"
+                    {% if selected_status == "not_started" %}selected{% endif %}
                 >
-                    Acknowledged
+                    Not started
+                </option>
+
+                <option
+                    value="no_classes"
+                    {% if selected_status == "no_classes" %}selected{% endif %}
+                >
+                    No classes
                 </option>
             </select>
         </div>
@@ -130,51 +181,97 @@
     </form>
 </section>
 
-<section class="report-stat-grid">
-    <article class="report-stat-card">
-        <small>Schools</small>
-        <strong>{{ school_count }}</strong>
-        <span>District schools</span>
-    </article>
+<section class="row g-3 mb-4">
+    <div class="col-6 col-lg">
+        <article class="sv-card h-100">
+            <small class="text-muted">
+                Schools
+            </small>
+            <strong class="d-block fs-3">
+                {{ school_count }}
+            </strong>
+            <span class="small text-muted">
+                Displayed schools
+            </span>
+        </article>
+    </div>
 
-    <article class="report-stat-card">
-        <small>Waiting for review</small>
-        <strong>{{ submitted_count }}</strong>
-        <span>Submitted by Principals</span>
-    </article>
+    <div class="col-6 col-lg">
+        <article class="sv-card h-100">
+            <small class="text-muted">
+                Complete
+            </small>
+            <strong class="d-block fs-3 text-success">
+                {{ complete_count }}
+            </strong>
+            <span class="small text-muted">
+                Fully verified
+            </span>
+        </article>
+    </div>
 
-    <article class="report-stat-card">
-        <small>Acknowledged</small>
-        <strong>{{ acknowledged_count }}</strong>
-        <span>Completed reports</span>
-    </article>
+    <div class="col-6 col-lg">
+        <article class="sv-card h-100">
+            <small class="text-muted">
+                In progress
+            </small>
+            <strong class="d-block fs-3 text-warning">
+                {{ in_progress_count }}
+            </strong>
+            <span class="small text-muted">
+                Partially finalized
+            </span>
+        </article>
+    </div>
 
-    <article class="report-stat-card">
-        <small>Returned</small>
-        <strong>{{ returned_count }}</strong>
-        <span>Needs correction</span>
-    </article>
+    <div class="col-6 col-lg">
+        <article class="sv-card h-100">
+            <small class="text-muted">
+                Not started
+            </small>
+            <strong class="d-block fs-3">
+                {{ not_started_count }}
+            </strong>
+            <span class="small text-muted">
+                No final records
+            </span>
+        </article>
+    </div>
 
-    <article class="report-stat-card">
-        <small>Not submitted</small>
-        <strong>{{ missing_count }}</strong>
-        <span>Waiting for Principal</span>
-    </article>
+    <div class="col-12 col-lg">
+        <article class="sv-card h-100">
+            <small class="text-muted">
+                District completion
+            </small>
+            <strong class="d-block fs-3 text-primary">
+                {{ district_completion }}%
+            </strong>
+            <span class="small text-muted">
+                {{ total_verified_count }}/{{ total_class_count }}
+                class records
+            </span>
+        </article>
+    </div>
 </section>
 
-<section class="sv-card report-table-card">
+<section class="sv-card p-0 overflow-hidden">
     <div class="table-responsive">
-        <table class="table align-middle mb-0 report-table">
+        <table class="table align-middle mb-0">
             <thead>
                 <tr>
                     <th>School</th>
-                    <th>School year</th>
-                    <th>Class reports</th>
+                    <th>Grade/Sections</th>
+                    <th>Classes</th>
                     <th>Learners</th>
-                    <th>Average</th>
+                    <th>Finalized</th>
+                    <th>Waiting for Principal</th>
+                    <th>Verified</th>
+                    <th>Returned</th>
+                    <th>Missing</th>
+                    <th style="min-width: 170px;">
+                        Completion
+                    </th>
                     <th>Status</th>
-                    <th>Submitted</th>
-                    <th class="text-end">Action</th>
                 </tr>
             </thead>
 
@@ -187,83 +284,119 @@
                             </strong>
                         </td>
 
-                        <td data-label="School year">
-                            {{ selected_year|default:"—" }}
+                        <td data-label="Grade/Sections">
+                            {{ row.cohort_count }}
                         </td>
 
-                        <td data-label="Class reports">
-                            {% if row.submission %}
-                                {{ row.submission.snapshot.class_report_count }}
-                            {% else %}
-                                —
-                            {% endif %}
+                        <td data-label="Classes">
+                            {{ row.class_count }}
                         </td>
 
                         <td data-label="Learners">
-                            {% if row.submission %}
-                                {{ row.submission.snapshot.learner_count }}
+                            {{ row.learner_count }}
+                        </td>
+
+                        <td data-label="Finalized">
+                            {{ row.finalized_count }}
+                        </td>
+
+                        <td data-label="Waiting">
+                            {{ row.waiting_for_principal }}
+                        </td>
+
+                        <td data-label="Verified">
+                            <strong class="text-success">
+                                {{ row.verified_count }}
+                            </strong>
+                        </td>
+
+                        <td data-label="Returned">
+                            {% if row.returned_count %}
+                                <strong class="text-danger">
+                                    {{ row.returned_count }}
+                                </strong>
                             {% else %}
-                                —
+                                0
                             {% endif %}
                         </td>
 
-                        <td data-label="Average">
-                            {% if row.submission %}
-                                {{ row.submission.snapshot.school_average|default_if_none:"—" }}
-                            {% else %}
-                                —
-                            {% endif %}
+                        <td data-label="Missing">
+                            {{ row.missing_count }}
+                        </td>
+
+                        <td data-label="Completion">
+                            <div class="d-flex align-items-center gap-2">
+                                <progress
+                                    class="district-report-progress flex-grow-1"
+                                    value="{{ row.verification_percentage }}"
+                                    max="100"
+                                    aria-label="Verification completion"
+                                >
+                                    {{ row.verification_percentage }}%
+                                </progress>
+
+                                <small class="fw-bold">
+                                    {{ row.verification_percentage }}%
+                                </small>
+                            </div>
                         </td>
 
                         <td data-label="Status">
-                            <span class="report-badge report-{{ row.status }}">
-                                {% if row.status == "missing" %}
-                                    Not submitted
-                                {% else %}
-                                    {{ row.submission.get_status_display }}
-                                {% endif %}
-                            </span>
-                        </td>
+                            {% if row.status == "complete" %}
+                                <span class="badge text-bg-success">
+                                    Complete
+                                </span>
 
-                        <td data-label="Submitted">
-                            {% if row.submission %}
-                                {{ row.submission.submitted_at|date:"M j, Y" }}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
+                            {% elif row.status == "in_progress" %}
+                                <span class="badge text-bg-warning">
+                                    In progress
+                                </span>
 
-                        <td data-label="Action" class="text-end">
-                            {% if row.submission %}
-                                <a
-                                    href="{% url 'supervisor:district_school_report_detail' row.submission.pk %}"
-                                    class="btn btn-sm {% if row.status == 'submitted' %}btn-primary{% else %}btn-outline-primary{% endif %}"
-                                >
-                                    {% if row.status == "submitted" %}
-                                        Review
-                                    {% else %}
-                                        View
-                                    {% endif %}
-                                </a>
+                            {% elif row.status == "not_started" %}
+                                <span class="badge text-bg-secondary">
+                                    Not started
+                                </span>
+
                             {% else %}
-                                <span class="text-muted small">
-                                    Waiting for Principal
+                                <span class="badge text-bg-light">
+                                    No classes
                                 </span>
                             {% endif %}
                         </td>
                     </tr>
+
                 {% empty %}
                     <tr>
                         <td
-                            colspan="8"
+                            colspan="11"
                             class="text-center text-muted py-5"
                         >
-                            No school reports match the selected filters.
+                            No schools match the selected filters.
                         </td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+</section>
+
+<section class="sv-card mt-4">
+    <div class="d-flex gap-3">
+        <i class="bi bi-info-circle text-primary fs-4"></i>
+
+        <div>
+            <h2 class="h6">
+                About this report
+            </h2>
+
+            <p class="text-muted mb-0">
+                This is an automatically generated monitoring summary.
+                Schools do not submit grades or attendance to the District
+                Supervisor through this page. Completion increases only
+                when a Principal verifies a Teacher’s finalized class
+                record.
+            </p>
+        </div>
     </div>
 </section>
 {% endblock %}

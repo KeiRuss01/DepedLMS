@@ -1370,17 +1370,29 @@ class GradeScore(models.Model):
 
 class GradeReportSubmission(models.Model):
 
+    class ReportPeriod(models.TextChoices):
+        TERM_1 = "1", "Term 1"
+        TERM_2 = "2", "Term 2"
+        TERM_3 = "3", "Term 3"
+        FINAL = "F", "End-of-School-Year"
+
     class Status(models.TextChoices):
-        SUBMITTED = "submitted", "Submitted to Principal"
+        SUBMITTED = "submitted", "Finalized by Teacher"
         RETURNED = "returned", "Returned for Correction"
-        APPROVED = "approved", "Approved"
+        APPROVED = "approved", "Verified by Principal"
 
     report_id = models.AutoField(primary_key=True)
 
-    classroom = models.OneToOneField(
+    classroom = models.ForeignKey(
         Classroom,
         on_delete=models.CASCADE,
-        related_name="final_grade_report",
+        related_name="term_grade_reports",
+    )
+
+    term = models.CharField(
+        max_length=1,
+        choices=ReportPeriod.choices,
+        default=ReportPeriod.FINAL,
     )
 
     status = models.CharField(
@@ -1413,33 +1425,35 @@ class GradeReportSubmission(models.Model):
         null=True,
     )
 
-    principal_comment = models.TextField(
-        blank=True,
-    )
+    principal_comment = models.TextField(blank=True)
 
-    # Keeps the exact report that was submitted even if live records
-    # are changed later.
     snapshot = models.JSONField(
         default=dict,
         blank=True,
     )
 
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-    )
-
-    updated_at = models.DateTimeField(
-        auto_now=True,
-    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "grade_report_submission"
-        ordering = ["-submitted_at"]
+        ordering = [
+            "-classroom__school_year",
+            "classroom__grade_level",
+            "classroom__section",
+            "term",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["classroom", "term"],
+                name="unique_classroom_term_report",
+            )
+        ]
 
     def __str__(self):
         return (
             f"{self.classroom.class_name} - "
-            f"{self.classroom.school_year} - "
+            f"{self.get_term_display()} - "
             f"{self.get_status_display()}"
         )
 

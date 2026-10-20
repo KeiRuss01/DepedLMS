@@ -2,6 +2,7 @@ from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.core.paginator import Paginator
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -32,11 +33,13 @@ from classroom.models import (
     Module,
     ModuleSubmission,
 )
+from classroom.gradebook import build_summary
 from classroom.notification_services import (
     notify_calendar_event,
+    notify_final_grade_report_reviewed,
     notify_school_announcement,
 )
-from .models import SchoolAnnouncement, SupervisionVisit
+from .models import SchoolAnnouncement
 
 from .forms import (
     AcademicTermForm,
@@ -238,6 +241,14 @@ def dashboard_view(request):
 
 @login_required(login_url="supervisor:login")
 def district_performance_report_view(request):
+    """
+    Read-only District end-of-school-year monitoring.
+
+    The District Supervisor does not receive or approve individual
+    learner grades. This page only summarizes Teacher-finalized and
+    Principal-verified class records for every school.
+    """
+
     if not _is_supervisor(request.user):
         messages.error(
             request,
@@ -245,15 +256,16 @@ def district_performance_report_view(request):
         )
         return _administration_redirect(request.user)
 
-    schools = School.objects.order_by(
-        "school_name",
-    )
+    schools = School.objects.order_by("school_name")
 
-    school_years = (
+    school_years = list(
         Classroom.objects.filter(
             is_archived=False,
         )
-        .values_list("school_year", flat=True)
+        .values_list(
+            "school_year",
+            flat=True,
+        )
         .distinct()
         .order_by("-school_year")
     )
@@ -261,64 +273,117 @@ def district_performance_report_view(request):
     selected_year = request.GET.get(
         "school_year",
         "",
-    )
+    ).strip()
 
     if not selected_year:
-        selected_year = school_years.first() or ""
+        selected_year = (
+            school_years[0]
+            if school_years
+            else ""
+        )
 
     selected_school = request.GET.get(
         "school",
         "",
-    )
+    ).strip()
 
     selected_status = request.GET.get(
         "status",
         "",
-    )
+    ).strip()
 
-    if selected_status not in {
+    valid_statuses = {
         "",
-        "missing",
-        SchoolReportSubmission.Status.SUBMITTED,
-        SchoolReportSubmission.Status.RETURNED,
-        SchoolReportSubmission.Status.ACKNOWLEDGED,
-    }:
-        selected_status = ""
-
-    submissions = (
-        SchoolReportSubmission.objects.filter(
-            school_year=selected_year,
-        )
-        .select_related(
-            "school",
-            "submitted_by",
-            "reviewed_by",
-        )
-    )
-
-    submission_map = {
-        submission.school_id: submission
-        for submission in submissions
+        "complete",
+        "in_progress",
+        "not_started",
+        "no_classes",
     }
+
+    if selected_status not in valid_statuses:
+        selected_status = ""
 
     report_rows = []
 
     for school in schools:
-        submission = submission_map.get(
-            school.pk,
-        )
-
-        row_status = (
-            submission.status
-            if submission
-            else "missing"
-        )
-
         if (
             selected_school
             and str(school.pk) != selected_school
         ):
             continue
+
+        classrooms = Classroom.objects.filter(
+            teacher__school=school,
+            school_year=selected_year,
+            is_archived=False,
+        )
+
+        classroom_ids = list(
+            classrooms.values_list(
+                "pk",
+                flat=True,
+            )
+        )
+
+        class_count = len(classroom_ids)
+
+        cohort_count = (
+            classrooms
+            .values(
+                "grade_level",
+                "section",
+            )
+            .distinct()
+            .count()
+        )
+
+        learner_count = (
+            Student.objects.filter(
+                class_enrollments__classroom_id__in=classroom_ids,
+                class_enrollments__status=(
+                    ClassEnrollment.Status.APPROVED
+                ),
+            )
+            .distinct()
+            .count()
+        )
+
+        final_reports = GradeReportSubmission.objects.filter(
+            classroom_id__in=classroom_ids,
+            term=GradeReportSubmission.ReportPeriod.FINAL,
+        )
+
+        # A row exists after the Teacher first finalizes the class record.
+        finalized_count = final_reports.count()
+
+        waiting_for_principal = final_reports.filter(
+            status=GradeReportSubmission.Status.SUBMITTED,
+        ).count()
+
+        verified_count = final_reports.filter(
+            status=GradeReportSubmission.Status.APPROVED,
+        ).count()
+
+        returned_count = final_reports.filter(
+            status=GradeReportSubmission.Status.RETURNED,
+        ).count()
+
+        missing_count = max(
+            class_count - finalized_count,
+            0,
+        )
+
+        if class_count == 0:
+            row_status = "no_classes"
+
+        elif verified_count == class_count:
+            row_status = "complete"
+
+        elif finalized_count > 0:
+            row_status = "in_progress"
+
+        else:
+            row_status = "not_started"
 
         if (
             selected_status
@@ -326,27 +391,69 @@ def district_performance_report_view(request):
         ):
             continue
 
+        verification_percentage = (
+            round(
+                verified_count
+                / class_count
+                * 100
+            )
+            if class_count
+            else 0
+        )
+
         report_rows.append({
             "school": school,
-            "submission": submission,
+            "class_count": class_count,
+            "cohort_count": cohort_count,
+            "learner_count": learner_count,
+            "finalized_count": finalized_count,
+            "waiting_for_principal": waiting_for_principal,
+            "verified_count": verified_count,
+            "returned_count": returned_count,
+            "missing_count": missing_count,
+            "verification_percentage": verification_percentage,
             "status": row_status,
         })
 
-    school_count = schools.count()
+    school_count = len(report_rows)
 
-    submitted_count = submissions.filter(
-        status=SchoolReportSubmission.Status.SUBMITTED,
-    ).count()
+    complete_count = sum(
+        1
+        for row in report_rows
+        if row["status"] == "complete"
+    )
 
-    returned_count = submissions.filter(
-        status=SchoolReportSubmission.Status.RETURNED,
-    ).count()
+    in_progress_count = sum(
+        1
+        for row in report_rows
+        if row["status"] == "in_progress"
+    )
 
-    acknowledged_count = submissions.filter(
-        status=SchoolReportSubmission.Status.ACKNOWLEDGED,
-    ).count()
+    not_started_count = sum(
+        1
+        for row in report_rows
+        if row["status"] == "not_started"
+    )
 
-    missing_count = school_count - submissions.count()
+    total_class_count = sum(
+        row["class_count"]
+        for row in report_rows
+    )
+
+    total_verified_count = sum(
+        row["verified_count"]
+        for row in report_rows
+    )
+
+    district_completion = (
+        round(
+            total_verified_count
+            / total_class_count
+            * 100
+        )
+        if total_class_count
+        else 0
+    )
 
     return render(
         request,
@@ -359,46 +466,12 @@ def district_performance_report_view(request):
             "selected_school": selected_school,
             "selected_status": selected_status,
             "school_count": school_count,
-            "submitted_count": submitted_count,
-            "returned_count": returned_count,
-            "acknowledged_count": acknowledged_count,
-            "missing_count": missing_count,
-        },
-    )
-
-@login_required(login_url="supervisor:login")
-def supervision_visit_view(request):
-    if not _is_supervisor(request.user):
-        messages.error(
-            request,
-            "Only the District Supervisor can manage supervision records.",
-        )
-        return _administration_redirect(request.user)
-
-    form = SupervisionVisitForm(request.POST or None)
-
-    if request.method == "POST" and form.is_valid():
-        visit = form.save(commit=False)
-        visit.supervisor = request.user
-        visit.save()
-
-        messages.success(
-            request,
-            "Supervision record saved successfully.",
-        )
-        return redirect("supervisor:supervision")
-
-    visits = SupervisionVisit.objects.select_related(
-        "school",
-        "supervisor",
-    )
-
-    return render(
-        request,
-        "supervisor/supervision.html",
-        {
-            "form": form,
-            "visits": visits,
+            "complete_count": complete_count,
+            "in_progress_count": in_progress_count,
+            "not_started_count": not_started_count,
+            "total_class_count": total_class_count,
+            "total_verified_count": total_verified_count,
+            "district_completion": district_completion,
         },
     )
 
@@ -477,7 +550,7 @@ def principal_grade_reports_view(request):
     if not _is_principal(request.user):
         messages.error(
             request,
-            "Only the Principal can open school reports.",
+            "Only the Principal can open School Reports.",
         )
         return _administration_redirect(request.user)
 
@@ -490,39 +563,20 @@ def principal_grade_reports_view(request):
     if principal is None:
         messages.error(
             request,
-            "Your Principal profile is not connected to a school.",
+            "Your Principal account is not connected to a school.",
         )
         return redirect("supervisor:principal_dashboard")
 
     school = principal.school
 
-    all_classrooms = Classroom.objects.filter(
-        teacher__school=school,
-        is_archived=False,
-    ).select_related(
-        "teacher",
-        "final_grade_report",
-    )
-
-    school_years = (
-        all_classrooms
+    school_years = list(
+        Classroom.objects.filter(
+            teacher__school=school,
+            is_archived=False,
+        )
         .values_list("school_year", flat=True)
         .distinct()
         .order_by("-school_year")
-    )
-
-    grade_levels = (
-        all_classrooms
-        .values_list("grade_level", flat=True)
-        .distinct()
-        .order_by("grade_level")
-    )
-
-    sections = (
-        all_classrooms
-        .values_list("section", flat=True)
-        .distinct()
-        .order_by("section")
     )
 
     selected_year = request.GET.get(
@@ -530,162 +584,306 @@ def principal_grade_reports_view(request):
         "",
     )
 
-    selected_grade = request.GET.get(
-        "grade_level",
-        "",
-    )
-
-    selected_section = request.GET.get(
-        "section",
-        "",
-    )
-
-    selected_status = request.GET.get(
-        "status",
-        "",
-    )
-
-    allowed_statuses = {
-        "",
-        "missing",
-        GradeReportSubmission.Status.SUBMITTED,
-        GradeReportSubmission.Status.RETURNED,
-        GradeReportSubmission.Status.APPROVED,
-    }
-
-    if selected_status not in allowed_statuses:
-        selected_status = ""
-
-    classrooms = all_classrooms
-
-    if selected_year:
-        classrooms = classrooms.filter(
-            school_year=selected_year,
+    if not selected_year:
+        selected_year = (
+            school_years[0]
+            if school_years
+            else ""
         )
 
-    if selected_grade:
-        classrooms = classrooms.filter(
-            grade_level=selected_grade,
-        )
-
-    if selected_section:
-        classrooms = classrooms.filter(
-            section=selected_section,
-        )
-
-    classrooms = list(
-        classrooms.order_by(
-            "grade_level",
-            "section",
-            "subject",
-        )
+    classrooms = Classroom.objects.filter(
+        teacher__school=school,
+        school_year=selected_year,
+        is_archived=False,
     )
 
-    class_rows = []
-
-    for classroom in classrooms:
-        report = getattr(
-            classroom,
-            "final_grade_report",
-            None,
-        )
-
-        row_status = (
-            report.status
-            if report
-            else "missing"
-        )
-
-        if (
-            selected_status
-            and row_status != selected_status
-        ):
-            continue
-
-        class_rows.append({
-            "classroom": classroom,
-            "report": report,
-            "status": row_status,
-        })
-
-    classroom_ids = [
-        classroom.pk
-        for classroom in classrooms
-    ]
-
-    report_counts = GradeReportSubmission.objects.filter(
-        classroom_id__in=classroom_ids,
+    cohort_values = (
+        classrooms
+        .values("grade_level", "section")
+        .distinct()
+        .order_by("grade_level", "section")
     )
 
-    expected_count = len(classroom_ids)
+    cohort_rows = []
 
-    submitted_count = report_counts.filter(
-        status=GradeReportSubmission.Status.SUBMITTED,
-    ).count()
+    for cohort in cohort_values:
+        cohort_classes = classrooms.filter(
+            grade_level=cohort["grade_level"],
+            section=cohort["section"],
+        )
 
-    returned_count = report_counts.filter(
-        status=GradeReportSubmission.Status.RETURNED,
-    ).count()
+        class_ids = list(
+            cohort_classes.values_list(
+                "pk",
+                flat=True,
+            )
+        )
 
-    approved_count = report_counts.filter(
-        status=GradeReportSubmission.Status.APPROVED,
-    ).count()
+        learner_count = (
+            Student.objects.filter(
+                class_enrollments__classroom_id__in=class_ids,
+                class_enrollments__status=(
+                    ClassEnrollment.Status.APPROVED
+                ),
+            )
+            .distinct()
+            .count()
+        )
 
-    missing_count = (
-        expected_count - report_counts.count()
-    )
+        final_reports = GradeReportSubmission.objects.filter(
+            classroom_id__in=class_ids,
+            term=GradeReportSubmission.ReportPeriod.FINAL,
+        )
 
-    approved_reports = (
-        GradeReportSubmission.objects.filter(
-            classroom_id__in=classroom_ids,
+        teacher_finalized = final_reports.filter(
+            status__in=[
+                GradeReportSubmission.Status.SUBMITTED,
+                GradeReportSubmission.Status.APPROVED,
+            ],
+        ).count()
+
+        principal_verified = final_reports.filter(
             status=GradeReportSubmission.Status.APPROVED,
-        )
-        .select_related(
-            "classroom",
-            "classroom__teacher",
-        )
-        .order_by(
-            "classroom__grade_level",
-            "classroom__section",
-            "classroom__subject",
-        )
-    )
+        ).count()
 
-    learner_reports = build_consolidated_learners(
-        approved_reports
-    )
+        returned_count = final_reports.filter(
+            status=GradeReportSubmission.Status.RETURNED,
+        ).count()
 
-    selected_tab = request.GET.get(
-        "tab",
-        "submissions",
-    )
+        class_count = len(class_ids)
 
-    if selected_tab not in {
-        "submissions",
-        "learners",
-    }:
-        selected_tab = "submissions"
+        if class_count and principal_verified == class_count:
+            status = "complete"
+        elif teacher_finalized or returned_count:
+            status = "in_progress"
+        else:
+            status = "not_started"
+
+        cohort_rows.append({
+            "grade_level": cohort["grade_level"],
+            "section": cohort["section"],
+            "class_count": class_count,
+            "learner_count": learner_count,
+            "teacher_finalized": teacher_finalized,
+            "principal_verified": principal_verified,
+            "returned_count": returned_count,
+            "status": status,
+        })
 
     return render(
         request,
         "supervisor/principal_grade_reports.html",
         {
             "school": school,
-            "class_rows": class_rows,
-            "learner_reports": learner_reports,
             "school_years": school_years,
-            "grade_levels": grade_levels,
-            "sections": sections,
             "selected_year": selected_year,
-            "selected_grade": selected_grade,
-            "selected_section": selected_section,
-            "selected_status": selected_status,
-            "selected_tab": selected_tab,
-            "expected_count": expected_count,
-            "submitted_count": submitted_count,
-            "returned_count": returned_count,
-            "approved_count": approved_count,
-            "missing_count": missing_count,
+            "cohort_rows": cohort_rows,
+        },
+    )
+
+@login_required(login_url="supervisor:login")
+def principal_cohort_report_view(
+    request,
+    school_year,
+    grade_level,
+    section,
+):
+    if not _is_principal(request.user):
+        messages.error(
+            request,
+            "Only the Principal can open School Reports.",
+        )
+        return _administration_redirect(request.user)
+
+    principal = getattr(
+        request.user,
+        "principal_profile",
+        None,
+    )
+
+    if principal is None:
+        messages.error(
+            request,
+            "Your Principal account is not connected to a school.",
+        )
+        return redirect("supervisor:principal_dashboard")
+
+    school = principal.school
+
+    classrooms = list(
+        Classroom.objects.filter(
+            teacher__school=school,
+            school_year=school_year,
+            grade_level=grade_level,
+            section=section,
+            is_archived=False,
+        )
+        .select_related(
+            "teacher",
+            "teacher__user",
+        )
+        .order_by("subject", "class_name")
+    )
+
+    classroom_ids = [
+        classroom.pk
+        for classroom in classrooms
+    ]
+
+    students = list(
+        Student.objects.filter(
+            class_enrollments__classroom_id__in=classroom_ids,
+            class_enrollments__status=(
+                ClassEnrollment.Status.APPROVED
+            ),
+        )
+        .distinct()
+        .order_by(
+            "lastname",
+            "firstname",
+        )
+    )
+
+    enrollment_pairs = set(
+        ClassEnrollment.objects.filter(
+            classroom_id__in=classroom_ids,
+            student__in=students,
+            status=ClassEnrollment.Status.APPROVED,
+        ).values_list(
+            "classroom_id",
+            "student_id",
+        )
+    )
+
+    final_reports = {
+        report.classroom_id: report
+        for report in GradeReportSubmission.objects.filter(
+            classroom_id__in=classroom_ids,
+            term=GradeReportSubmission.ReportPeriod.FINAL,
+        )
+    }
+
+    subject_columns = []
+    summary_maps = {}
+
+    for classroom in classrooms:
+        class_students = [
+            student
+            for student in students
+            if (
+                classroom.pk,
+                student.pk,
+            ) in enrollment_pairs
+        ]
+
+        class_summary = build_summary(
+            classroom,
+            class_students,
+        )
+
+        summary_maps[classroom.pk] = {
+            row["student"].pk: row
+            for row in class_summary
+        }
+
+        subject_columns.append({
+            "classroom": classroom,
+            "report": final_reports.get(classroom.pk),
+        })
+
+    learner_rows = []
+
+    for student in students:
+        subjects = []
+        final_grades = []
+        expected_subjects = 0
+
+        for classroom in classrooms:
+            if (
+                classroom.pk,
+                student.pk,
+            ) not in enrollment_pairs:
+                subjects.append({
+                    "enrolled": False,
+                    "term_1": None,
+                    "term_2": None,
+                    "term_3": None,
+                    "final": None,
+                })
+                continue
+
+            expected_subjects += 1
+
+            grade_row = summary_maps[
+                classroom.pk
+            ].get(student.pk)
+
+            subject = {
+                "enrolled": True,
+                "term_1": (
+                    grade_row["term_1"]
+                    if grade_row
+                    else None
+                ),
+                "term_2": (
+                    grade_row["term_2"]
+                    if grade_row
+                    else None
+                ),
+                "term_3": (
+                    grade_row["term_3"]
+                    if grade_row
+                    else None
+                ),
+                "final": (
+                    grade_row["final"]
+                    if grade_row
+                    else None
+                ),
+            }
+
+            if subject["final"] is not None:
+                final_grades.append(
+                    float(subject["final"])
+                )
+
+            subjects.append(subject)
+
+        all_subjects_complete = (
+            expected_subjects > 0
+            and len(final_grades) == expected_subjects
+        )
+
+        general_average = None
+
+        if all_subjects_complete:
+            general_average = round(
+                sum(final_grades)
+                / len(final_grades),
+                2,
+            )
+
+        learner_rows.append({
+            "student": student,
+            "subjects": subjects,
+            "general_average": general_average,
+            "status": (
+                "Complete"
+                if all_subjects_complete
+                else "Incomplete"
+            ),
+        })
+
+    return render(
+        request,
+        "supervisor/principal_cohort_report.html",
+        {
+            "school": school,
+            "school_year": school_year,
+            "grade_level": grade_level,
+            "section": section,
+            "subject_columns": subject_columns,
+            "learner_rows": learner_rows,
         },
     )
 
@@ -860,7 +1058,10 @@ def teacher_create_view(request):
         teacher = form.save()
         messages.success(
             request,
-            f"Teacher account for {teacher.firstname} {teacher.lastname} was created.",
+            (
+                f"Teacher account created. Email: {teacher.user.email} | "
+                f"Temporary password: {form.cleaned_data['password1']}"
+            ),
         )
         return redirect("supervisor:teachers")
 
@@ -942,7 +1143,10 @@ def principal_create_view(request):
         principal = form.save()
         messages.success(
             request,
-            f"Principal account for {principal.firstname} {principal.lastname} was created.",
+            (
+                f"Principal account created. Email: {principal.user.email} | "
+                f"Temporary password: {form.cleaned_data['password1']}"
+            ),
         )
         return redirect("supervisor:principals")
 
@@ -1003,6 +1207,21 @@ def school_detail_view(request, school_id):
     teachers = Teacher.objects.filter(school=school).select_related("user").prefetch_related(
         "created_classes"
     ).order_by("lastname", "firstname")
+    teacher_count = teachers.count()
+    teacher_search = request.GET.get("teacher_q", "").strip()
+    if teacher_search:
+        for search_term in teacher_search.split():
+            teachers = teachers.filter(
+                Q(firstname__icontains=search_term)
+                | Q(middlename__icontains=search_term)
+                | Q(lastname__icontains=search_term)
+                | Q(suffix__icontains=search_term)
+                | Q(employee_id__icontains=search_term)
+                | Q(user__email__icontains=search_term)
+            )
+    teachers = Paginator(teachers, 5).get_page(
+        request.GET.get("teacher_page")
+    )
     students = Student.objects.filter(school=school).select_related("user").order_by(
         "lastname", "firstname"
     )
@@ -1028,10 +1247,11 @@ def school_detail_view(request, school_id):
         "students": students,
         "classes": classes,
         "principal_count": principals.count(),
-        "teacher_count": teachers.count(),
+        "teacher_count": teacher_count,
         "student_count": student_count,
         "class_count": classes.count(),
         "student_search": student_search,
+        "teacher_search": teacher_search,
     }
     return render(request, "supervisor/school_detail.html", context)
 
@@ -1142,6 +1362,8 @@ def principal_grade_report_review_view(
             "updated_at",
         ]
     )
+
+    notify_final_grade_report_reviewed(report)
 
     messages.success(
         request,
@@ -1303,22 +1525,57 @@ def _parent_student_records(parent):
 
 @login_required(login_url="supervisor:login")
 def parent_list_view(request):
-    if not _is_supervisor(request.user):
-        messages.error(request, "Only the District Supervisor can manage Parent accounts.")
+    is_supervisor = _is_supervisor(request.user)
+    is_principal = _is_principal(request.user)
+
+    if not (is_supervisor or is_principal):
+        messages.error(
+            request,
+            "You don't have access to the Parent list.",
+        )
         return _administration_redirect(request.user)
 
-    search_query = request.GET.get("q", "").strip()
-    parents = Parent.objects.select_related(
-        "user",
-        "student",
-        "student__school",
-        "student__user",
-    ).prefetch_related(
-        "student_links__student__school",
-        "student_links__student__user",
-        "children__school",
-        "children__user",
+    principal = getattr(
+        request.user,
+        "principal_profile",
+        None,
     )
+
+    if is_principal and principal is None:
+        messages.error(
+            request,
+            "Your Principal profile is not connected to a school.",
+        )
+        return redirect("supervisor:principal_dashboard")
+
+    search_query = request.GET.get("q", "").strip()
+
+    parents = (
+        Parent.objects
+        .select_related(
+            "user",
+            "student",
+            "student__school",
+            "student__user",
+        )
+        .prefetch_related(
+            "student_links__student__school",
+            "student_links__student__user",
+            "children__school",
+            "children__user",
+        )
+    )
+
+    # A Principal can only view Parents connected to learners
+    # belonging to the Principal's assigned school.
+    if is_principal:
+        school = principal.school
+
+        parents = parents.filter(
+            Q(student_links__student__school=school)
+            | Q(children__school=school)
+            | Q(student__school=school)
+        )
 
     if search_query:
         for search_term in search_query.split():
@@ -1328,10 +1585,22 @@ def parent_list_view(request):
                 | Q(lastname__icontains=search_term)
                 | Q(user__email__icontains=search_term)
                 | Q(user__phone_number__icontains=search_term)
-                | Q(student_links__student__firstname__icontains=search_term)
-                | Q(student_links__student__middlename__icontains=search_term)
-                | Q(student_links__student__lastname__icontains=search_term)
-                | Q(student_links__student__lrn__icontains=search_term)
+                | Q(
+                    student_links__student__firstname__icontains=
+                    search_term
+                )
+                | Q(
+                    student_links__student__middlename__icontains=
+                    search_term
+                )
+                | Q(
+                    student_links__student__lastname__icontains=
+                    search_term
+                )
+                | Q(
+                    student_links__student__lrn__icontains=
+                    search_term
+                )
                 | Q(children__firstname__icontains=search_term)
                 | Q(children__middlename__icontains=search_term)
                 | Q(children__lastname__icontains=search_term)
@@ -1342,9 +1611,24 @@ def parent_list_view(request):
                 | Q(student__lrn__icontains=search_term)
             )
 
-    parents = list(parents.distinct().order_by("lastname", "firstname"))
+    parents = list(
+        parents
+        .distinct()
+        .order_by("lastname", "firstname")
+    )
+
     for parent in parents:
-        parent.admin_student_records = _parent_student_records(parent)
+        records = _parent_student_records(parent)
+
+        if is_principal:
+            records = [
+                record
+                for record in records
+                if record["student"].school_id
+                == principal.school_id
+            ]
+
+        parent.admin_student_records = records
 
     return render(
         request,
@@ -1352,36 +1636,81 @@ def parent_list_view(request):
         {
             "parents": parents,
             "search_query": search_query,
+            "school": principal.school if is_principal else None,
+            "is_principal_view": is_principal,
         },
     )
 
 
 @login_required(login_url="supervisor:login")
 def parent_detail_view(request, parent_id):
-    if not _is_supervisor(request.user):
-        messages.error(request, "Only the District Supervisor can view Parent details.")
+    is_supervisor = _is_supervisor(request.user)
+    is_principal = _is_principal(request.user)
+
+    if not (is_supervisor or is_principal):
+        messages.error(
+            request,
+            "You don't have access to Parent details.",
+        )
         return _administration_redirect(request.user)
 
-    parent = get_object_or_404(
-        Parent.objects.select_related(
+    principal = getattr(
+        request.user,
+        "principal_profile",
+        None,
+    )
+
+    if is_principal and principal is None:
+        messages.error(
+            request,
+            "Your Principal profile is not connected to a school.",
+        )
+        return redirect("supervisor:principal_dashboard")
+
+    parents = (
+        Parent.objects
+        .select_related(
             "user",
             "student",
             "student__school",
             "student__user",
-        ).prefetch_related(
+        )
+        .prefetch_related(
             "student_links__student__school",
             "student_links__student__user",
             "children__school",
             "children__user",
-        ),
+        )
+    )
+
+    if is_principal:
+        parents = parents.filter(
+            Q(student_links__student__school=principal.school)
+            | Q(children__school=principal.school)
+            | Q(student__school=principal.school)
+        )
+
+    parent = get_object_or_404(
+        parents.distinct(),
         pk=parent_id,
     )
+
+    student_records = _parent_student_records(parent)
+
+    if is_principal:
+        student_records = [
+            record
+            for record in student_records
+            if record["student"].school_id
+            == principal.school_id
+        ]
+
     return render(
         request,
         "supervisor/parent_detail.html",
         {
             "parent": parent,
-            "student_records": _parent_student_records(parent),
+            "student_records": student_records,
         },
     )
 

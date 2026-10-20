@@ -13,11 +13,11 @@
 
 {% block content %}
 <a
-    href="{% url 'supervisor:principal_grade_reports' %}"
+    href="{% url 'supervisor:principal_cohort_report' report.classroom.school_year report.classroom.grade_level report.classroom.section %}"
     class="sv-back-link no-print"
 >
     <i class="bi bi-arrow-left"></i>
-    Back to School Reports
+    Back to {{ report.classroom.grade_level }} – {{ report.classroom.section }}
 </a>
 
 <header class="report-detail-heading">
@@ -32,6 +32,13 @@
             {{ snapshot.section|default:report.classroom.section }}
             ·
             {{ snapshot.school_year|default:report.classroom.school_year }}
+            ·
+            {% if report.term == "final" %}
+                Final School-Year Report
+            {% else %}
+                ·
+                {{ report.get_term_display }}
+            {% endif %}
         </p>
     </div>
 
@@ -84,18 +91,49 @@
 </section>
 
 <section class="sv-card report-detail-table">
+    <div class="mb-3">
+        <h2 class="h5 mb-1">
+            Final Learner Grades and Attendance
+        </h2>
+
+        <p class="text-muted mb-0">
+            End-of-school-year consolidation of all three terms.
+        </p>
+    </div>
+
     <div class="table-responsive">
-        <table class="table align-middle mb-0">
+        <table class="table table-bordered align-middle mb-0">
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Learner</th>
-                    <th>LRN</th>
-                    <th>Term 1</th>
-                    <th>Term 2</th>
-                    <th>Term 3</th>
-                    <th>Final grade</th>
-                    <th>Remark</th>
+                    <th rowspan="2">#</th>
+                    <th rowspan="2" style="min-width: 190px;">
+                        Learner
+                    </th>
+                    <th rowspan="2">LRN</th>
+
+                    <th colspan="4" class="text-center">
+                        Grades
+                    </th>
+
+                    <th colspan="6" class="text-center">
+                        Annual Attendance
+                    </th>
+
+                    <th rowspan="2">Remark</th>
+                </tr>
+
+                <tr>
+                    <th>T1</th>
+                    <th>T2</th>
+                    <th>T3</th>
+                    <th>Final</th>
+
+                    <th>Present</th>
+                    <th>Absent</th>
+                    <th>Tardy</th>
+                    <th>Excused</th>
+                    <th>Missing</th>
+                    <th>Rate</th>
                 </tr>
             </thead>
 
@@ -105,26 +143,76 @@
                         <td>{{ forloop.counter }}</td>
 
                         <td>
-                            <strong>{{ learner.name }}</strong>
-                        </td>
-
-                        <td>{{ learner.lrn }}</td>
-                        <td>{{ learner.term_1|default_if_none:"—" }}</td>
-                        <td>{{ learner.term_2|default_if_none:"—" }}</td>
-                        <td>{{ learner.term_3|default_if_none:"—" }}</td>
-
-                        <td>
                             <strong>
-                                {{ learner.final_grade|default_if_none:"—" }}
+                                {{ learner.name }}
                             </strong>
                         </td>
 
-                        <td>{{ learner.remark|default:"—" }}</td>
+                        <td>{{ learner.lrn|default:"—" }}</td>
+
+                        <td>
+                            {{ learner.term_1|default_if_none:"—" }}
+                        </td>
+
+                        <td>
+                            {{ learner.term_2|default_if_none:"—" }}
+                        </td>
+
+                        <td>
+                            {{ learner.term_3|default_if_none:"—" }}
+                        </td>
+
+                        <td class="fw-bold bg-light">
+                            {{ learner.final_grade|default_if_none:"—" }}
+                        </td>
+
+                        <td>
+                            {{ learner.attendance.present|default:0 }}
+                        </td>
+
+                        <td>
+                            {{ learner.attendance.absent|default:0 }}
+                        </td>
+
+                        <td>
+                            {{ learner.attendance.late|default:0 }}
+                        </td>
+
+                        <td>
+                            {{ learner.attendance.excused|default:0 }}
+                        </td>
+
+                        <td>
+                            {{ learner.attendance.missing|default:0 }}
+                        </td>
+
+                        <td>
+                            {% if learner.attendance.attendance_rate is not None %}
+                                {{ learner.attendance.attendance_rate }}%
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if learner.remark == "Passed" %}
+                                <span class="badge text-bg-success">
+                                    Passed
+                                </span>
+                            {% elif learner.remark == "Failed" %}
+                                <span class="badge text-bg-danger">
+                                    Failed
+                                </span>
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
                     </tr>
+
                 {% empty %}
                     <tr>
                         <td
-                            colspan="8"
+                            colspan="14"
                             class="text-center text-muted py-5"
                         >
                             This report does not contain learner records.
@@ -182,7 +270,7 @@
                 name="action"
                 value="approve"
                 class="btn btn-primary"
-                onclick="return confirm('Approve this final class report?')"
+                onclick="return confirm('Approve this final class report from {{ report.classroom.teacher.firstname }} {{ report.classroom.teacher.lastname }}?')"
             >
                 <i class="bi bi-check-circle me-2"></i>
                 Approve Report

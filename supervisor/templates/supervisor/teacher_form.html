@@ -12,28 +12,9 @@
     <p class="sv-page-subtitle">Create a basic Classroom Portal account for {{ school.school_name }}.</p>
 </div>
 
-<form method="post" class="sv-card principal-form" novalidate>
+<form method="post" class="sv-card principal-form generated-account-form" data-current-year="{% now 'Y' %}" novalidate>
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
-
-    <section class="principal-form-section">
-        <h2>Account Information</h2>
-        <div class="row g-3">
-            <div class="col-12">
-                <label for="{{ form.email.id_for_label }}">Email address <span class="text-danger">*</span></label>
-                {{ form.email }}{{ form.email.errors }}
-                <small class="form-text">The Teacher will use this email at the Classroom Portal.</small>
-            </div>
-            <div class="col-md-6">
-                <label for="{{ form.password1.id_for_label }}">Temporary password <span class="text-danger">*</span></label>
-                {{ form.password1 }}{{ form.password1.errors }}
-            </div>
-            <div class="col-md-6">
-                <label for="{{ form.password2.id_for_label }}">Confirm password <span class="text-danger">*</span></label>
-                {{ form.password2 }}{{ form.password2.errors }}
-            </div>
-        </div>
-    </section>
 
     <section class="principal-form-section">
         <h2>Teacher Name</h2>
@@ -58,6 +39,22 @@
     </section>
 
     <section class="principal-form-section">
+        <h2>Generated Account Information</h2>
+        <div class="row g-3">
+            <div class="col-12">
+                <label for="{{ form.email.id_for_label }}">Email address</label>
+                {{ form.email }}{{ form.email.errors }}
+                <small class="form-text">Generated from the last name and initials. A number is added automatically if the email already exists.</small>
+            </div>
+            <div class="col-12">
+                <label for="{{ form.password1.id_for_label }}">Temporary password</label>
+                {{ form.password1 }}{{ form.password1.errors }}
+                <small class="form-text">Generated using the last name and the current year.</small>
+            </div>
+        </div>
+    </section>
+
+    <section class="principal-form-section">
         <h2>School Assignment</h2>
         <div class="form-control bg-light d-flex align-items-center">{{ school.school_name }}</div>
         <small class="form-text">Teachers created here are automatically assigned to your school.</small>
@@ -76,3 +73,4 @@
     </div>
 </form>
 {% endblock %}
+{% block extra_js %}<script src="{% static 'supervisor/js/account-generator.js' %}"></script>{% endblock %}

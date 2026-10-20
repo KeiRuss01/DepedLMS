@@ -1,0 +1,181 @@
+{% extends "supervisor/master2.html" %}
+
+{% block title %}{{ grade_level }} {{ section }} Report{% endblock %}
+{% block nav_reports %}active{% endblock %}
+
+{% block content %}
+<header class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
+    <div>
+        <a
+            href="{% url 'supervisor:principal_grade_reports' %}?school_year={{ school_year }}"
+            class="text-decoration-none"
+        >
+            <i class="bi bi-arrow-left"></i>
+            Back to School Reports
+        </a>
+
+        <h1 class="sv-page-title h4 mt-3">
+            {{ grade_level }} – {{ section }}
+        </h1>
+
+        <p class="sv-page-subtitle mb-0">
+            {{ school.school_name }} · School Year {{ school_year }}
+        </p>
+    </div>
+
+    <button
+        type="button"
+        class="btn btn-outline-primary align-self-md-start no-print"
+        onclick="window.print()"
+    >
+        <i class="bi bi-printer me-2"></i>
+        Print / Save PDF
+    </button>
+</header>
+
+<section class="sv-card p-0 overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-bordered align-middle mb-0">
+            <thead>
+                <tr>
+                    <th rowspan="2">LRN</th>
+                    <th rowspan="2" style="min-width: 190px;">
+                        Learner
+                    </th>
+
+                    {% for column in subject_columns %}
+                        <th colspan="4" class="text-center">
+                            {{ column.classroom.subject }}
+
+                            <small class="d-block fw-normal">
+                                {{ column.classroom.teacher.firstname }}
+                                {{ column.classroom.teacher.lastname }}
+                            </small>
+
+                            <div class="d-flex flex-column align-items-center gap-2 mt-2">
+                                {% if column.report %}
+                                    {% if column.report.status == "approved" %}
+                                        <span class="badge text-bg-success">
+                                            <i class="bi bi-check-circle me-1"></i>
+                                            Verified by Principal
+                                        </span>
+
+                                        <a
+                                            href="{% url 'supervisor:principal_grade_report_detail' column.report.pk %}"
+                                            class="btn btn-sm btn-outline-primary no-print"
+                                        >
+                                            <i class="bi bi-eye me-1"></i>
+                                            View Report
+                                        </a>
+
+                                    {% elif column.report.status == "submitted" %}
+                                        <span class="badge text-bg-warning">
+                                            <i class="bi bi-clock me-1"></i>
+                                            Waiting for Review
+                                        </span>
+
+                                        <a
+                                            href="{% url 'supervisor:principal_grade_report_detail' column.report.pk %}"
+                                            class="btn btn-sm btn-primary no-print"
+                                        >
+                                            <i class="bi bi-clipboard-check me-1"></i>
+                                            Review Report
+                                        </a>
+
+                                    {% elif column.report.status == "returned" %}
+                                        <span class="badge text-bg-danger">
+                                            <i class="bi bi-arrow-return-left me-1"></i>
+                                            Returned to Teacher
+                                        </span>
+
+                                        <a
+                                            href="{% url 'supervisor:principal_grade_report_detail' column.report.pk %}"
+                                            class="btn btn-sm btn-outline-danger no-print"
+                                        >
+                                            <i class="bi bi-eye me-1"></i>
+                                            View Returned Report
+                                        </a>
+                                    {% endif %}
+
+                                {% else %}
+                                    <span class="badge text-bg-secondary">
+                                        <i class="bi bi-hourglass me-1"></i>
+                                        Ongoing
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </th>
+                    {% endfor %}
+
+                    <th rowspan="2">General Average</th>
+                    <th rowspan="2">Status</th>
+                </tr>
+
+                <tr>
+                    {% for column in subject_columns %}
+                        <th>T1</th>
+                        <th>T2</th>
+                        <th>T3</th>
+                        <th>Final</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for learner in learner_rows %}
+                    <tr>
+                        <td>{{ learner.student.lrn }}</td>
+
+                        <td>
+                            <strong>
+                                {{ learner.student.lastname|upper }},
+                                {{ learner.student.firstname|upper }}
+                            </strong>
+                        </td>
+
+                        {% for subject in learner.subjects %}
+                            {% if subject.enrolled %}
+                                <td>{{ subject.term_1|default_if_none:"—" }}</td>
+                                <td>{{ subject.term_2|default_if_none:"—" }}</td>
+                                <td>{{ subject.term_3|default_if_none:"—" }}</td>
+                                <td class="fw-bold bg-light">
+                                    {{ subject.final|default_if_none:"—" }}
+                                </td>
+                            {% else %}
+                                <td colspan="4" class="text-center text-muted">
+                                    Not enrolled
+                                </td>
+                            {% endif %}
+                        {% endfor %}
+
+                        <td class="fw-bold">
+                            {{ learner.general_average|default_if_none:"—" }}
+                        </td>
+
+                        <td>
+                            {% if learner.status == "Complete" %}
+                                <span class="badge text-bg-success">
+                                    Complete
+                                </span>
+                            {% else %}
+                                <span class="badge text-bg-warning">
+                                    Incomplete
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td
+                            colspan="99"
+                            class="text-center py-5 text-muted"
+                        >
+                            No enrolled learners were found.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

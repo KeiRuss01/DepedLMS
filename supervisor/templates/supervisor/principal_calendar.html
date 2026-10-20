@@ -70,11 +70,19 @@
                                 </div>
 
                                 <p>
-                                    {{ event.start_at|date:"M d, Y g:i A" }}
+                                    {% if event.all_day %}
+                                        {{ event.start_at|date:"M d, Y" }} · All day
+                                    {% else %}
+                                        {{ event.start_at|date:"M d, Y g:i A" }}
+                                    {% endif %}
 
                                     {% if event.end_at %}
                                         –
-                                        {{ event.end_at|date:"M d, Y g:i A" }}
+                                        {% if event.all_day %}
+                                            {{ event.end_at|date:"M d, Y" }}
+                                        {% else %}
+                                            {{ event.end_at|date:"M d, Y g:i A" }}
+                                        {% endif %}
                                     {% endif %}
                                 </p>
 
@@ -101,11 +109,19 @@
                                 </div>
 
                                 <p>
-                                    {{ event.start_at|date:"M d, Y g:i A" }}
+                                    {% if event.all_day %}
+                                        {{ event.start_at|date:"M d, Y" }} · All day
+                                    {% else %}
+                                        {{ event.start_at|date:"M d, Y g:i A" }}
+                                    {% endif %}
 
                                     {% if event.end_at %}
                                         –
-                                        {{ event.end_at|date:"M d, Y g:i A" }}
+                                        {% if event.all_day %}
+                                            {{ event.end_at|date:"M d, Y" }}
+                                        {% else %}
+                                            {{ event.end_at|date:"M d, Y g:i A" }}
+                                        {% endif %}
                                     {% endif %}
                                 </p>
 
@@ -152,6 +168,7 @@
                 <form
                     method="post"
                     enctype="multipart/form-data"
+                    class="calendar-event-form"
                 >
                     {% csrf_token %}
 
@@ -234,3 +251,4 @@
     </div>
 </section>
 {% endblock %}
+{% block extra_js %}<script src="{% static 'js/calendar-all-day.js' %}?v=1"></script>{% endblock %}

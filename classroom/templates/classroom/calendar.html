@@ -190,7 +190,7 @@
                 <p>This event will appear only in the selected class.</p>
 
                 {% if selected_classroom %}
-                    <form method="post">
+                    <form method="post" class="calendar-event-form">
                         {% csrf_token %}
                         <input type="hidden" name="classroom_id" value="{{ selected_classroom.pk }}">
                         {% if editing_event %}
@@ -237,3 +237,4 @@
     </div>
 </section>
 {% endblock %}
+{% block extra_js %}<script src="{% static 'js/calendar-all-day.js' %}?v=1"></script>{% endblock %}

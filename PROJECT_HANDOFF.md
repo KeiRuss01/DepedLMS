@@ -497,7 +497,6 @@ The following features are still incomplete or are placeholders:
 - Export to an actual Excel workbook
 - Offline-first saving and later synchronization
 - Device registry, sync logs, conflict handling, and offline queue from the ERD
-- SMS notifications
 - Full audit trail for edited scores
 - File-storage configuration for production hosting
 - Production security configuration, deployment, and backups

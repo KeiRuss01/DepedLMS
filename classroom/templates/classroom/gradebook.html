@@ -60,45 +60,46 @@
         </button>
 
         {% if is_teacher and display == "summary" %}
-        {% if grade_report.status == "submitted" %}
-            <span class="grade-report-status is-submitted">
-                <i class="bi bi-clock-history"></i>
-                Submitted to Principal
-            </span>
+            {% if grade_report.status == "submitted" %}
+                <span class="grade-report-status is-submitted">
+                    <i class="bi bi-clock-history"></i>
+                    Finalized — waiting for Principal
+                </span>
 
-        {% elif grade_report.status == "approved" %}
-            <span class="grade-report-status is-approved">
-                <i class="bi bi-check-circle"></i>
-                Approved by Principal
-            </span>
+            {% elif grade_report.status == "approved" %}
+                <span class="grade-report-status is-approved">
+                    <i class="bi bi-check-circle"></i>
+                    Verified by Principal
+                </span>
 
-        {% else %}
-            <form method="post" class="d-inline">
-                {% csrf_token %}
-                <input
-                    type="hidden"
-                    name="action"
-                    value="submit_final_report"
-                >
+            {% else %}
+                <form method="post" class="d-inline">
+                    {% csrf_token %}
 
-                <button
-                    type="submit"
-                    class="btn btn-primary"
-                    onclick="return confirm(
-                        'Submit the final class report to the Principal? Editing will be locked until the report is returned.'
-                    )"
-                >
-                    <i class="bi bi-send"></i>
+                    <input
+                        type="hidden"
+                        name="action"
+                        value="finalize_class_report"
+                    >
 
-                    {% if grade_report.status == "returned" %}
-                        Resubmit to Principal
-                    {% else %}
-                        Submit to Principal
-                    {% endif %}
-                </button>
-            </form>
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        onclick="return confirm(
+                            'Finalize the complete class record for the end of the school year? All three terms must be complete.'
+                        )"
+                    >
+                        <i class="bi bi-send"></i>
+
+                        {% if grade_report.status == "returned" %}
+                            Resubmit Final Class Record
+                        {% else %}
+                            Finalize Class Record
+                        {% endif %}
+                    </button>
+                </form>
+            {% endif %}
         {% endif %}
-    {% endif %}
     </div>
 </section>
 
@@ -110,11 +111,14 @@
     {% if is_teacher and display == "summary" and grade_report %}
     <section class="grade-report-message no-print">
         <div>
-            <strong>{{ grade_report.get_status_display }}</strong>
+            <strong>
+                End-of-School-Year Report:
+                {{ grade_report.get_status_display }}
+            </strong>
 
             {% if grade_report.submitted_at %}
                 <small>
-                    Submitted
+                    Finalized
                     {{ grade_report.submitted_at|date:"F j, Y g:i A" }}
                 </small>
             {% endif %}
@@ -123,7 +127,7 @@
         {% if grade_report.status == "returned" %}
             <p>
                 <strong>Principal’s comment:</strong>
-                {{ grade_report.principal_comment|default:"Please review and correct the report." }}
+                {{ grade_report.principal_comment|default:"Please correct the class record and resubmit it." }}
             </p>
         {% endif %}
     </section>
@@ -239,7 +243,7 @@
     {% if is_teacher and record.items %}
     <div class="item-legend no-print">
         <h3>Grade columns</h3>
-        {% for item in record.items %}<div><span>{{ item.get_component_display }} {{ item.position }}</span><strong>{{ item.title }}</strong><small>{{ item.highest_possible_score }} points{% if item.module_id %} · Module (automatic score){% endif %}</small>{% if not item.module_id %}<form method="post" action="{% url 'classroom:grade_item_delete' item.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this grade column and its scores?')">Remove</button></form>{% endif %}</div>{% endfor %}
+        {% for item in record.items %}<div><span>{{ item.get_component_display }} {{ item.position }}</span><strong>{{ item.title }}</strong><small>{{ item.highest_possible_score }} points{% if item.module_id %} · Module score · Automatically filled · Teacher editable {% endif %}</small>{% if not item.module_id %}<form method="post" action="{% url 'classroom:grade_item_delete' item.pk %}">{% csrf_token %}<button class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this grade column and its scores?')">Remove</button></form>{% endif %}</div>{% endfor %}
     </div>
     {% endif %}
     {% endif %}

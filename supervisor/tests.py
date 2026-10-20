@@ -5,6 +5,41 @@ from django.urls import reverse
 
 from accounts.models import Principal, School, Student, Teacher, User
 from classroom.models import Classroom
+from supervisor.forms import (
+    _available_generated_email,
+    _generated_temporary_password,
+)
+
+
+class GeneratedAccountCredentialTests(TestCase):
+    def test_full_given_name_and_middle_name(self):
+        email = _available_generated_email(
+            "Keith Russel",
+            "Bagsican",
+            "Lacuna",
+        )
+        self.assertEqual(email, "lacuna.kr.b@gmail.com")
+
+    def test_single_given_name_and_optional_middle_name(self):
+        email = _available_generated_email("Keith", "", "Lacuna")
+        self.assertEqual(email, "lacuna.k@gmail.com")
+
+    def test_duplicate_email_receives_number(self):
+        User.objects.create_user(
+            email="lacuna.kr.b@gmail.com",
+            password="ExistingPass123!",
+            role=User.Role.PRINCIPAL,
+        )
+        email = _available_generated_email(
+            "Keith Russel",
+            "Bagsican",
+            "Lacuna",
+        )
+        self.assertEqual(email, "lacuna.kr.b2@gmail.com")
+
+    def test_password_uses_last_name_and_current_year(self):
+        password = _generated_temporary_password("Lacuna")
+        self.assertRegex(password, r"^Lacuna\d{4}$")
 
 
 class SchoolAccessTests(TestCase):
@@ -97,4 +132,38 @@ class SchoolAccessTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Sample Principal")
+        self.assertContains(response, "Sample Teacher")
+
+    def test_school_detail_limits_teachers_to_five_per_page(self):
+        for number in range(5):
+            teacher_user = User.objects.create_user(
+                email=f"teacher{number}@example.com",
+                password="TestPass123!",
+                role=User.Role.TEACHER,
+            )
+            Teacher.objects.create(
+                user=teacher_user,
+                school=self.school_a,
+                employee_id=f"T-{number + 2:03d}",
+                firstname=f"Teacher{number}",
+                lastname="Additional",
+            )
+
+        self.client.force_login(self.principal_user)
+        url = reverse("supervisor:school_detail", args=[self.school_a.school_id])
+        first_page = self.client.get(url)
+        second_page = self.client.get(url, {"teacher_page": 2})
+
+        self.assertEqual(len(first_page.context["teachers"]), 5)
+        self.assertEqual(len(second_page.context["teachers"]), 1)
+
+    def test_school_detail_searches_teachers(self):
+        self.client.force_login(self.principal_user)
+        response = self.client.get(
+            reverse("supervisor:school_detail", args=[self.school_a.school_id]),
+            {"teacher_q": "teacher@example.com"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["teachers"]), 1)
         self.assertContains(response, "Sample Teacher")

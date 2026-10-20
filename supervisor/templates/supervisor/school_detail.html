@@ -78,7 +78,7 @@
     </div>
 </div>
 
-<section class="sv-card mb-4">
+<section class="sv-card mb-4" id="teachers">
     <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3 mb-3">
         <div>
             <h2 class="sv-section-title mb-1">Teachers</h2>
@@ -91,6 +91,27 @@
             </button>
         </div>
     </div>
+
+    <form method="get" class="mb-3" role="search">
+        <label class="form-label fw-semibold" for="school-teacher-search">Search teachers by name, email, or employee ID</label>
+        <div class="input-group">
+            <input
+                id="school-teacher-search"
+                class="form-control"
+                type="search"
+                name="teacher_q"
+                value="{{ teacher_search }}"
+                placeholder="Enter a teacher name, email, or employee ID"
+                aria-label="Search this school's teachers"
+            >
+            <button class="btn btn-outline-primary" type="submit">
+                <i class="bi bi-search me-1"></i>Search
+            </button>
+            {% if teacher_search %}
+                <a class="btn btn-outline-secondary" href="{% url 'supervisor:school_detail' school.school_id %}#teachers">Clear</a>
+            {% endif %}
+        </div>
+    </form>
 
     {% for teacher in teachers %}
     <div class="teacher-class-row">
@@ -108,8 +129,37 @@
         </button>
     </div>
     {% empty %}
-    <div class="sv-simple-empty"><i class="bi bi-person-workspace"></i><p>No Teachers registered.</p></div>
+    <div class="sv-simple-empty">
+        <i class="bi bi-person-workspace"></i>
+        <p>{% if teacher_search %}No teachers matched your search.{% else %}No Teachers registered.{% endif %}</p>
+    </div>
     {% endfor %}
+
+    {% if teachers.paginator.num_pages > 1 %}
+    <nav class="mt-3" aria-label="Teacher pages">
+        <ul class="pagination pagination-sm justify-content-end mb-0">
+            <li class="page-item {% if not teachers.has_previous %}disabled{% endif %}">
+                {% if teachers.has_previous %}
+                    <a class="page-link" href="?teacher_q={{ teacher_search|urlencode }}&teacher_page={{ teachers.previous_page_number }}#teachers">Previous</a>
+                {% else %}
+                    <span class="page-link">Previous</span>
+                {% endif %}
+            </li>
+            {% for page_number in teachers.paginator.page_range %}
+                <li class="page-item {% if teachers.number == page_number %}active{% endif %}">
+                    <a class="page-link" href="?teacher_q={{ teacher_search|urlencode }}&teacher_page={{ page_number }}#teachers">{{ page_number }}</a>
+                </li>
+            {% endfor %}
+            <li class="page-item {% if not teachers.has_next %}disabled{% endif %}">
+                {% if teachers.has_next %}
+                    <a class="page-link" href="?teacher_q={{ teacher_search|urlencode }}&teacher_page={{ teachers.next_page_number }}#teachers">Next</a>
+                {% else %}
+                    <span class="page-link">Next</span>
+                {% endif %}
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
 </section>
 
 {% for teacher in teachers %}

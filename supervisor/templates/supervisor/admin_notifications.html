@@ -1,0 +1,48 @@
+{% extends "supervisor/master2.html" %}
+
+{% block title %}Notifications{% endblock %}
+
+{% block content %}
+<section class="admin-notifications">
+    <header class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h1 class="sv-page-title mb-1">Notifications</h1>
+            <p class="sv-page-subtitle mb-0">Administrative and report updates.</p>
+        </div>
+        {% if unread_notification_count %}
+        <form method="post" action="{% url 'accounts:mark_all_notifications_read' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-primary">
+                <i class="bi bi-check2-all me-2"></i>Mark all as read
+            </button>
+        </form>
+        {% endif %}
+    </header>
+
+    <div class="admin-notification-list">
+        {% for notification in notifications %}
+        <form method="post" action="{% url 'accounts:open_notification' notification.notification_id %}">
+            {% csrf_token %}
+            <button type="submit" class="admin-notification-card {% if not notification.is_read %}unread{% endif %}">
+                <span class="admin-notification-icon"><i class="bi bi-bell"></i></span>
+                <span class="admin-notification-content">
+                    <span class="admin-notification-title">
+                        <strong>{{ notification.title }}</strong>
+                        {% if not notification.is_read %}<span class="badge text-bg-primary">New</span>{% endif %}
+                    </span>
+                    <span class="admin-notification-message">{{ notification.message }}</span>
+                    <small class="admin-notification-date">{{ notification.created_at|date:"F j, Y g:i A" }}</small>
+                </span>
+                <i class="bi bi-chevron-right"></i>
+            </button>
+        </form>
+        {% empty %}
+        <div class="admin-notification-empty">
+            <i class="bi bi-bell fs-1 text-primary"></i>
+            <h2 class="h5 mt-3">No notifications yet</h2>
+            <p class="text-muted mb-0">New administrative updates will appear here.</p>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

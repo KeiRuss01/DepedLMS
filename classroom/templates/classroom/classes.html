@@ -112,10 +112,22 @@
         <div class="classes-grid">
             {% for classroom in archived_classes %}
             <article class="class-list-card archived">
+                <div class="class-list-card-top">
+                    <span class="class-card-icon">
+                        <i class="bi bi-archive"></i>
+                    </span>
+                    <span class="badge text-bg-secondary">Archived</span>
+                </div>
                 <div class="class-list-card-body">
                     <small>{{ classroom.subject }}</small>
                     <h3>{{ classroom.class_name }}</h3>
                     <p>{{ classroom.grade_level }} · {{ classroom.section }}</p>
+                </div>
+                <div class="class-list-card-footer">
+                    <span>AY {{ classroom.school_year }}</span>
+                    <a href="{% url 'classroom:class_detail' classroom.class_id %}">
+                        Manage <i class="bi bi-gear"></i>
+                    </a>
                 </div>
             </article>
             {% endfor %}
@@ -222,6 +234,43 @@
             {% endfor %}
         </div>
     </section>
+
+    {% if archived_enrollments %}
+    <section class="classes-section mt-5">
+        <div class="classes-section-heading">
+            <h2>Archived Classes</h2>
+            <span>{{ archived_enrollments|length }}</span>
+        </div>
+
+        <div class="classes-grid">
+            {% for enrollment in archived_enrollments %}
+            <article class="class-list-card archived">
+                <div class="class-list-card-top">
+                    <span class="class-card-icon">
+                        <i class="bi bi-archive"></i>
+                    </span>
+                    <span class="badge text-bg-secondary">Archived</span>
+                </div>
+
+                <div class="class-list-card-body">
+                    <small>{{ enrollment.classroom.subject }}</small>
+                    <h3>{{ enrollment.classroom.class_name }}</h3>
+                    <p>
+                        {{ enrollment.classroom.grade_level }} ·
+                        {{ enrollment.classroom.section }}<br>
+                        Teacher: {{ enrollment.classroom.teacher }}
+                    </p>
+                </div>
+
+                <div class="class-list-card-footer">
+                    <span>AY {{ enrollment.classroom.school_year }}</span>
+                    <span class="text-muted">Read only</span>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
 
 {% else %}
 

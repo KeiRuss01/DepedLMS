@@ -9,7 +9,7 @@ from django.utils import timezone
 from PIL import Image
 from pypdf import PdfReader, PdfWriter
 
-from accounts.models import Parent, ParentStudentLink, School, Student, Teacher, User
+from accounts.models import Notification, Parent, ParentStudentLink, School, Student, Teacher, User
 from classroom.models import (
     Classroom,
     ClassEnrollment,
@@ -881,3 +881,116 @@ class AttendanceTests(TestCase):
             + "?tab=attendance&month=2026-09",
             fetch_redirect_response=False,
         )
+
+
+class ClassLifecycleTests(TestCase):
+    def setUp(self):
+        self.school = School.objects.create(school_name="Lifecycle School")
+        self.teacher_user = User.objects.create_user(
+            email="lifecycle.teacher@example.com",
+            password="TestPass123!",
+            role=User.Role.TEACHER,
+        )
+        self.teacher = Teacher.objects.create(
+            user=self.teacher_user,
+            school=self.school,
+            employee_id="T-LIFE",
+            firstname="Life",
+            lastname="Cycle",
+        )
+        self.student_user = User.objects.create_user(
+            email="lifecycle.student@example.com",
+            password="TestPass123!",
+            role=User.Role.STUDENT,
+        )
+        self.student = Student.objects.create(
+            user=self.student_user,
+            school=self.school,
+            lrn="555555555555",
+            firstname="Test",
+            lastname="Learner",
+            gender=Student.Gender.FEMALE,
+            birth_date=date(2011, 1, 1),
+            acc_status=Student.AccStatus.APPROVED,
+        )
+        self.classroom = Classroom.objects.create(
+            teacher=self.teacher,
+            class_name="Archived Class Test",
+            grade_level="Grade 8",
+            subject="Science",
+            section="A",
+            school_year="2026-2027",
+        )
+        ClassEnrollment.objects.create(
+            classroom=self.classroom,
+            student=self.student,
+            status=ClassEnrollment.Status.APPROVED,
+        )
+
+    def test_archived_class_is_visible_to_student_and_notifies_them(self):
+        self.client.force_login(self.teacher_user)
+        response = self.client.post(
+            reverse(
+                "classroom:class_lifecycle",
+                args=[self.classroom.pk, "archive"],
+            )
+        )
+        self.assertRedirects(response, reverse("classroom:classes"))
+
+        self.classroom.refresh_from_db()
+        self.assertTrue(self.classroom.is_archived)
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.student_user,
+                title="Class archived",
+            ).exists()
+        )
+
+        self.client.force_login(self.student_user)
+        student_classes = self.client.get(reverse("classroom:classes"))
+        self.assertContains(student_classes, "Archived Classes")
+        self.assertContains(student_classes, self.classroom.class_name)
+        self.assertContains(student_classes, "Read only")
+
+    def test_teacher_can_restore_an_archived_class(self):
+        self.classroom.is_archived = True
+        self.classroom.save(update_fields=["is_archived"])
+        self.client.force_login(self.teacher_user)
+
+        self.client.post(
+            reverse(
+                "classroom:class_lifecycle",
+                args=[self.classroom.pk, "restore"],
+            )
+        )
+
+        self.classroom.refresh_from_db()
+        self.assertFalse(self.classroom.is_archived)
+
+    def test_populated_class_cannot_be_deleted(self):
+        self.client.force_login(self.teacher_user)
+        self.client.post(
+            reverse(
+                "classroom:class_lifecycle",
+                args=[self.classroom.pk, "delete"],
+            )
+        )
+        self.assertTrue(Classroom.objects.filter(pk=self.classroom.pk).exists())
+
+    def test_empty_class_can_be_deleted(self):
+        empty_class = Classroom.objects.create(
+            teacher=self.teacher,
+            class_name="Empty Class",
+            grade_level="Grade 8",
+            subject="Science",
+            section="B",
+            school_year="2026-2027",
+        )
+        self.client.force_login(self.teacher_user)
+        self.client.post(
+            reverse(
+                "classroom:class_lifecycle",
+                args=[empty_class.pk, "delete"],
+            )
+        )
+        self.assertFalse(Classroom.objects.filter(pk=empty_class.pk).exists())

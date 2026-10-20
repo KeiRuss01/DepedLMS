@@ -17,11 +17,17 @@
         Back to Dashboard
     </a>
 
-    <a href="{% url 'classroom:class_page' classroom.class_id %}"
-       class="btn btn-primary">
-        <i class="bi bi-box-arrow-up-right me-2"></i>
-        Open Classroom
-    </a>
+    {% if classroom.is_archived %}
+        <span class="badge text-bg-secondary fs-6">
+            <i class="bi bi-archive me-1"></i>Archived
+        </span>
+    {% else %}
+        <a href="{% url 'classroom:class_page' classroom.class_id %}"
+           class="btn btn-primary">
+            <i class="bi bi-box-arrow-up-right me-2"></i>
+            Open Classroom
+        </a>
+    {% endif %}
 </div>
 
 <!-- Class information -->
@@ -44,6 +50,13 @@
     </div>
 </section>
 
+{% if classroom.is_archived %}
+<div class="alert alert-secondary">
+    This class is archived. Students can see it under Archived Classes, but active class work is disabled.
+</div>
+{% endif %}
+
+{% if not classroom.is_archived %}
 <div class="row g-4">
 
     <!-- Invite Student -->
@@ -208,5 +221,41 @@
     </div>
 
 </div>
+{% endif %}
+
+<section class="classroom-card mt-4">
+    <div class="card-heading">
+        <h2 class="h6 mb-0">Class Status</h2>
+    </div>
+
+    <p class="text-muted small">
+        Archiving preserves students, modules, grades, attendance, and submissions. Permanent deletion is available only for an empty class.
+    </p>
+
+    <div class="d-flex flex-column flex-sm-row gap-2">
+        {% if classroom.is_archived %}
+            <form method="post" action="{% url 'classroom:class_lifecycle' classroom.class_id 'restore' %}">
+                {% csrf_token %}
+                <button class="btn btn-primary" type="submit">
+                    <i class="bi bi-arrow-counterclockwise me-2"></i>Restore Class
+                </button>
+            </form>
+        {% else %}
+            <form method="post" action="{% url 'classroom:class_lifecycle' classroom.class_id 'archive' %}">
+                {% csrf_token %}
+                <button class="btn btn-outline-secondary" type="submit" onclick="return confirm('Archive this class? Students will see it as archived and active class work will be disabled.');">
+                    <i class="bi bi-archive me-2"></i>Archive Class
+                </button>
+            </form>
+        {% endif %}
+
+        <form method="post" action="{% url 'classroom:class_lifecycle' classroom.class_id 'delete' %}">
+            {% csrf_token %}
+            <button class="btn btn-outline-danger" type="submit" onclick="return confirm('Permanently delete this empty class? This action cannot be undone.');">
+                <i class="bi bi-trash me-2"></i>Delete Empty Class
+            </button>
+        </form>
+    </div>
+</section>
 
 {% endblock %}

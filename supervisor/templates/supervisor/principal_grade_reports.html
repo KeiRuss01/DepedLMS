@@ -1,32 +1,20 @@
 {% extends "supervisor/master2.html" %}
-{% load static %}
 
 {% block title %}School Reports{% endblock %}
 {% block nav_reports %}active{% endblock %}
 
-{% block extra_css %}
-<link
-    href="{% static 'supervisor/css/principal_reports.css' %}?v=1"
-    rel="stylesheet"
->
-{% endblock %}
-
 {% block content %}
 <header class="d-flex flex-column flex-md-row justify-content-between gap-3 mb-4">
     <div>
-        <h1 class="sv-page-title h4">
-            School Reports
-        </h1>
-
+        <h1 class="sv-page-title h4">School Reports</h1>
         <p class="sv-page-subtitle mb-0">
-            Review final class reports submitted by Teachers
-            in {{ school.school_name }}.
+            End-of-school-year records organized by Grade and Section.
         </p>
     </div>
 
     <button
         type="button"
-        class="btn btn-outline-primary align-self-md-start"
+        class="btn btn-outline-primary"
         onclick="window.print()"
     >
         <i class="bi bi-printer me-2"></i>
@@ -34,44 +22,18 @@
     </button>
 </header>
 
-<nav class="report-tabs no-print">
-    <a
-        href="?tab=submissions&school_year={{ selected_year }}&grade_level={{ selected_grade }}&section={{ selected_section }}"
-        class="{% if selected_tab == 'submissions' %}active{% endif %}"
-    >
-        Teacher Submissions
-    </a>
-
-    <a
-        href="?tab=learners&school_year={{ selected_year }}&grade_level={{ selected_grade }}&section={{ selected_section }}"
-        class="{% if selected_tab == 'learners' %}active{% endif %}"
-    >
-        Learner Reports
-    </a>
-</nav>
-
-<section class="report-filter-card sv-card no-print">
+<section class="sv-card mb-4 no-print">
     <form method="get" class="row g-3 align-items-end">
-        <input
-            type="hidden"
-            name="tab"
-            value="{{ selected_tab }}"
-        >
-
-        <div class="col-12 col-md-3">
-            <label class="form-label" for="school_year">
+        <div class="col-12 col-md-6">
+            <label for="school-year" class="form-label">
                 School year
             </label>
 
             <select
+                id="school-year"
                 name="school_year"
-                id="school_year"
                 class="form-select"
             >
-                <option value="">
-                    All school years
-                </option>
-
                 {% for year in school_years %}
                     <option
                         value="{{ year }}"
@@ -83,99 +45,7 @@
             </select>
         </div>
 
-        <div class="col-12 col-md-2">
-            <label class="form-label" for="grade_level">
-                Grade level
-            </label>
-
-            <select
-                name="grade_level"
-                id="grade_level"
-                class="form-select"
-            >
-                <option value="">
-                    All grades
-                </option>
-
-                {% for grade in grade_levels %}
-                    <option
-                        value="{{ grade }}"
-                        {% if selected_grade == grade %}selected{% endif %}
-                    >
-                        {{ grade }}
-                    </option>
-                {% endfor %}
-            </select>
-        </div>
-
-        <div class="col-12 col-md-2">
-            <label class="form-label" for="section">
-                Section
-            </label>
-
-            <select
-                name="section"
-                id="section"
-                class="form-select"
-            >
-                <option value="">
-                    All sections
-                </option>
-
-                {% for section in sections %}
-                    <option
-                        value="{{ section }}"
-                        {% if selected_section == section %}selected{% endif %}
-                    >
-                        {{ section }}
-                    </option>
-                {% endfor %}
-            </select>
-        </div>
-
         <div class="col-12 col-md-3">
-            <label class="form-label" for="status">
-                Report status
-            </label>
-
-            <select
-                name="status"
-                id="status"
-                class="form-select"
-            >
-                <option value="">All statuses</option>
-
-                <option
-                    value="missing"
-                    {% if selected_status == "missing" %}selected{% endif %}
-                >
-                    Not submitted
-                </option>
-
-                <option
-                    value="submitted"
-                    {% if selected_status == "submitted" %}selected{% endif %}
-                >
-                    Submitted
-                </option>
-
-                <option
-                    value="returned"
-                    {% if selected_status == "returned" %}selected{% endif %}
-                >
-                    Returned
-                </option>
-
-                <option
-                    value="approved"
-                    {% if selected_status == "approved" %}selected{% endif %}
-                >
-                    Approved
-                </option>
-            </select>
-        </div>
-
-        <div class="col-12 col-md-2">
             <button class="btn btn-primary w-100">
                 Apply
             </button>
@@ -183,212 +53,86 @@
     </form>
 </section>
 
-<section class="report-stat-grid">
-    <article class="report-stat-card">
-        <small>Expected</small>
-        <strong>{{ expected_count }}</strong>
-        <span>Active class reports</span>
-    </article>
+<div class="row g-4">
+    {% for cohort in cohort_rows %}
+        <div class="col-12 col-md-6 col-xl-4">
+            <article class="sv-card h-100">
+                <div class="d-flex justify-content-between gap-3">
+                    <div>
+                        <small class="text-primary fw-bold">
+                            {{ selected_year }}
+                        </small>
 
-    <article class="report-stat-card">
-        <small>Waiting for review</small>
-        <strong>{{ submitted_count }}</strong>
-        <span>Submitted by Teachers</span>
-    </article>
+                        <h2 class="h5 mt-2 mb-1">
+                            {{ cohort.grade_level }}
+                            – {{ cohort.section }}
+                        </h2>
 
-    <article class="report-stat-card">
-        <small>Approved</small>
-        <strong>{{ approved_count }}</strong>
-        <span>Included in learner reports</span>
-    </article>
+                        <p class="text-muted">
+                            {{ cohort.learner_count }} learners ·
+                            {{ cohort.class_count }} subjects
+                        </p>
+                    </div>
 
-    <article class="report-stat-card">
-        <small>Returned</small>
-        <strong>{{ returned_count }}</strong>
-        <span>Needs correction</span>
-    </article>
-
-    <article class="report-stat-card">
-        <small>Not submitted</small>
-        <strong>{{ missing_count }}</strong>
-        <span>Waiting for Teacher</span>
-    </article>
-</section>
-
-{% if selected_tab == "submissions" %}
-<section class="sv-card report-table-card">
-    <div class="table-responsive">
-        <table class="table align-middle mb-0 report-table">
-            <thead>
-                <tr>
-                    <th>Teacher</th>
-                    <th>Subject</th>
-                    <th>Grade and section</th>
-                    <th>School year</th>
-                    <th>Learners</th>
-                    <th>Status</th>
-                    <th class="text-end">Action</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                {% for row in class_rows %}
-                    <tr>
-                        <td data-label="Teacher">
-                            <strong>
-                                {{ row.classroom.teacher.firstname }}
-                                {{ row.classroom.teacher.lastname }}
-                            </strong>
-                        </td>
-
-                        <td data-label="Subject">
-                            {{ row.classroom.subject }}
-                        </td>
-
-                        <td data-label="Grade and section">
-                            {{ row.classroom.grade_level }}
-                            ·
-                            {{ row.classroom.section }}
-                        </td>
-
-                        <td data-label="School year">
-                            {{ row.classroom.school_year }}
-                        </td>
-
-                        <td data-label="Learners">
-                            {% if row.report %}
-                                {{ row.report.snapshot.learners|length }}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
-
-                        <td data-label="Status">
-                            <span class="report-badge report-{{ row.status }}">
-                                {% if row.status == "missing" %}
-                                    Not submitted
-                                {% else %}
-                                    {{ row.report.get_status_display }}
-                                {% endif %}
-                            </span>
-                        </td>
-
-                        <td data-label="Action" class="text-end">
-                            {% if row.report %}
-                                <a
-                                    href="{% url 'supervisor:principal_grade_report_detail' row.report.pk %}"
-                                    class="btn btn-sm {% if row.status == 'submitted' %}btn-primary{% else %}btn-outline-primary{% endif %}"
-                                >
-                                    {% if row.status == "submitted" %}
-                                        Review
-                                    {% else %}
-                                        View
-                                    {% endif %}
-                                </a>
-                            {% else %}
-                                <span class="text-muted small">
-                                    Waiting for Teacher
-                                </span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                {% empty %}
-                    <tr>
-                        <td
-                            colspan="7"
-                            class="text-center text-muted py-5"
-                        >
-                            No class reports match these filters.
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</section>
-
-{% else %}
-<section class="learner-report-list">
-    {% for learner in learner_reports %}
-        <article class="sv-card learner-report-card">
-            <header>
-                <div>
-                    <h2>{{ learner.name }}</h2>
-
-                    <p>
-                        LRN: {{ learner.lrn }}
-                        ·
-                        {{ learner.grade_sections|join:", " }}
-                    </p>
+                    {% if cohort.status == "complete" %}
+                        <span class="badge text-bg-success align-self-start">
+                            Complete
+                        </span>
+                    {% elif cohort.status == "in_progress" %}
+                        <span class="badge text-bg-warning align-self-start">
+                            In progress
+                        </span>
+                    {% else %}
+                        <span class="badge text-bg-secondary align-self-start">
+                            Not started
+                        </span>
+                    {% endif %}
                 </div>
 
-                <div class="learner-average">
-                    <small>Subject average</small>
+                <hr>
 
-                    <strong>
-                        {{ learner.average|default_if_none:"—" }}
-                    </strong>
+                <div class="small mb-3">
+                    <div>
+                        Teacher-finalized:
+                        <strong>
+                            {{ cohort.teacher_finalized }}/{{ cohort.class_count }}
+                        </strong>
+                    </div>
+
+                    <div>
+                        Principal-verified:
+                        <strong>
+                            {{ cohort.principal_verified }}/{{ cohort.class_count }}
+                        </strong>
+                    </div>
+
+                    {% if cohort.returned_count %}
+                        <div class="text-danger">
+                            Returned for correction:
+                            <strong>{{ cohort.returned_count }}</strong>
+                        </div>
+                    {% endif %}
                 </div>
-            </header>
 
-            {% if learner.grade_sections|length > 1 %}
-                <div class="section-warning">
-                    <i class="bi bi-exclamation-triangle"></i>
-
-                    This learner is enrolled in classes with
-                    different grade or section assignments.
-                </div>
-            {% endif %}
-
-            <div class="table-responsive">
-                <table class="table table-sm align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Subject</th>
-                            <th>Teacher</th>
-                            <th>Term 1</th>
-                            <th>Term 2</th>
-                            <th>Term 3</th>
-                            <th>Final</th>
-                            <th>Remark</th>
-                        </tr>
-                    </thead>
-
-                    <tbody>
-                        {% for subject in learner.subjects %}
-                            <tr>
-                                <td>
-                                    <a href="{% url 'supervisor:principal_grade_report_detail' subject.report_id %}">
-                                        {{ subject.subject }}
-                                    </a>
-                                </td>
-
-                                <td>{{ subject.teacher }}</td>
-                                <td>{{ subject.term_1|default_if_none:"—" }}</td>
-                                <td>{{ subject.term_2|default_if_none:"—" }}</td>
-                                <td>{{ subject.term_3|default_if_none:"—" }}</td>
-                                <td><strong>{{ subject.final_grade|default_if_none:"—" }}</strong></td>
-                                <td>{{ subject.remark|default:"—" }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </article>
+                <a
+                    class="btn btn-primary w-100"
+                    href="{% url 'supervisor:principal_cohort_report' selected_year cohort.grade_level cohort.section %}"
+                >
+                    Open Grade and Section
+                    <i class="bi bi-arrow-right ms-2"></i>
+                </a>
+            </article>
+        </div>
     {% empty %}
-        <section class="sv-card text-center py-5">
-            <i class="bi bi-file-earmark-bar-graph fs-1 text-primary"></i>
-
-            <h2 class="h5 mt-3">
-                No approved learner reports
-            </h2>
-
-            <p class="text-muted mb-0">
-                Learner grades will appear after class reports
-                are approved.
-            </p>
-        </section>
+        <div class="col-12">
+            <section class="sv-card text-center py-5">
+                <i class="bi bi-folder2-open fs-1 text-muted"></i>
+                <h2 class="h5 mt-3">No Grade and Section records</h2>
+                <p class="text-muted mb-0">
+                    Classes for this school year will appear here.
+                </p>
+            </section>
+        </div>
     {% endfor %}
-</section>
-{% endif %}
+</div>
 {% endblock %}

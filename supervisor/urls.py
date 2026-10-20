@@ -14,11 +14,6 @@ urlpatterns = [
         name="district_performance_report",
     ),
     path(
-        "supervision/",
-        views.supervision_visit_view,
-        name="supervision",
-    ),
-    path(
         "announcements/create/",
         views.district_announcement_create_view,
         name="district_announcement_create",
@@ -45,6 +40,11 @@ urlpatterns = [
         "principal/reports/<int:report_id>/review/",
         views.principal_grade_report_review_view,
         name="principal_grade_report_review",
+    ),
+    path(
+        "principal/reports/cohort/<str:school_year>/<str:grade_level>/<str:section>/",
+        views.principal_cohort_report_view,
+        name="principal_cohort_report",
     ),
     path("school-profile/", views.principal_school_profile_view, name="principal_school_profile"),
     path("teachers/", views.teacher_list_view, name="teachers"),

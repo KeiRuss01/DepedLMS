@@ -308,8 +308,14 @@ def activity_review_view(request, submission_id):
                 item__activity=activity,
                 student=submission.student,
             ).delete()
+        notify_activity_feedback(submission)
+
         messages.success(request, "Review saved.")
-        return redirect("classroom:activity_review", submission_id=submission.pk)
+
+        return redirect(
+            "classroom:activity_review",
+            submission_id=submission.pk,
+        )
 
     return render(
         request,

@@ -84,6 +84,11 @@ urlpatterns = [
         views.class_detail_view,
         name="class_detail",
     ),
+    path(
+        "classes/<int:classroom_id>/status/<str:action>/",
+        views.class_lifecycle_view,
+        name="class_lifecycle",
+    ),
 
     path(
         "classes/<int:classroom_id>/invite/",

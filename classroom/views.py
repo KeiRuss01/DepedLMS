@@ -28,7 +28,7 @@ import json
 import re
 
 from supervisor.models import SchoolAnnouncement
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import ObjectDoesNotExist, PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Count, Max, Q
 from django.http import FileResponse, Http404, JsonResponse
@@ -63,7 +63,9 @@ from .submission_pdf import build_final_submission_pdf
 from .notification_services import (
     notify_attendance_record,
     notify_calendar_event,
+    notify_class_archive_status,
     notify_class_announcement,
+    notify_final_grade_report_submitted,
     notify_join_request,
     notify_module_published,
     notify_submission,
@@ -80,6 +82,7 @@ from .gradebook import (
     sync_module_grade_score,
     validate_final_grade_report,
 )
+
 from .gradebook_forms import GradeItemForm, GradebookSettingsForm
 from .models import (
     AttendanceDay,
@@ -118,6 +121,7 @@ def dashboard_view(request):
 
         join_requests = ClassEnrollment.objects.filter(
             classroom__teacher=teacher,
+            classroom__is_archived=False,
             status=ClassEnrollment.Status.PENDING_TEACHER,
         ).select_related(
             "classroom",
@@ -212,6 +216,7 @@ def dashboard_view(request):
         invitations = ClassEnrollment.objects.filter(
             student=student,
             status=ClassEnrollment.Status.PENDING_STUDENT,
+            classroom__is_archived=False,
         ).select_related(
             "classroom",
             "classroom__teacher",
@@ -463,6 +468,14 @@ def classes_view(request):
             "classroom",
             "classroom__teacher",
         )
+        archived_enrollments = ClassEnrollment.objects.filter(
+            student=student,
+            status=ClassEnrollment.Status.APPROVED,
+            classroom__is_archived=True,
+        ).select_related(
+            "classroom",
+            "classroom__teacher",
+        )
         invitations = ClassEnrollment.objects.filter(
             student=student,
             status=ClassEnrollment.Status.PENDING_STUDENT,
@@ -474,6 +487,7 @@ def classes_view(request):
         pending_requests = ClassEnrollment.objects.filter(
             student=student,
             status=ClassEnrollment.Status.PENDING_TEACHER,
+            classroom__is_archived=False,
         ).select_related(
             "classroom",
             "classroom__teacher",
@@ -484,6 +498,7 @@ def classes_view(request):
             "classroom/classes.html",
             {
                 "enrollments": enrollments,
+                "archived_enrollments": archived_enrollments,
                 "invitations": invitations,
                 "pending_requests": pending_requests,
             },
@@ -647,6 +662,87 @@ def class_detail_view(request, classroom_id):
     )
 
 
+def _classroom_has_records(classroom):
+    """Protect every related academic record from cascading deletion."""
+    for relation in Classroom._meta.related_objects:
+        accessor_name = relation.get_accessor_name()
+        if not accessor_name:
+            continue
+
+        if relation.one_to_one:
+            try:
+                getattr(classroom, accessor_name)
+            except ObjectDoesNotExist:
+                continue
+            return True
+
+        if getattr(classroom, accessor_name).exists():
+            return True
+
+    return False
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+@transaction.atomic
+def class_lifecycle_view(request, classroom_id, action):
+    if request.user.role != User.Role.TEACHER:
+        messages.error(request, "Only Teachers can manage class status.")
+        return redirect("classroom:dashboard")
+
+    teacher = getattr(request.user, "teacher_profile", None)
+    classroom = get_object_or_404(
+        Classroom,
+        class_id=classroom_id,
+        teacher=teacher,
+    )
+
+    if action == "archive":
+        if classroom.is_archived:
+            messages.info(request, "This class is already archived.")
+        else:
+            classroom.is_archived = True
+            classroom.save(update_fields=["is_archived"])
+            notify_class_archive_status(classroom, archived=True)
+            messages.success(
+                request,
+                f"{classroom.class_name} was archived. Students can still see it under Archived Classes.",
+            )
+        return redirect("classroom:classes")
+
+    if action == "restore":
+        if not classroom.is_archived:
+            messages.info(request, "This class is already active.")
+        else:
+            classroom.is_archived = False
+            classroom.save(update_fields=["is_archived"])
+            notify_class_archive_status(classroom, archived=False)
+            messages.success(request, f"{classroom.class_name} was restored.")
+        return redirect("classroom:classes")
+
+    if action == "delete":
+        if _classroom_has_records(classroom):
+            messages.error(
+                request,
+                "This class contains students or academic records and cannot be permanently deleted. Archive it instead.",
+            )
+            return redirect(
+                "classroom:class_detail",
+                classroom_id=classroom.class_id,
+            )
+
+        class_name = classroom.class_name
+        classroom.delete()
+        messages.success(request, f"{class_name} was permanently deleted.")
+        return redirect("classroom:classes")
+
+    messages.error(request, "The requested class action is invalid.")
+    return redirect(
+        "classroom:class_detail",
+        classroom_id=classroom.class_id,
+    )
+
+
 @login_required(login_url="accounts:login")
 @require_POST
 def invite_student_view(request, classroom_id):
@@ -664,6 +760,7 @@ def invite_student_view(request, classroom_id):
         Classroom,
         class_id=classroom_id,
         teacher=teacher,
+        is_archived=False,
     )
 
     form = InviteStudentForm(request.POST)
@@ -900,6 +997,7 @@ def respond_to_invitation_view(request, enrollment_id, action):
         enrollment_id=enrollment_id,
         student=student,
         status=ClassEnrollment.Status.PENDING_STUDENT,
+        classroom__is_archived=False,
     )
 
     if action == "accept":
@@ -943,6 +1041,7 @@ def respond_to_join_request_view(request, enrollment_id, action):
         ClassEnrollment,
         enrollment_id=enrollment_id,
         classroom__teacher=teacher,
+        classroom__is_archived=False,
         status=ClassEnrollment.Status.PENDING_TEACHER,
     )
 
@@ -2809,6 +2908,7 @@ def gradebook_view(request, classroom_id):
     settings, _ = GradebookSettings.objects.get_or_create(classroom=classroom)
     grade_report = GradeReportSubmission.objects.filter(
         classroom=classroom,
+        term=GradeReportSubmission.ReportPeriod.FINAL,
     ).first()
 
     report_locked = bool(
@@ -2841,7 +2941,7 @@ def gradebook_view(request, classroom_id):
                 f"{request.path}?view=summary"
             )
 
-        if action == "submit_final_report":
+        if action == "finalize_class_report":
             report_errors = validate_final_grade_report(
                 classroom,
                 enrolled,
@@ -2860,8 +2960,9 @@ def gradebook_view(request, classroom_id):
                 enrolled,
             )
 
-            GradeReportSubmission.objects.update_or_create(
+            grade_report, _ = GradeReportSubmission.objects.update_or_create(
                 classroom=classroom,
+                term=GradeReportSubmission.ReportPeriod.FINAL,
                 defaults={
                     "status": GradeReportSubmission.Status.SUBMITTED,
                     "submitted_by": request.user,
@@ -2873,9 +2974,12 @@ def gradebook_view(request, classroom_id):
                 },
             )
 
+            notify_final_grade_report_submitted(grade_report)
+
             messages.success(
                 request,
-                "The final class report was submitted to the Principal.",
+                "The complete end-of-school-year class record "
+                "was finalized and sent to the Principal.",
             )
 
             return redirect(
@@ -3103,6 +3207,7 @@ def grade_item_delete_view(request, item_id):
 
     report_locked = GradeReportSubmission.objects.filter(
         classroom=classroom,
+        term=item.term,
         status__in=[
             GradeReportSubmission.Status.SUBMITTED,
             GradeReportSubmission.Status.APPROVED,

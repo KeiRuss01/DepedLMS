@@ -1,6 +1,11 @@
+import re
+import unicodedata
+from datetime import datetime, time
+
 from django import forms
 from django.contrib.auth import authenticate
 from django.db import transaction
+from django.utils import timezone
 
 from accounts.models import Principal, School, Teacher, User
 from classroom.models import AcademicTerm, CalendarEvent
@@ -26,66 +31,6 @@ class SchoolAnnouncementForm(forms.ModelForm):
                 }
             ),
             "priority": forms.Select(attrs={"class": "form-select"}),
-        }
-
-class SupervisionVisitForm(forms.ModelForm):
-    class Meta:
-        model = SupervisionVisit
-        fields = (
-            "school",
-            "visit_date",
-            "title",
-            "findings",
-            "recommendations",
-            "action_owner",
-            "follow_up_date",
-            "status",
-        )
-        widgets = {
-            "school": forms.Select(
-                attrs={"class": "form-select"},
-            ),
-            "visit_date": forms.DateInput(
-                attrs={
-                    "class": "form-control",
-                    "type": "date",
-                },
-            ),
-            "title": forms.TextInput(
-                attrs={
-                    "class": "form-control",
-                    "placeholder": "Example: Classroom monitoring visit",
-                },
-            ),
-            "findings": forms.Textarea(
-                attrs={
-                    "class": "form-control",
-                    "rows": 4,
-                    "placeholder": "Write the observations or issues found...",
-                },
-            ),
-            "recommendations": forms.Textarea(
-                attrs={
-                    "class": "form-control",
-                    "rows": 4,
-                    "placeholder": "Write the recommended actions...",
-                },
-            ),
-            "action_owner": forms.TextInput(
-                attrs={
-                    "class": "form-control",
-                    "placeholder": "Example: School Principal",
-                },
-            ),
-            "follow_up_date": forms.DateInput(
-                attrs={
-                    "class": "form-control",
-                    "type": "date",
-                },
-            ),
-            "status": forms.Select(
-                attrs={"class": "form-select"},
-            ),
         }
 
 class DistrictAnnouncementForm(forms.ModelForm):
@@ -228,10 +173,57 @@ class SchoolProfileForm(forms.ModelForm):
         return school_name
 
 
-class PrincipalAccountForm(forms.Form):
+def _account_token(value):
+    """Return a lowercase ASCII token safe for generated email addresses."""
+    normalized = unicodedata.normalize("NFKD", (value or "").strip())
+    ascii_value = normalized.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]", "", ascii_value.lower())
+
+
+def _given_name_initials(value):
+    normalized = unicodedata.normalize("NFKD", (value or "").strip())
+    ascii_value = normalized.encode("ascii", "ignore").decode("ascii")
+    name_parts = re.findall(r"[A-Za-z0-9]+", ascii_value)
+    return "".join(part[0].lower() for part in name_parts if part)
+
+
+def _available_generated_email(firstname, middlename, lastname):
+    last_token = _account_token(lastname)
+    first_initials = _given_name_initials(firstname)
+    middle_initials = _given_name_initials(middlename)
+
+    local_parts = [last_token, first_initials]
+    if middle_initials:
+        local_parts.append(middle_initials[0])
+    base_local = ".".join(part for part in local_parts if part)
+
+    candidate = f"{base_local}@gmail.com"
+    suffix_number = 2
+    while User.objects.filter(email__iexact=candidate).exists():
+        candidate = f"{base_local}{suffix_number}@gmail.com"
+        suffix_number += 1
+    return candidate
+
+
+def _generated_temporary_password(lastname):
+    name_parts = re.findall(r"[A-Za-z0-9]+", unicodedata.normalize(
+        "NFKD", (lastname or "").strip()
+    ).encode("ascii", "ignore").decode("ascii"))
+    password_name = "".join(part.capitalize() for part in name_parts)
+    return f"{password_name}{timezone.localdate().year}"
+
+
+class GeneratedStaffAccountForm(forms.Form):
     email = forms.EmailField(
         max_length=100,
-        widget=forms.EmailInput(attrs={"class": "form-control", "placeholder": "principal@school.edu.ph"}),
+        required=False,
+        widget=forms.EmailInput(
+            attrs={
+                "class": "form-control generated-account-email",
+                "placeholder": "Generated after entering the name",
+                "readonly": True,
+            }
+        ),
     )
     firstname = forms.CharField(
         max_length=100,
@@ -251,17 +243,36 @@ class PrincipalAccountForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Optional"}),
     )
+    password1 = forms.CharField(
+        label="Temporary password",
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control generated-account-password",
+                "placeholder": "Generated after entering the last name",
+                "readonly": True,
+            }
+        ),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        firstname = cleaned_data.get("firstname")
+        lastname = cleaned_data.get("lastname")
+        if firstname and lastname:
+            cleaned_data["email"] = _available_generated_email(
+                firstname,
+                cleaned_data.get("middlename"),
+                lastname,
+            )
+            cleaned_data["password1"] = _generated_temporary_password(lastname)
+        return cleaned_data
+
+
+class PrincipalAccountForm(GeneratedStaffAccountForm):
     school = forms.ModelChoiceField(
         queryset=School.objects.none(),
         widget=forms.Select(attrs={"class": "form-select"}),
-    )
-    password1 = forms.CharField(
-        label="Temporary password",
-        widget=forms.PasswordInput(attrs={"class": "form-control", "placeholder": "At least 8 characters"}),
-    )
-    password2 = forms.CharField(
-        label="Confirm temporary password",
-        widget=forms.PasswordInput(attrs={"class": "form-control", "placeholder": "Repeat password"}),
     )
 
     def __init__(self, *args, **kwargs):
@@ -270,22 +281,6 @@ class PrincipalAccountForm(forms.Form):
         self.fields["school"].queryset = School.objects.filter(
             principals__isnull=True,
         ).order_by("school_name")
-
-    def clean_email(self):
-        email = User.objects.normalize_email(self.cleaned_data["email"])
-        if User.objects.filter(email__iexact=email).exists():
-            raise forms.ValidationError("An account with this email already exists.")
-        return email
-
-    def clean(self):
-        cleaned_data = super().clean()
-        password1 = cleaned_data.get("password1")
-        password2 = cleaned_data.get("password2")
-        if password1 and len(password1) < 8:
-            self.add_error("password1", "Use at least 8 characters.")
-        if password1 and password2 and password1 != password2:
-            self.add_error("password2", "The passwords do not match.")
-        return cleaned_data
 
     @transaction.atomic
     def save(self):
@@ -309,57 +304,10 @@ class PrincipalAccountForm(forms.Form):
         return principal
 
 
-class TeacherAccountForm(forms.Form):
-    email = forms.EmailField(
-        max_length=100,
-        widget=forms.EmailInput(attrs={"class": "form-control", "placeholder": "teacher@school.edu.ph"}),
-    )
-    firstname = forms.CharField(
-        max_length=100,
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "First name"}),
-    )
-    middlename = forms.CharField(
-        max_length=100,
-        required=False,
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Optional"}),
-    )
-    lastname = forms.CharField(
-        max_length=100,
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Last name"}),
-    )
-    suffix = forms.CharField(
-        max_length=20,
-        required=False,
-        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Optional"}),
-    )
-    password1 = forms.CharField(
-        label="Temporary password",
-        widget=forms.PasswordInput(attrs={"class": "form-control", "placeholder": "At least 8 characters"}),
-    )
-    password2 = forms.CharField(
-        label="Confirm temporary password",
-        widget=forms.PasswordInput(attrs={"class": "form-control", "placeholder": "Repeat password"}),
-    )
-
+class TeacherAccountForm(GeneratedStaffAccountForm):
     def __init__(self, *args, school, **kwargs):
         super().__init__(*args, **kwargs)
         self.school = school
-
-    def clean_email(self):
-        email = User.objects.normalize_email(self.cleaned_data["email"])
-        if User.objects.filter(email__iexact=email).exists():
-            raise forms.ValidationError("An account with this email already exists.")
-        return email
-
-    def clean(self):
-        cleaned_data = super().clean()
-        password1 = cleaned_data.get("password1")
-        password2 = cleaned_data.get("password2")
-        if password1 and len(password1) < 8:
-            self.add_error("password1", "Use at least 8 characters.")
-        if password1 and password2 and password1 != password2:
-            self.add_error("password2", "The passwords do not match.")
-        return cleaned_data
 
     @transaction.atomic
     def save(self):
@@ -392,6 +340,33 @@ class CalendarDateValidationMixin:
 
         start_at = cleaned_data.get("start_at")
         end_at = cleaned_data.get("end_at")
+        all_day = cleaned_data.get("all_day")
+
+        if all_day and start_at:
+            current_timezone = timezone.get_current_timezone()
+            start_date = (
+                timezone.localtime(start_at).date()
+                if timezone.is_aware(start_at)
+                else start_at.date()
+            )
+            end_date = start_date
+            if end_at:
+                end_date = (
+                    timezone.localtime(end_at).date()
+                    if timezone.is_aware(end_at)
+                    else end_at.date()
+                )
+
+            start_at = timezone.make_aware(
+                datetime.combine(start_date, time.min),
+                current_timezone,
+            )
+            end_at = timezone.make_aware(
+                datetime.combine(end_date, time.max),
+                current_timezone,
+            )
+            cleaned_data["start_at"] = start_at
+            cleaned_data["end_at"] = end_at
 
         if start_at and end_at and end_at < start_at:
             self.add_error(
@@ -547,10 +522,12 @@ class DistrictCalendarEventForm(
         super().__init__(*args, **kwargs)
 
         self.fields["start_at"].input_formats = [
-            "%Y-%m-%dT%H:%M"
+            "%Y-%m-%dT%H:%M",
+            "%Y-%m-%d",
         ]
         self.fields["end_at"].input_formats = [
-            "%Y-%m-%dT%H:%M"
+            "%Y-%m-%dT%H:%M",
+            "%Y-%m-%d",
         ]
 
         schools = School.objects.order_by("school_name")
@@ -657,10 +634,12 @@ class SchoolCalendarEventForm(
         super().__init__(*args, **kwargs)
 
         self.fields["start_at"].input_formats = [
-            "%Y-%m-%dT%H:%M"
+            "%Y-%m-%dT%H:%M",
+            "%Y-%m-%d",
         ]
         self.fields["end_at"].input_formats = [
-            "%Y-%m-%dT%H:%M"
+            "%Y-%m-%dT%H:%M",
+            "%Y-%m-%d",
         ]
 
         # Principals should not create classroom deadlines.

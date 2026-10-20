@@ -45,12 +45,6 @@ textarea.form-control { min-height: 92px; }
 .muted-link { color: var(--blue); font-size: .7rem; }
 .btn-auth-primary { display: flex; min-height: 52px; align-items: center; justify-content: center; gap: .7rem; color: #fff; font-size: .78rem; font-weight: 700; border: 0; border-radius: .5rem; background: linear-gradient(100deg, #0754c5, #076ee6); }
 .btn-auth-primary:hover { color: #fff; background: var(--blue-dark); }
-.or-divider { display: flex; align-items: center; gap: .9rem; margin: 1.3rem 0; color: #777f8a; font-size: .7rem; }
-.or-divider::before, .or-divider::after { height: 1px; flex: 1; content: ""; background: var(--line); }
-.google-button { min-height: 49px; color: #20242a; font-size: .77rem; border: 1px solid #d9dfe6; border-radius: .5rem; background: #fff; }
-.google-button:disabled { opacity: .72; }
-.google-g { margin-right: .6rem; color: #4285f4; font-size: 1.15rem; font-weight: 800; }
-.google-note { margin: .45rem 0 0; color: #8a6a2d; font-size: .59rem; text-align: center; }
 .switch-auth { margin: 1.5rem 0 0; color: var(--muted); font-size: .72rem; text-align: center; }
 .learning-art { position: relative; width: 360px; height: 125px; margin-top: 1.8rem; }
 .book { position: absolute; left: 15px; width: 105px; height: 18px; border-radius: .25rem; background: #6b9be8; box-shadow: inset 0 -4px rgba(0,0,0,.08); }

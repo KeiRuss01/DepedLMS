@@ -10,15 +10,105 @@ from accounts.models import (
     User,
     UserPreference,
 )
-from sms_notifications.models import SMSNotification
-from sms_notifications.services import queue_sms
-
 from .models import (
     ActivitySubmission,
     AttendanceRecord,
     ClassEnrollment,
+    GradeReportSubmission,
     ModuleSubmission,
 )
+
+
+def notify_final_grade_report_submitted(report):
+    """Notify the assigned Principal about a finalized class report."""
+    notice_key = (
+        report.submitted_at.strftime("%Y%m%d%H%M%S%f")
+        if report.submitted_at
+        else str(report.pk)
+    )
+    target_url = (
+        reverse(
+            "supervisor:principal_grade_report_detail",
+            args=[report.pk],
+        )
+        + f"?notice={notice_key}"
+    )
+    principals = User.objects.filter(
+        role=User.Role.PRINCIPAL,
+        principal_profile__school=report.classroom.teacher.school,
+        status=User.Status.ACTIVE,
+    ).distinct()
+
+    created_count = 0
+    for user in principals:
+        created_count += _create_notification(
+            user=user,
+            notification_type=Notification.Type.GENERAL,
+            title="Final class report waiting for review",
+            message=(
+                f"{report.classroom.teacher.firstname} "
+                f"{report.classroom.teacher.lastname} finalized "
+                f"{report.classroom.subject} for "
+                f"{report.classroom.grade_level} – "
+                f"{report.classroom.section}."
+            ),
+            target_url=target_url,
+        )
+    return created_count
+
+
+def notify_final_grade_report_reviewed(report):
+    """Notify the Teacher and update the Supervisor's aggregate progress."""
+    notice_key = (
+        report.reviewed_at.strftime("%Y%m%d%H%M%S%f")
+        if report.reviewed_at
+        else str(report.pk)
+    )
+    teacher_target = (
+        reverse("classroom:gradebook", args=[report.classroom_id])
+        + f"?view=summary&notice={notice_key}"
+    )
+
+    approved = report.status == GradeReportSubmission.Status.APPROVED
+    created_count = int(_create_notification(
+        user=report.classroom.teacher.user,
+        notification_type=Notification.Type.GENERAL,
+        title=(
+            "Final class report verified"
+            if approved
+            else "Final class report returned"
+        ),
+        message=(
+            f"The Principal verified your final {report.classroom.subject} report."
+            if approved
+            else (
+                f"The Principal returned your final {report.classroom.subject} "
+                f"report. Comment: {report.principal_comment}"
+            )
+        ),
+        target_url=teacher_target,
+    ))
+
+    if approved:
+        district_target = (
+            reverse("supervisor:district_performance_report")
+            + f"?notice={notice_key}"
+        )
+        for user in User.objects.filter(
+            role=User.Role.SUPERVISOR,
+            status=User.Status.ACTIVE,
+        ):
+            created_count += _create_notification(
+                user=user,
+                notification_type=Notification.Type.GENERAL,
+                title="School report progress updated",
+                message=(
+                    f"{report.classroom.teacher.school.school_name} "
+                    "verified another final class report."
+                ),
+                target_url=district_target,
+            )
+    return created_count
 
 
 def _create_notification(
@@ -27,9 +117,6 @@ def _create_notification(
     title,
     message,
     target_url,
-    sms_type=None,
-    sms_reference_id=None,
-    sms_message=None,
 ):
     """Create one notification per user and event URL."""
     notification, created = Notification.objects.get_or_create(
@@ -41,14 +128,6 @@ def _create_notification(
             "message": message,
         },
     )
-    if created and sms_type and sms_reference_id and sms_message:
-        queue_sms(
-            user=user,
-            message_text=sms_message,
-            sms_type=sms_type,
-            reference_id=sms_reference_id,
-        )
-
     return created
 
 
@@ -147,10 +226,28 @@ def _preference_enabled(user, field_name):
     return getattr(preference, field_name, True)
 
 
-def _announcement_sms(label, title, content):
-    """Keep an announcement useful while limiting very long SMS content."""
-    content = " ".join(content.split())
-    return f"District 1 LMS - {label}: {title}. {content}"[:300]
+def notify_class_archive_status(classroom, archived):
+    """Tell enrolled learners and connected parents about archive changes."""
+    status = "archived" if archived else "restored"
+    changed_key = timezone.now().strftime("%Y%m%d%H%M%S%f")
+    target_url = (
+        reverse("classroom:classes")
+        + f"?class_status={status}&class={classroom.pk}&changed={changed_key}"
+    )
+
+    created_count = 0
+    for user in _class_audience(classroom):
+        created_count += _create_notification(
+            user=user,
+            notification_type=Notification.Type.GENERAL,
+            title=f"Class {status}",
+            message=(
+                f"{classroom.class_name} ({classroom.subject}) was {status} "
+                "by the Teacher."
+            ),
+            target_url=target_url,
+        )
+    return created_count
 
 
 def notify_module_published(module):
@@ -175,12 +272,6 @@ def notify_module_published(module):
                 f"is now available.{due_text}"
             ),
             target_url=target_url,
-            sms_type=SMSNotification.Type.NEW_MODULE,
-            sms_reference_id=module.pk,
-            sms_message=(
-                "District 1 LMS: A new module was published in "
-                f"{module.classroom.subject}. Log in to view it."
-            ),
         )
     return created_count
 
@@ -188,9 +279,10 @@ def notify_module_published(module):
 def _deadline_details(due_at, reminder):
     local_due = timezone.localtime(due_at)
     labels = {
-        "near": "is approaching",
-        "tomorrow": "is tomorrow",
-        "today": "is today",
+        "24h": "is due within 24 hours",
+        "12h": "is due within 12 hours",
+        "6h": "is due within 6 hours",
+        "1h": "is due within 1 hour",
     }
     return local_due, labels[reminder]
 
@@ -201,12 +293,6 @@ def notify_module_deadline(module, reminder):
 
     local_due, reminder_label = _deadline_details(module.due_at, reminder)
     due_key = module.due_at.strftime("%Y%m%d%H%M")
-
-    sms_types = {
-        "near": SMSNotification.Type.MODULE_DEADLINE_NEAR,
-        "tomorrow": SMSNotification.Type.MODULE_DEADLINE_TOMORROW,
-        "today": SMSNotification.Type.MODULE_DEADLINE_TODAY,
-    }
 
     created_count = 0
     enrollments = ClassEnrollment.objects.filter(
@@ -234,28 +320,24 @@ def notify_module_deadline(module, reminder):
         )
 
         for user in _student_audience(student):
+            if not _preference_enabled(user, "deadline_reminder_alerts"):
+                continue
             created_count += _create_notification(
                 user=user,
                 notification_type=Notification.Type.DEADLINE,
-                title=f"Module deadline {reminder_label}",
+                title=f"Module deadline: {reminder_label}",
                 message=(
                     f"{module.title} for {module.classroom.subject} is due "
                     f"on {local_due.strftime('%B %d, %Y at %I:%M %p')}."
                 ),
                 target_url=target_url,
-                sms_type=sms_types[reminder],
-                sms_reference_id=module.pk,
-                sms_message=(
-                    f"District 1 LMS: The deadline for {module.title} "
-                    f"{reminder_label}. Log in for details."
-                ),
             )
     return created_count
 
 
 def notify_upcoming_module_deadline(module):
     """Compatibility helper retained for older calls."""
-    return notify_module_deadline(module, "tomorrow")
+    return notify_module_deadline(module, "24h")
 
 
 def notify_activity_published(activity):
@@ -272,12 +354,6 @@ def notify_activity_published(activity):
                 "is now available."
             ),
             target_url=target_url,
-            sms_type=SMSNotification.Type.NEW_ACTIVITY,
-            sms_reference_id=activity.pk,
-            sms_message=(
-                "District 1 LMS: A new activity was published in "
-                f"{activity.classroom.subject}. Log in to view it."
-            ),
         )
     return created_count
 
@@ -287,11 +363,6 @@ def notify_activity_deadline(activity, reminder):
         return 0
 
     local_due, reminder_label = _deadline_details(activity.due_date, reminder)
-    sms_types = {
-        "near": SMSNotification.Type.ACTIVITY_DEADLINE_NEAR,
-        "tomorrow": SMSNotification.Type.ACTIVITY_DEADLINE_TOMORROW,
-        "today": SMSNotification.Type.ACTIVITY_DEADLINE_TODAY,
-    }
     created_count = 0
     enrollments = ClassEnrollment.objects.filter(
         classroom=activity.classroom,
@@ -316,21 +387,17 @@ def notify_activity_deadline(activity, reminder):
             + f"?reminder={reminder}&learner={student.pk}"
         )
         for user in _student_audience(student):
+            if not _preference_enabled(user, "deadline_reminder_alerts"):
+                continue
             created_count += _create_notification(
                 user=user,
                 notification_type=Notification.Type.DEADLINE,
-                title=f"Activity deadline {reminder_label}",
+                title=f"Activity deadline: {reminder_label}",
                 message=(
                     f"{activity.title} for {activity.classroom.subject} is due "
                     f"on {local_due.strftime('%B %d, %Y at %I:%M %p')}."
                 ),
                 target_url=target_url,
-                sms_type=sms_types[reminder],
-                sms_reference_id=activity.pk,
-                sms_message=(
-                    f"District 1 LMS: The deadline for {activity.title} "
-                    f"{reminder_label}. Log in for details."
-                ),
             )
     return created_count
 
@@ -355,15 +422,6 @@ def notify_class_announcement(announcement):
                 f"{announcement.content}"
             ),
             target_url=target_url,
-            sms_type=SMSNotification.Type.CLASS_ANNOUNCEMENT,
-            sms_reference_id=announcement.pk,
-            sms_message=(
-                _announcement_sms(
-                    f"{announcement.classroom.subject} announcement",
-                    announcement.title,
-                    announcement.content,
-                )
-            ),
         )
     return created_count
 
@@ -374,13 +432,6 @@ def notify_school_announcement(announcement):
     )
 
     created_count = 0
-    is_district = announcement.posted_by.role == User.Role.SUPERVISOR
-    sms_type = (
-        SMSNotification.Type.DISTRICT_ANNOUNCEMENT
-        if is_district
-        else SMSNotification.Type.SCHOOL_ANNOUNCEMENT
-    )
-
     for user in _school_audience(announcement.school).exclude(
         pk=announcement.posted_by_id
     ):
@@ -393,13 +444,6 @@ def notify_school_announcement(announcement):
                 f"{announcement.content}"
             ),
             target_url=target_url,
-            sms_type=sms_type,
-            sms_reference_id=announcement.pk,
-            sms_message=_announcement_sms(
-                "District announcement" if is_district else "School announcement",
-                announcement.title,
-                announcement.content,
-            ),
         )
     return created_count
 
@@ -629,10 +673,6 @@ def notify_term_grade_released(classroom, term):
             for link in _approved_parent_links(student)
         )
 
-        # One stable reference per class and term. The SMS tells recipients
-        # that a grade is available but does not expose the grade value.
-        grade_reference = (classroom.pk * 10) + int(term)
-
         for user, target_url in recipients:
             created_count += _create_notification(
                 user=user,
@@ -646,13 +686,6 @@ def notify_term_grade_released(classroom, term):
                     "grade is now available."
                 ),
                 target_url=target_url,
-                sms_type=SMSNotification.Type.GRADE_AVAILABLE,
-                sms_reference_id=grade_reference,
-                sms_message=(
-                    "District 1 LMS: A Term "
-                    f"{term} grade is now available for "
-                    f"{classroom.subject}. Log in to view it."
-                ),
             )
 
     return created_count

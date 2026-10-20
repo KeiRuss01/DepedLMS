@@ -55,48 +55,12 @@
 
                 <article class="account-card">
                     <div class="settings-card-heading">
-                        <span class="settings-heading-icon required-icon">
-                            <i class="bi bi-shield-check"></i>
-                        </span>
-
-                        <div>
-                            <h2>Required SMS Notifications</h2>
-                            <p>
-                                These important messages are always sent
-                                to your registered mobile number.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="required-notification-list">
-                        {% for item in mandatory_sms_items %}
-                            <div class="required-notification-item">
-                                <i class="bi bi-check-circle-fill"></i>
-                                <span>{{ item }}</span>
-                            </div>
-                        {% endfor %}
-                    </div>
-
-                    <div class="registered-number">
-                        <div>
-                            <small>Sent to</small>
-                            <strong>{{ masked_phone }}</strong>
-                        </div>
-
-                        <a href="{% url 'accounts:profile' %}">
-                            Update number in My Profile
-                        </a>
-                    </div>
-                </article>
-
-                <article class="account-card">
-                    <div class="settings-card-heading">
                         <span class="settings-heading-icon">
                             <i class="bi bi-bell"></i>
                         </span>
 
                         <div>
-                            <h2>Optional In-app Preferences</h2>
+                            <h2>In-app Notification Preferences</h2>
                             <p>
                                 Choose how notifications behave
                                 while using the LMS.

@@ -510,6 +510,237 @@
     background: #cbd5e1;
 }
 
+/* =========================================================
+   RESPONSIVE STUDENT ATTENDANCE
+   ========================================================= */
+
+@media (max-width: 767.98px) {
+    /* Compact heading and controls */
+    .attendance-tab-heading {
+        display: block;
+        margin-bottom: 14px;
+    }
+
+    .attendance-tab-heading h2 {
+        margin-bottom: 4px;
+        font-size: 22px;
+    }
+
+    .attendance-tab-heading p {
+        margin-bottom: 12px;
+        font-size: 13px;
+    }
+
+    .attendance-tab-actions {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+    }
+
+    .attendance-tab-actions form,
+    .attendance-tab-actions .form-control {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .attendance-tab-actions .form-control {
+        height: 42px;
+        font-size: 14px;
+    }
+
+    .read-only-label {
+        width: auto;
+        min-height: 42px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 8px 12px;
+        white-space: nowrap;
+    }
+
+    /* Show cards in two columns instead of one large column */
+    .attendance-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .attendance-summary-card {
+        min-width: 0;
+        min-height: 72px;
+        gap: 10px;
+        padding: 11px;
+        border-radius: 12px;
+    }
+
+    .attendance-summary-card:last-child {
+        grid-column: 1 / -1;
+    }
+
+    .attendance-summary-card small {
+        font-size: 11px;
+        white-space: nowrap;
+    }
+
+    .attendance-summary-card strong {
+        margin-top: 0;
+        font-size: 20px;
+        line-height: 1.1;
+    }
+
+    .attendance-icon {
+        flex: 0 0 36px;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        font-size: 17px;
+    }
+
+    /* Place calendar, details and legend vertically */
+    .attendance-content-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 14px;
+    }
+
+    .attendance-content-grid aside {
+        gap: 14px;
+    }
+
+    .attendance-calendar-card {
+        min-width: 0;
+        padding: 12px;
+    }
+
+    .attendance-month-heading {
+        margin-bottom: 8px;
+    }
+
+    .attendance-month-heading h3 {
+        font-size: 16px;
+    }
+
+    .attendance-month-heading .btn {
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        display: inline-grid;
+        place-items: center;
+    }
+
+    /*
+     * Make the calendar fit the phone instead of forcing
+     * a 700px-wide calendar with horizontal scrolling.
+     */
+    .attendance-calendar-wrap {
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .attendance-weekdays,
+    .attendance-calendar {
+        width: 100%;
+        min-width: 0;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+
+    .attendance-weekdays span {
+        min-width: 0;
+        padding: 7px 1px;
+        overflow: hidden;
+        font-size: 10px;
+        text-overflow: clip;
+    }
+
+    .attendance-day {
+        position: relative;
+        min-width: 0;
+        min-height: 54px;
+        padding: 5px 3px;
+        overflow: hidden;
+        text-align: center;
+    }
+
+    .attendance-day strong {
+        display: block;
+        font-size: 11px;
+        line-height: 1;
+    }
+
+    /*
+     * On mobile, show only the status icon.
+     * Full status names are still available in Attendance Details.
+     */
+    .attendance-day span {
+        display: block;
+        margin-top: 8px;
+        overflow: hidden;
+        font-size: 0;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    .attendance-day span i {
+        font-size: 12px;
+    }
+
+    /* Show a small dot for days without an icon */
+    .attendance-day.status-unrecorded span::before {
+        content: "";
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #cbd5e1;
+    }
+
+    .attendance-details,
+    .attendance-legend {
+        padding: 14px;
+    }
+
+    .attendance-legend ul {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 9px;
+    }
+}
+
+/* Very small phones */
+@media (max-width: 380px) {
+    .attendance-tab-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .read-only-label {
+        justify-self: start;
+        min-height: 34px;
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+
+    .attendance-summary-card {
+        min-height: 66px;
+        padding: 9px;
+    }
+
+    .attendance-icon {
+        flex-basis: 32px;
+        width: 32px;
+        height: 32px;
+        font-size: 15px;
+    }
+
+    .attendance-day {
+        min-height: 49px;
+        padding: 4px 2px;
+    }
+
+    .attendance-weekdays span {
+        font-size: 9px;
+    }
+}
+
 @media (max-width: 1199.98px) {
     .progress-overview-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -555,10 +786,6 @@
 
 @media (max-width: 420px) {
     .progress-overview-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .attendance-summary-grid {
         grid-template-columns: 1fr;
     }
 }

@@ -246,39 +246,10 @@ def settings_view(request):
                 "The requested settings action was not recognized.",
             )
 
-    if request.user.role == User.Role.TEACHER:
-        mandatory_sms_items = [
-            "School-wide announcements",
-        ]
-    else:
-        mandatory_sms_items = [
-            "Newly uploaded modules",
-            "Approaching module deadlines",
-            "Class and school announcements",
-        ]
-
-    phone_number = request.user.phone_number or ""
-
-    if len(phone_number) >= 6:
-        masked_phone = (
-            f"{phone_number[:4]} ••• ••{phone_number[-2:]}"
-        )
-    else:
-        masked_phone = "No mobile number registered"
-
-    # Keep the masked value ASCII-safe when the source file is moved
-    # between Windows editors with different encodings.
-    if len(phone_number) >= 6:
-        masked_phone = (
-            f"{phone_number[:4]} *** **{phone_number[-2:]}"
-        )
-
     context = {
         "preference_form": preference_form,
         "password_form": password_form,
         "preference": preference,
-        "mandatory_sms_items": mandatory_sms_items,
-        "masked_phone": masked_phone,
     }
 
     return render(
@@ -294,9 +265,16 @@ def notifications_view(request):
         .all()[:50]
     )
 
+    template_name = "accounts/notifications.html"
+    if request.user.role in {
+        User.Role.SUPERVISOR,
+        User.Role.PRINCIPAL,
+    }:
+        template_name = "supervisor/admin_notifications.html"
+
     return render(
         request,
-        "accounts/notifications.html",
+        template_name,
         {
             "notifications": notifications,
         },
@@ -330,7 +308,12 @@ def open_notification_view(request, notification_id):
         or not target_url.startswith("/")
         or target_url.startswith("//")
     ):
-        target_url = reverse("classroom:dashboard")
+        if request.user.role == User.Role.SUPERVISOR:
+            target_url = reverse("supervisor:dashboard")
+        elif request.user.role == User.Role.PRINCIPAL:
+            target_url = reverse("supervisor:principal_dashboard")
+        else:
+            target_url = reverse("classroom:dashboard")
 
     return redirect(target_url)
 

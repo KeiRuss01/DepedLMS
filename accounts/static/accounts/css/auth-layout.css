@@ -163,6 +163,234 @@
     justify-content: center;
 }
 
+/* Login account actions */
+.login-options {
+    display: flex;
+    min-height: 28px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.2rem;
+}
+
+.signup-prompt {
+    display: grid;
+    align-items: center;
+    gap: 0.85rem;
+    margin-top: 1.5rem;
+    padding: 1rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    border: 1px solid #dce8f8;
+    border-radius: 0.8rem;
+    background: #f6faff;
+}
+
+.signup-prompt-icon {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    place-items: center;
+    color: #075fd3;
+    font-size: 1.1rem;
+    border-radius: 0.7rem;
+    background: #e6f1ff;
+}
+
+.signup-prompt-content strong {
+    display: block;
+    color: #071a3a;
+    font-size: 0.78rem;
+}
+
+.signup-prompt-content p {
+    margin: 0.2rem 0 0;
+    color: #6d7480;
+    font-size: 0.66rem;
+}
+
+.signup-prompt-button {
+    padding: 0.55rem 0.85rem;
+    color: #075fd3;
+    font-size: 0.7rem;
+    font-weight: 700;
+    white-space: nowrap;
+    border: 1px solid #8bb8ee;
+    border-radius: 0.55rem;
+    background: #fff;
+}
+
+.signup-prompt-button:hover {
+    color: #fff;
+    border-color: #075fd3;
+    background: #075fd3;
+}
+
+.staff-login-note {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0.4rem;
+    margin: 0.9rem 0 0;
+    color: #788596;
+    font-size: 0.62rem;
+    line-height: 1.5;
+    text-align: center;
+}
+
+/* Revised signup layout */
+.signup-heading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.9rem;
+    margin-bottom: 1.5rem;
+    text-align: left;
+}
+
+.signup-heading-icon {
+    display: grid;
+    width: 54px;
+    height: 54px;
+    flex: 0 0 auto;
+    place-items: center;
+    color: #075fd3;
+    font-size: 1.35rem;
+    border-radius: 0.9rem;
+    background: #eaf3ff;
+}
+
+.signup-heading h1 {
+    margin: 0;
+}
+
+.signup-heading p {
+    margin: 0.25rem 0 0;
+}
+
+.section-heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.section-heading .section-number {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    place-items: center;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border-radius: 50%;
+    background: #075fd3;
+}
+
+.section-heading h2 {
+    margin: 0;
+    font-size: 0.88rem;
+}
+
+.section-heading p {
+    margin: 0.2rem 0 0;
+    color: #6d7480;
+    font-size: 0.65rem;
+}
+
+.public-role-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.role-card {
+    min-height: 170px;
+}
+
+.role-icon {
+    display: grid;
+    width: 50px;
+    height: 50px;
+    margin-bottom: 0.75rem;
+    place-items: center;
+    font-size: 1.35rem;
+    border-radius: 0.8rem;
+}
+
+.role-icon-student {
+    color: #075fd3;
+    background: #e8f2ff;
+}
+
+.role-icon-parent {
+    color: #bd4055;
+    background: #fff0f2;
+}
+
+.role-card > .role-icon > i {
+    margin: 0;
+}
+
+.role-card strong {
+    font-size: 0.8rem;
+}
+
+.role-card small {
+    max-width: 260px;
+    font-size: 0.62rem;
+    line-height: 1.5;
+}
+
+.parent-link-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    margin-top: 1rem;
+    padding: 0.8rem;
+    color: #53657a;
+    font-size: 0.67rem;
+    line-height: 1.5;
+    border-radius: 0.6rem;
+    background: #eef6ff;
+}
+
+.signup-submit-card {
+    padding: 1.1rem;
+    border: 1px solid #dce5ef;
+    border-radius: 0.8rem;
+    background: #f9fbfe;
+}
+
+.signup-submit-card .terms-row {
+    margin-top: 0;
+}
+
+@media (max-width: 575.98px) {
+    .signup-prompt {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .signup-prompt-button {
+        grid-column: 1 / -1;
+        text-align: center;
+    }
+
+    .signup-heading {
+        align-items: flex-start;
+        justify-content: flex-start;
+    }
+
+    .signup-heading h1 {
+        font-size: 1.45rem;
+    }
+
+    .public-role-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .role-card {
+        min-height: 150px;
+    }
+}
+
 @media (max-width: 991.98px) {
     .shared-auth-card {
         grid-template-columns: 1fr;

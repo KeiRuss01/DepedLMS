@@ -84,7 +84,6 @@
 .deped-record .score-cell { padding: 0; }
 .deped-record .score-cell input { width: 100%; height: 30px; padding: 2px; border: 0; outline: 0; background: transparent; color: #111; font-size: 10px; text-align: center; }
 .deped-record .score-cell input:focus { box-shadow: inset 0 0 0 2px #1769ff; }
-.deped-record .score-cell input[readonly] { background: #eef4ff; cursor: not-allowed; }
 .deped-record .computed-cell { background: #f7f9fc; font-weight: 700; }
 .deped-record .final-cell { min-width: 62px; background: #eef4ff; font-weight: 800; }
 .record-empty { padding: 18px !important; color: #667085; text-align: center !important; }
@@ -192,6 +191,33 @@
     border-top: 1px solid #eef1f5;
     color: #4e5c70;
     font-size: 13px;
+}
+
+/* Module-linked scores are automatically filled from submissions. */
+.deped-record .module-score-cell {
+    background: #eaf2ff;
+}
+
+.deped-record .module-score-cell input {
+    color: #0757dc;
+    font-weight: 700;
+    background: #eaf2ff;
+}
+
+.deped-record .module-score-cell input:hover {
+    background: #dceaff;
+}
+
+.deped-record .module-score-cell input:focus {
+    color: #063f9f;
+    background: #fff;
+    box-shadow: inset 0 0 0 2px #1769ff;
+}
+
+/* Keep module column headers blue as well. */
+.deped-record .module-slot {
+    color: #0757dc;
+    background: #dfeaff;
 }
 
 @media (max-width: 767.98px) {
