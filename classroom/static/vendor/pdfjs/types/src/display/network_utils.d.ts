@@ -1,16 +1,16 @@
 export function createHeaders(isHttp: any, httpHeaders: any): Headers;
-export function createResponseError(status: any, url: any): ResponseException;
-export function ensureResponseOrigin(rangeOrigin: any, origin: any): void;
+export function createResponseStatusError(status: any, url: any): MissingPDFException | UnexpectedResponseException;
 export function extractFilenameFromHeader(responseHeaders: any): string | null;
 export function getResponseOrigin(url: any): string | null;
-export function trimHeadersEnd(str: any): any;
 export function validateRangeRequestCapabilities({ responseHeaders, isHttp, rangeChunkSize, disableRange, }: {
     responseHeaders: any;
     isHttp: any;
     rangeChunkSize: any;
     disableRange: any;
 }): {
-    contentLength: number;
-    isRangeSupported: boolean;
+    allowRangeRequests: boolean;
+    suggestedLength: undefined;
 };
-import { ResponseException } from "../shared/util.js";
+export function validateResponseStatus(status: any): boolean;
+import { MissingPDFException } from "../shared/util.js";
+import { UnexpectedResponseException } from "../shared/util.js";

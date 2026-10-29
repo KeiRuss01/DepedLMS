@@ -250,6 +250,22 @@ def notify_class_archive_status(classroom, archived):
     return created_count
 
 
+def notify_student_removed(enrollment):
+    """Tell a learner when their Teacher removes them from a class."""
+    changed_key = timezone.now().strftime("%Y%m%d%H%M%S%f")
+    target_url = reverse("classroom:classes") + f"?removed={changed_key}"
+    return _create_notification(
+        user=enrollment.student.user,
+        notification_type=Notification.Type.GENERAL,
+        title="Removed from class",
+        message=(
+            f"Your Teacher removed you from {enrollment.classroom.class_name} "
+            f"({enrollment.classroom.subject})."
+        ),
+        target_url=target_url,
+    )
+
+
 def notify_module_published(module):
     target_url = reverse("classroom:module_work", args=[module.pk])
 

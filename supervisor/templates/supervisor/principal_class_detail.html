@@ -1,0 +1,61 @@
+{% extends "supervisor/master2.html" %}
+{% load static %}
+
+{% block title %}{{ classroom.class_name }}{% endblock %}
+{% block nav_classes %}active{% endblock %}
+{% block extra_css %}<link href="{% static 'supervisor/css/schools.css' %}" rel="stylesheet">{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+    <div>
+        <a href="{% url 'supervisor:classes' %}" class="text-decoration-none">
+            <i class="bi bi-arrow-left me-1"></i>Back to Classes
+        </a>
+        <h1 class="sv-page-title h3 mt-3 mb-1">{{ classroom.class_name }}</h1>
+        <p class="sv-page-subtitle mb-0">
+            {{ classroom.subject }} · {{ classroom.grade_level }} · {{ classroom.section }} · AY {{ classroom.school_year }}
+        </p>
+    </div>
+    <a class="btn btn-primary" href="{% url 'supervisor:principal_class_attendance' classroom.pk %}">
+        <i class="bi bi-calendar2-check me-2"></i>View Attendance / SF2
+    </a>
+</div>
+
+<section class="sv-card mb-4">
+    <div class="row g-3">
+        <div class="col-sm-6 col-lg-4"><small class="text-muted d-block">Teacher</small><strong>{{ classroom.teacher }}</strong></div>
+        <div class="col-sm-6 col-lg-4"><small class="text-muted d-block">Class code</small><strong>{{ classroom.class_code }}</strong></div>
+        <div class="col-sm-6 col-lg-4"><small class="text-muted d-block">Approved learners</small><strong>{{ enrollments|length }}</strong></div>
+    </div>
+</section>
+
+<section class="sv-card">
+    <div class="d-flex align-items-center justify-content-between gap-3 mb-3">
+        <div>
+            <h2 class="h5 mb-1">Learner performance</h2>
+            <p class="text-muted mb-0">Open a learner to review attendance, grades, scores, and task completion.</p>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead><tr><th>#</th><th>Learner</th><th>LRN</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+                {% for enrollment in enrollments %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td><strong>{{ enrollment.student.lastname }}, {{ enrollment.student.firstname }} {{ enrollment.student.middlename|default:"" }}</strong></td>
+                    <td>{{ enrollment.student.lrn }}</td>
+                    <td class="text-end">
+                        <a class="btn btn-outline-primary btn-sm" href="{% url 'supervisor:principal_student_performance' classroom.pk enrollment.student.pk %}">
+                            <i class="bi bi-graph-up me-1"></i>View performance
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted py-4">No approved learners are enrolled in this class.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

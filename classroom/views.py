@@ -1,8 +1,11 @@
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+
+from landing.models import DeviceRegistry
 
 from accounts.models import ParentStudentLink, Student, User
 
@@ -23,6 +26,7 @@ from decimal import Decimal, InvalidOperation
 from datetime import date, timedelta
 from html import escape as html_escape
 from html.parser import HTMLParser
+from urllib.parse import quote
 import calendar as month_calendar
 import json
 import re
@@ -30,7 +34,7 @@ import re
 from supervisor.models import SchoolAnnouncement
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Count, Max, Q
+from django.db.models import Count, Max, Prefetch, Q
 from django.http import FileResponse, Http404, JsonResponse
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
@@ -39,23 +43,15 @@ from .models import (
     ClassPost,
     Comment,
     Module,
-    ModuleAnswerSection,
-    SectionQuestion,
     ModuleSubmission,
     SubmissionExtraPage,
-    SectionResponse,
-    SectionAnswer,
-    SubmissionAttachment,
 )
 from .module_validators import validate_answer_file
 
 from .module_forms import (
     ModuleCreateForm,
+    ModuleEditForm,
     ModuleScoreForm,
-    AnswerSectionForm,
-    SectionQuestionFormSet,
-    SectionResponseForm,
-    SectionGradeForm,
     SubmissionGradeForm,
 )
 from .module_pdf_processor import build_student_pdf
@@ -68,6 +64,7 @@ from .notification_services import (
     notify_final_grade_report_submitted,
     notify_join_request,
     notify_module_published,
+    notify_student_removed,
     notify_submission,
     notify_submission_feedback,
     notify_term_grade_released,
@@ -418,6 +415,8 @@ def dashboard_view(request):
 @login_required(login_url="accounts:login")
 def classes_view(request):
     user = request.user
+    search = request.GET.get("q", "").strip()[:150]
+    selected_term = request.GET.get("term", "")
 
     if user.role == User.Role.TEACHER:
         teacher = getattr(user, "teacher_profile", None)
@@ -443,6 +442,17 @@ def classes_view(request):
             "student__user",
         )
 
+        if search:
+            class_filter = (
+                Q(class_name__icontains=search)
+                | Q(subject__icontains=search)
+                | Q(section__icontains=search)
+                | Q(class_code__icontains=search)
+                | Q(school_year__icontains=search)
+            )
+            active_classes = active_classes.filter(class_filter)
+            archived_classes = archived_classes.filter(class_filter)
+
         return render(
             request,
             "classroom/classes.html",
@@ -450,6 +460,7 @@ def classes_view(request):
                 "active_classes": active_classes,
                 "archived_classes": archived_classes,
                 "join_requests": join_requests,
+                "search": search,
             },
         )
 
@@ -493,6 +504,18 @@ def classes_view(request):
             "classroom__teacher",
         )
 
+        if search:
+            class_filter = (
+                Q(classroom__class_name__icontains=search)
+                | Q(classroom__subject__icontains=search)
+                | Q(classroom__section__icontains=search)
+                | Q(classroom__class_code__icontains=search)
+                | Q(classroom__teacher__firstname__icontains=search)
+                | Q(classroom__teacher__lastname__icontains=search)
+            )
+            enrollments = enrollments.filter(class_filter)
+            archived_enrollments = archived_enrollments.filter(class_filter)
+
         return render(
             request,
             "classroom/classes.html",
@@ -501,6 +524,7 @@ def classes_view(request):
                 "archived_enrollments": archived_enrollments,
                 "invitations": invitations,
                 "pending_requests": pending_requests,
+                "search": search,
             },
         )
 
@@ -548,6 +572,15 @@ def classes_view(request):
                 "classroom__teacher",
             )
 
+            if search:
+                enrollments = enrollments.filter(
+                    Q(classroom__class_name__icontains=search)
+                    | Q(classroom__subject__icontains=search)
+                    | Q(classroom__section__icontains=search)
+                    | Q(classroom__teacher__firstname__icontains=search)
+                    | Q(classroom__teacher__lastname__icontains=search)
+                )
+
         return render(
             request,
             "classroom/classes.html",
@@ -555,6 +588,7 @@ def classes_view(request):
                 "linked_student": linked_student,
                 "linked_students": linked_students,
                 "enrollments": enrollments,
+                "search": search,
             },
         )
 
@@ -1074,6 +1108,41 @@ def respond_to_join_request_view(request, enrollment_id, action):
         classroom_id=enrollment.classroom_id,
     )
 
+
+@login_required(login_url="accounts:login")
+@require_POST
+def remove_student_view(request, enrollment_id):
+    if request.user.role != User.Role.TEACHER:
+        messages.error(request, "Only Teachers can remove Students from a class.")
+        return redirect("classroom:dashboard")
+
+    teacher = getattr(request.user, "teacher_profile", None)
+    enrollment = get_object_or_404(
+        ClassEnrollment.objects.select_related(
+            "student",
+            "student__user",
+            "classroom",
+        ),
+        enrollment_id=enrollment_id,
+        classroom__teacher=teacher,
+        classroom__is_archived=False,
+        status=ClassEnrollment.Status.APPROVED,
+    )
+    classroom_id = enrollment.classroom_id
+    student_name = str(enrollment.student)
+
+    # Keep the enrollment row so grades, attendance and submissions remain
+    # available for school records. A removed learner may request to join again.
+    enrollment.status = ClassEnrollment.Status.REJECTED
+    enrollment.enrolled_at = None
+    enrollment.save(update_fields=["status", "enrolled_at"])
+    notify_student_removed(enrollment)
+
+    messages.success(request, f"{student_name} was removed from the class.")
+    return redirect(
+        reverse("classroom:class_page", args=[classroom_id]) + "?tab=people"
+    )
+
 @login_required(login_url="accounts:login")
 def class_page_view(request, classroom_id):
     active_tab = request.GET.get("tab", "stream")
@@ -1144,15 +1213,34 @@ def class_page_view(request, classroom_id):
     if active_tab == "attendance" and is_teacher:
         return redirect("classroom:attendance", classroom_id=classroom_id)
 
+    approved_parent_links = ParentStudentLink.objects.filter(
+        status=ParentStudentLink.Status.APPROVED,
+    ).select_related(
+        "parent",
+        "parent__user",
+    )
+
     enrolled_students = classroom.enrollments.filter(
         status=ClassEnrollment.Status.APPROVED,
     ).select_related(
         "student",
         "student__user",
+        "student__parent",
+        "student__parent__user",
+    ).prefetch_related(
+        Prefetch(
+            "student__parent_links",
+            queryset=approved_parent_links,
+            to_attr="approved_parent_links",
+        ),
     )
 
     module_rows = []
+    module_active_rows = []
+    module_completed_rows = []
     activity_rows = []
+    activity_active_rows = []
+    activity_completed_rows = []
     stream_items = []
     upcoming_modules = []
     selected_term = request.GET.get("term", "")
@@ -1189,13 +1277,32 @@ def class_page_view(request, classroom_id):
                 )
             }
 
-        module_rows = [
-            {
+        for module in modules:
+            submission = submissions.get(module.pk)
+            answering_error = _module_answering_error(module, submission)
+            row = {
                 "module": module,
-                "submission": submissions.get(module.pk),
+                "submission": submission,
+                "is_completed": bool(
+                    submission
+                    and submission.status in {
+                        ModuleSubmission.Status.SUBMITTED,
+                        ModuleSubmission.Status.GRADED,
+                    }
+                ),
+                "can_download": bool(
+                    student is not None
+                    and answering_error is None
+                ),
+                "download_unavailable_reason": (
+                    answering_error[0] if answering_error else ""
+                ),
             }
-            for module in modules
-        ]
+            module_rows.append(row)
+            if row["is_completed"]:
+                module_completed_rows.append(row)
+            else:
+                module_active_rows.append(row)
 
     if active_tab == "activities":
         activities = classroom.class_posts.filter(
@@ -1204,6 +1311,12 @@ def class_page_view(request, classroom_id):
 
         if not is_teacher:
             activities = activities.filter(is_published=True)
+
+        if selected_term in ["1", "2", "3"]:
+            activities = activities.filter(term=selected_term)
+
+        if search:
+            activities = activities.filter(title__icontains=search)
 
         submissions = {}
         if student:
@@ -1215,13 +1328,26 @@ def class_page_view(request, classroom_id):
                 )
             }
 
-        activity_rows = [
-            {
+        for activity in activities:
+            submission = submissions.get(activity.pk)
+            row = {
                 "activity": activity,
-                "submission": submissions.get(activity.pk),
+                "submission": submission,
+                "is_completed": bool(
+                    activity.is_closed if is_teacher else (
+                        submission
+                        and submission.status in {
+                            ActivitySubmission.Status.SUBMITTED,
+                            ActivitySubmission.Status.GRADED,
+                        }
+                    )
+                ),
             }
-            for activity in activities
-        ]
+            activity_rows.append(row)
+            if row["is_completed"]:
+                activity_completed_rows.append(row)
+            else:
+                activity_active_rows.append(row)
 
     if active_tab == "stream":
         announcements = classroom.announcements.select_related(
@@ -1296,7 +1422,7 @@ def class_page_view(request, classroom_id):
             due_at__gte=timezone.now(),
         ).order_by("due_at")[:5]
 
-    return render(
+    response = render(
         request,
         "classroom/class_page.html",
         {
@@ -1306,7 +1432,11 @@ def class_page_view(request, classroom_id):
             "is_student": is_student,
             "enrolled_students": enrolled_students,
             "rows": module_rows,
+            "module_active_rows": module_active_rows,
+            "module_completed_rows": module_completed_rows,
             "activity_rows": activity_rows,
+            "activity_active_rows": activity_active_rows,
+            "activity_completed_rows": activity_completed_rows,
             "selected_term": selected_term,
             "search": search,
             "stream_items": stream_items,
@@ -1317,6 +1447,9 @@ def class_page_view(request, classroom_id):
             "comment_form": CommentForm(),
         },
     )
+    if active_tab == "modules":
+        response["Cache-Control"] = "no-store"
+    return response
 
 def _can_comment_on_post(user, post):
     if user.role == User.Role.TEACHER:
@@ -1768,59 +1901,168 @@ def _get_module_access(request, module_id):
 
     return module, classroom, is_teacher, student
 
+
+MODULE_EDITABLE_SUBMISSION_STATUSES = {
+    ModuleSubmission.Status.DRAFT,
+    ModuleSubmission.Status.RETURNED,
+    ModuleSubmission.Status.SUBMITTED,
+}
+
+
+def _module_answering_error(module, submission=None):
+    """Return the reason a student cannot answer, or None when allowed."""
+    if submission and submission.status == ModuleSubmission.Status.GRADED:
+        return "This Module has already been graded and cannot be edited.", 409
+
+    if (
+        submission
+        and submission.status not in MODULE_EDITABLE_SUBMISSION_STATUSES
+    ):
+        return "This Module has already been submitted.", 409
+
+    # A submitted Module may be edited from the downloaded workspace while
+    # it is still before the deadline. Once the deadline passes, the
+    # submitted copy becomes read-only regardless of allow_late.
+    if (
+        submission
+        and submission.status == ModuleSubmission.Status.SUBMITTED
+        and module.due_at
+        and timezone.now() >= module.due_at
+    ):
+        return "The submitted Module can no longer be edited after the deadline.", 403
+
+    if (
+        module.due_at
+        and timezone.now() > module.due_at
+        and not module.allow_late
+    ):
+        return "The Module deadline has passed and late submissions are closed.", 403
+
+    return None
+
+@login_required(login_url="accounts:login")
+@require_GET
+def module_offline_data_view(request, module_id):
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        module_id,
+    )
+
+    # Teachers use the online management page.
+    if is_teacher or student is None:
+        return JsonResponse(
+            {"error": "Only enrolled students can download modules."},
+            status=403,
+        )
+
+    submission = ModuleSubmission.objects.filter(
+        module=module,
+        student=student,
+    ).first()
+
+    answering_error = _module_answering_error(module, submission)
+    if answering_error:
+        message, status_code = answering_error
+        return JsonResponse(
+            {"error": message},
+            status=status_code,
+        )
+
+    pdf_url = reverse(
+        "classroom:module_pdf",
+        args=[module.pk],
+    )
+
+    data = {
+        "schema_version": 1,
+        "module": {
+            "id": module.pk,
+            "user_id": request.user.pk,
+            "student_id": student.pk,
+            "class_id": classroom.pk,
+            "class_name": classroom.class_name,
+            "title": module.title,
+            "instructions": module.instructions,
+            "week": module.week,
+            "term": module.term,
+            "answer_mode": module.answer_mode,
+            "max_score": module.max_score,
+            "due_at": (
+                module.due_at.isoformat()
+                if module.due_at
+                else None
+            ),
+            "allow_late": module.allow_late,
+            "published_at": (
+                module.published_at.isoformat()
+                if module.published_at
+                else None
+            ),
+            "availability_checked_at": timezone.now().isoformat(),
+            "pdf_url": pdf_url,
+            "annotation_save_url": reverse(
+                "classroom:module_mobile_annotations_save",
+                args=[module.pk],
+            ),
+            "extra_page_create_url": reverse(
+                "classroom:module_extra_page_create",
+                args=[module.pk],
+            ),
+            "submit_url": reverse(
+                "classroom:module_offline_submit",
+                args=[module.pk],
+            ),
+        },
+        "draft": {
+            "local_id": f"{student.pk}:{module.pk}",
+            "module_id": module.pk,
+            "student_id": student.pk,
+            "user_id": request.user.pk,
+            "class_id": classroom.pk,
+            "submission_id": submission.pk if submission else None,
+            "status": submission.status if submission else "draft",
+            "current_page": submission.current_page if submission else 1,
+            "annotations": submission.annotation_data if submission else [],
+            "extra_pages": [
+                _serialize_extra_page(extra_page)
+                for extra_page in submission.extra_pages.all()
+            ] if submission else [],
+            "draft_saved_at": (
+                submission.draft_saved_at.isoformat()
+                if submission and submission.draft_saved_at
+                else None
+            ),
+            "server_updated_at": (
+                submission.updated_at.isoformat()
+                if submission
+                else None
+            ),
+        },
+    }
+
+    response = JsonResponse(data)
+    response["Cache-Control"] = "no-store"
+    return response
+
 @login_required(login_url="accounts:login")
 def module_list_view(request, classroom_id):
-    classroom, is_teacher, student = _module_class_access(
+    classroom, _, _ = _module_class_access(
         request,
         classroom_id,
     )
 
-    modules = classroom.modules.all()
-
-    if not is_teacher:
-        modules = modules.filter(
-            status=Module.Status.PUBLISHED,
-        )
-
+    query = "tab=modules"
     selected_term = request.GET.get("term", "")
-
-    if selected_term in ["1", "2", "3"]:
-        modules = modules.filter(term=selected_term)
-
     search = request.GET.get("q", "").strip()[:150]
 
+    if selected_term in ["1", "2", "3"]:
+        query += f"&term={selected_term}"
+
     if search:
-        modules = modules.filter(title__icontains=search)
+        query += f"&q={quote(search)}"
 
-    submissions = {}
-
-    if student:
-        submissions = {
-            submission.module_id: submission
-            for submission in ModuleSubmission.objects.filter(
-                student=student,
-                module__classroom=classroom,
-            )
-        }
-
-    rows = [
-        {
-            "module": module,
-            "submission": submissions.get(module.pk),
-        }
-        for module in modules
-    ]
-
-    return render(
-        request,
-        "classroom/modules/live_list.html",
-        {
-            "classroom": classroom,
-            "is_teacher": is_teacher,
-            "rows": rows,
-            "selected_term": selected_term,
-            "search": search,
-        },
+    return redirect(
+        f"{reverse('classroom:class_page', args=[classroom.pk])}?{query}"
     )
 
 @login_required(login_url="accounts:login")
@@ -1866,6 +2108,75 @@ def module_create_view(request, classroom_id):
             "is_teacher": True,
         },
     )
+
+
+@login_required(login_url="accounts:login")
+@require_http_methods(["GET", "POST"])
+def module_edit_view(request, module_id):
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        module_id,
+    )
+
+    if not is_teacher:
+        raise PermissionDenied("Only the Teacher can edit modules.")
+
+    form = ModuleEditForm(
+        request.POST if request.method == "POST" else None,
+        request.FILES if request.method == "POST" else None,
+        instance=module,
+    )
+
+    if request.method == "POST" and form.is_valid():
+        rebuild_student_copy = bool(request.FILES.get("pdf")) or (
+            "hidden_pages" in form.changed_data
+        )
+
+        try:
+            with transaction.atomic():
+                module = form.save()
+                if rebuild_student_copy:
+                    build_student_pdf(module)
+                sync_module_grade_item(module)
+                if module.status == Module.Status.PUBLISHED:
+                    sync_module_post(module)
+        except ValidationError as error:
+            form.add_error("hidden_pages", error)
+        else:
+            messages.success(request, "Module details updated.")
+            return redirect("classroom:module_manage", module_id=module.pk)
+
+    return render(
+        request,
+        "classroom/modules/live_edit.html",
+        {
+            "classroom": classroom,
+            "module": module,
+            "form": form,
+            "is_teacher": True,
+        },
+    )
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def module_delete_view(request, module_id):
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        module_id,
+    )
+
+    if not is_teacher:
+        raise PermissionDenied("Only the Teacher can delete modules.")
+
+    module_title = module.title
+    classroom_id = classroom.pk
+    module.delete()
+    messages.success(request, f'Module "{module_title}" deleted.')
+    return redirect(
+        f"{reverse('classroom:class_page', args=[classroom_id])}?tab=modules"
+    )
+
 
 @login_required(login_url="accounts:login")
 @require_http_methods(["GET", "POST"])
@@ -1917,89 +2228,16 @@ def module_manage_view(request, module_id):
         else:
             raise PermissionDenied("Invalid action.")
 
-    sections = module.answer_sections.prefetch_related("questions")
     return render(
         request,
         "classroom/modules/live_manage.html",
         {
             "classroom": classroom,
             "module": module,
-            "sections": sections,
             "score_form": score_form,
             "is_teacher": True,
         },
     )
-
-
-@login_required(login_url="accounts:login")
-@require_http_methods(["GET", "POST"])
-def module_section_create_view(request, module_id):
-    module, classroom, is_teacher, student = _get_module_access(request, module_id)
-    if not is_teacher:
-        raise PermissionDenied("Only the Teacher can add answer sections.")
-    section = ModuleAnswerSection(module=module, position=module.answer_sections.count() + 1)
-    form = AnswerSectionForm(request.POST or None, instance=section)
-    if request.method == "POST" and form.is_valid():
-        section = form.save()
-        sync_module_grade_item(module)
-        messages.success(request, "Answer section added.")
-        return redirect("classroom:module_section_edit", section_id=section.pk)
-    return render(request, "classroom/modules/live_section_form.html", {
-        "classroom": classroom, "module": module, "form": form,
-        "section": None, "is_teacher": True,
-    })
-
-
-@login_required(login_url="accounts:login")
-@require_http_methods(["GET", "POST"])
-def module_section_edit_view(request, section_id):
-    section = get_object_or_404(ModuleAnswerSection.objects.select_related("module"), pk=section_id)
-    module, classroom, is_teacher, student = _get_module_access(request, section.module_id)
-    if not is_teacher:
-        raise PermissionDenied("Only the Teacher can edit answer sections.")
-    form = AnswerSectionForm(request.POST or None, instance=section)
-    formset = SectionQuestionFormSet(request.POST or None, instance=section, prefix="questions")
-    forms_valid = form.is_valid() and formset.is_valid() if request.method == "POST" else False
-    if forms_valid and form.cleaned_data["answer_method"] == ModuleAnswerSection.AnswerMethod.STRUCTURED:
-        question_points = sum(
-            row.get("points", 0)
-            for row in formset.cleaned_data
-            if row and not row.get("DELETE")
-        )
-        if question_points > form.cleaned_data["max_score"]:
-            form.add_error(
-                "max_score",
-                f"Question points total {question_points}, so the section total cannot be lower.",
-            )
-            forms_valid = False
-    if request.method == "POST" and forms_valid:
-        with transaction.atomic():
-            form.save()
-            formset.save()
-            for position, question in enumerate(section.questions.order_by("position", "pk"), start=1):
-                if question.position != position:
-                    question.position = position
-                    question.save(update_fields=["position"])
-            sync_module_grade_item(module)
-        messages.success(request, "Answer section saved.")
-        return redirect("classroom:module_manage", module_id=module.pk)
-    return render(request, "classroom/modules/live_section_form.html", {
-        "classroom": classroom, "module": module, "section": section,
-        "form": form, "formset": formset, "is_teacher": True,
-    })
-
-
-@login_required(login_url="accounts:login")
-@require_POST
-def module_section_delete_view(request, section_id):
-    section = get_object_or_404(ModuleAnswerSection.objects.select_related("module"), pk=section_id)
-    module, classroom, is_teacher, student = _get_module_access(request, section.module_id)
-    if not is_teacher:
-        raise PermissionDenied("Only the Teacher can delete answer sections.")
-    section.delete()
-    sync_module_grade_item(module)
-    messages.success(request, "Answer section removed.")
-    return redirect("classroom:module_manage", module_id=module.pk)
 
 @login_required(login_url="accounts:login")
 @require_http_methods(["GET", "POST"])
@@ -2012,8 +2250,20 @@ def module_work_view(request, module_id):
     submission = None
     if student:
         submission, created = ModuleSubmission.objects.get_or_create(module=module, student=student)
-    locked = bool(submission and submission.status != ModuleSubmission.Status.DRAFT)
+    locked = bool(
+        submission
+        and submission.status not in MODULE_EDITABLE_SUBMISSION_STATUSES
+    )
     deadline_closed = bool(module.due_at and timezone.now() > module.due_at and not module.allow_late)
+    can_reopen = bool(
+        student
+        and submission
+        and submission.status == ModuleSubmission.Status.SUBMITTED
+        and (
+            module.due_at is None
+            or timezone.now() < module.due_at
+        )
+    )
 
     if request.method == "POST":
         if is_teacher:
@@ -2022,43 +2272,6 @@ def module_work_view(request, module_id):
             messages.error(request, "This module has already been submitted.")
         elif deadline_closed:
             messages.error(request, "The deadline has passed and late submissions are closed.")
-        elif module.answer_sections.exists() and not (
-            submission.annotation_data or submission.extra_pages.exists()
-        ):
-            # Backward compatibility for Modules prepared with the older
-            # answer-section workflow. Newly created Modules use the PDF path.
-            missing = []
-            for section in module.answer_sections.filter(required=True):
-                response = submission.section_responses.filter(
-                    section=section,
-                    is_complete=True,
-                ).first()
-                if not response:
-                    missing.append(section.title)
-            if missing:
-                messages.error(
-                    request,
-                    "Complete these required sections first: " + ", ".join(missing),
-                )
-            else:
-                submission.status = ModuleSubmission.Status.SUBMITTED
-                submission.submitted_at = timezone.now()
-                submission.save(update_fields=["status", "submitted_at", "updated_at"])
-                graded_required = submission.section_responses.filter(
-                    section__required=True,
-                    section__include_in_grade=True,
-                )
-                if graded_required.exists() and not graded_required.filter(
-                    score__isnull=True,
-                ).exists():
-                    submission.update_total_score()
-                    sync_module_grade_score(submission)
-                    submission.status = ModuleSubmission.Status.GRADED
-                    submission.graded_at = timezone.now()
-                    submission.save(update_fields=["status", "graded_at", "updated_at"])
-                notify_submission(submission)
-                messages.success(request, "Complete module submitted to your Teacher.")
-                return redirect("classroom:module_work", module_id=module.pk)
         elif not (
             submission.annotation_data or submission.extra_pages.exists()
         ):
@@ -2079,13 +2292,6 @@ def module_work_view(request, module_id):
                 messages.success(request, "Complete answered Module submitted to your Teacher.")
                 return redirect("classroom:module_work", module_id=module.pk)
 
-    responses = {}
-    if submission:
-        responses = {row.section_id: row for row in submission.section_responses.all()}
-    section_rows = [
-        {"section": section, "response": responses.get(section.pk)}
-        for section in module.answer_sections.all()
-    ]
     can_edit = not is_teacher and not locked and not deadline_closed
     if submission and locked and submission.answered_pdf:
         pdf_url = reverse("classroom:submission_pdf", args=[submission.pk])
@@ -2099,13 +2305,170 @@ def module_work_view(request, module_id):
             "classroom": classroom,
             "module": module,
             "submission": submission,
-            "section_rows": section_rows,
             "is_teacher": is_teacher,
             "can_edit": can_edit,
+            "can_reopen": can_reopen,
             "deadline_closed": deadline_closed,
             "pdf_url": pdf_url,
         },
     )
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def module_reopen_submission_view(request, module_id):
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        module_id,
+    )
+
+    if is_teacher or student is None:
+        raise PermissionDenied(
+            "Only the Student who submitted this Module can edit it."
+        )
+
+    with transaction.atomic():
+        submission = get_object_or_404(
+            ModuleSubmission.objects.select_for_update(),
+            module=module,
+            student=student,
+        )
+
+        if submission.status == ModuleSubmission.Status.GRADED:
+            messages.error(
+                request,
+                "This Module has already been graded and cannot be edited.",
+            )
+            return redirect(
+                "classroom:module_work",
+                module_id=module.pk,
+            )
+
+        if submission.status != ModuleSubmission.Status.SUBMITTED:
+            messages.info(
+                request,
+                "This Module is already available for editing.",
+            )
+            return redirect(
+                "classroom:module_work",
+                module_id=module.pk,
+            )
+
+        if module.due_at and timezone.now() >= module.due_at:
+            messages.error(
+                request,
+                "The deadline has passed. This submission can no longer be edited.",
+            )
+            return redirect(
+                "classroom:module_work",
+                module_id=module.pk,
+            )
+
+        if submission.answered_pdf:
+            submission.answered_pdf.delete(save=False)
+
+        submission.answered_pdf = ""
+        submission.pdf_saved_at = None
+        submission.status = ModuleSubmission.Status.DRAFT
+        submission.submitted_at = None
+        submission.save(
+            update_fields=[
+                "answered_pdf",
+                "pdf_saved_at",
+                "status",
+                "submitted_at",
+                "updated_at",
+            ]
+        )
+
+    messages.success(
+        request,
+        "Your Module is open for editing. Submit it again before the deadline.",
+    )
+    return redirect(
+        "classroom:module_work",
+        module_id=module.pk,
+    )
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def module_offline_submit_view(request, module_id):
+    module, classroom, is_teacher, student = _get_module_access(
+        request,
+        module_id,
+    )
+
+    if is_teacher or student is None:
+        return JsonResponse(
+            {"error": "Only enrolled students can submit modules."},
+            status=403,
+        )
+
+    submission, _ = ModuleSubmission.objects.get_or_create(
+        module=module,
+        student=student,
+    )
+
+    # The client may lose the response after Django has already generated the
+    # final PDF. Treat a retry as idempotent instead of returning a permanent
+    # "already submitted" error and leaving IndexedDB queued forever.
+    if (
+        submission.status in {
+            ModuleSubmission.Status.SUBMITTED,
+            ModuleSubmission.Status.GRADED,
+        }
+        and submission.answered_pdf
+    ):
+        return JsonResponse({
+            "submitted": True,
+            "submission_id": submission.pk,
+            "submitted_at": (
+                submission.submitted_at.isoformat()
+                if submission.submitted_at else timezone.now().isoformat()
+            ),
+            "is_late": submission.is_late,
+        })
+
+    answering_error = _module_answering_error(module, submission)
+    if answering_error:
+        message, status_code = answering_error
+        return JsonResponse({"error": message}, status=status_code)
+
+    if not (submission.annotation_data or submission.extra_pages.exists()):
+        return JsonResponse(
+            {
+                "error": (
+                    "Add an answer, drawing, written page, or uploaded "
+                    "output before submitting."
+                )
+            },
+            status=400,
+        )
+
+    try:
+        build_final_submission_pdf(submission)
+    except ValidationError as error:
+        return JsonResponse(
+            {"error": "; ".join(error.messages)},
+            status=400,
+        )
+    except Exception as error:
+        # Keep production responses generic, but make local debugging useful.
+        detail = str(error) if settings.DEBUG else "The final answered Module could not be generated."
+        return JsonResponse({"error": detail}, status=400)
+
+    submission.status = ModuleSubmission.Status.SUBMITTED
+    submission.submitted_at = timezone.now()
+    submission.save(update_fields=["status", "submitted_at", "updated_at"])
+    notify_submission(submission)
+
+    return JsonResponse({
+        "submitted": True,
+        "submission_id": submission.pk,
+        "submitted_at": submission.submitted_at.isoformat(),
+        "is_late": submission.is_late,
+    })
 
 
 MOBILE_ANNOTATION_TOOLS = {
@@ -2118,13 +2481,7 @@ MOBILE_ANNOTATION_TOOLS = {
 
 
 def _mobile_draft_error(module, submission):
-    if submission.status != ModuleSubmission.Status.DRAFT:
-        return "This Module has already been submitted.", 409
-
-    if module.due_at and timezone.now() > module.due_at and not module.allow_late:
-        return "The Module deadline has passed.", 403
-
-    return None
+    return _module_answering_error(module, submission)
 
 
 def _clean_mobile_annotations(value):
@@ -2614,10 +2971,7 @@ def module_extra_page_file_view(request, extra_page_id):
         request,
         submission.module_id,
     )
-    if is_teacher:
-        if submission.status == ModuleSubmission.Status.DRAFT:
-            raise PermissionDenied("Student drafts are private.")
-    elif submission.student_id != student.pk:
+    if not is_teacher and submission.student_id != student.pk:
         raise PermissionDenied("You cannot open another Student's output.")
 
     if not extra_page.uploaded_file:
@@ -2642,81 +2996,6 @@ def _normalized_answer(value):
 
 
 @login_required(login_url="accounts:login")
-@require_http_methods(["GET", "POST"])
-def module_section_work_view(request, section_id):
-    section = get_object_or_404(
-        ModuleAnswerSection.objects.select_related("module").prefetch_related("questions"),
-        pk=section_id,
-    )
-    module, classroom, is_teacher, student = _get_module_access(request, section.module_id)
-    if is_teacher:
-        response = None
-        submission = None
-    else:
-        submission, created = ModuleSubmission.objects.get_or_create(module=module, student=student)
-        response = submission.section_responses.filter(section=section).first()
-    complete = request.POST.get("action") == "complete"
-    form = SectionResponseForm(
-        section,
-        request.POST or None,
-        request.FILES or None,
-        response=response,
-        complete=complete,
-    )
-    locked = bool(submission and submission.status != ModuleSubmission.Status.DRAFT)
-    deadline_closed = bool(module.due_at and timezone.now() > module.due_at and not module.allow_late)
-    if request.method == "POST":
-        if is_teacher:
-            raise PermissionDenied("Teacher preview cannot save Student work.")
-        if locked or deadline_closed:
-            raise PermissionDenied("This module can no longer be changed.")
-        if request.POST.get("action") not in ["draft", "complete"]:
-            form.add_error(None, "Choose Save draft or Mark section complete.")
-        elif form.is_valid():
-            response, created = SectionResponse.objects.get_or_create(
-                submission=submission, section=section
-            )
-            response.written_answer = form.cleaned_data.get("written_answer", response.written_answer)
-            response.is_complete = complete
-            response.auto_score = 0
-            if section.answer_method == ModuleAnswerSection.AnswerMethod.STRUCTURED:
-                response.score = None
-                all_automatic = True
-                for question in section.questions.all():
-                    value = form.cleaned_data.get(f"question_{question.pk}", "")
-                    is_correct = None
-                    awarded = 0
-                    if question.correct_answer.strip():
-                        is_correct = _normalized_answer(value) == _normalized_answer(question.correct_answer)
-                        awarded = question.points if is_correct else 0
-                    else:
-                        all_automatic = False
-                    SectionAnswer.objects.update_or_create(
-                        response=response,
-                        question=question,
-                        defaults={
-                            "answer_text": value,
-                            "is_correct": is_correct,
-                            "awarded_points": awarded,
-                        },
-                    )
-                    response.auto_score += awarded
-                if complete and all_automatic:
-                    response.score = min(response.auto_score, section.max_score)
-            response.save()
-            for upload in form.cleaned_data.get("answer_files", []):
-                SubmissionAttachment.objects.create(
-                    response=response, file=upload, original_name=upload.name
-                )
-            messages.success(request, "Section completed." if complete else "Section draft saved.")
-            return redirect("classroom:module_work", module_id=module.pk)
-    return render(request, "classroom/modules/live_section_work.html", {
-        "classroom": classroom, "module": module, "section": section,
-        "submission": submission, "response": response, "form": form,
-        "is_teacher": is_teacher, "can_edit": not is_teacher and not locked and not deadline_closed,
-    })
-
-@login_required(login_url="accounts:login")
 def module_submissions_view(request, module_id):
     module, classroom, is_teacher, student = _get_module_access(
         request,
@@ -2726,15 +3005,12 @@ def module_submissions_view(request, module_id):
     if not is_teacher:
         raise PermissionDenied("Only the Teacher can review submissions.")
 
-    submissions = module.submissions.filter(
-        status__in=[
-            ModuleSubmission.Status.SUBMITTED,
-            ModuleSubmission.Status.GRADED,
-        ],
-    ).select_related(
+    submissions = module.submissions.select_related(
         "student",
         "student__user",
-    ).order_by("-submitted_at")
+    ).prefetch_related(
+        "extra_pages",
+    ).order_by("status", "-updated_at")
 
     return render(
         request,
@@ -2758,10 +3034,6 @@ def module_review_view(request, submission_id):
             "student__user",
         ),
         pk=submission_id,
-        status__in=[
-            ModuleSubmission.Status.SUBMITTED,
-            ModuleSubmission.Status.GRADED,
-        ],
     )
 
     module, classroom, is_teacher, student = _get_module_access(
@@ -2770,81 +3042,73 @@ def module_review_view(request, submission_id):
     )
 
     if not is_teacher:
-        raise PermissionDenied("Only the Teacher can grade submissions.")
+        raise PermissionDenied(
+            "Only the Teacher can grade submissions."
+        )
 
-    if submission.answered_pdf:
+    draft_preview = submission.status in [
+        ModuleSubmission.Status.DRAFT,
+        ModuleSubmission.Status.RETURNED,
+    ]
+
+    if request.method == "POST" and draft_preview:
+        raise PermissionDenied(
+            "A draft cannot be graded before the Student submits it."
+        )
+
+    if not draft_preview and not submission.answered_pdf:
+        raise Http404("Answered PDF not found.")
+
+    grade_form = None
+    if not draft_preview:
         grade_form = SubmissionGradeForm(
             module,
             request.POST or None,
             instance=submission,
         )
-        if request.method == "POST" and grade_form.is_valid():
-            graded = grade_form.save(commit=False)
-            graded.status = ModuleSubmission.Status.GRADED
-            graded.graded_at = timezone.now()
-            graded.save(update_fields=[
+
+    if request.method == "POST" and grade_form and grade_form.is_valid():
+        graded = grade_form.save(commit=False)
+        graded.status = ModuleSubmission.Status.GRADED
+        graded.graded_at = timezone.now()
+        graded.save(
+            update_fields=[
                 "score",
                 "feedback",
                 "status",
                 "graded_at",
                 "updated_at",
-            ])
-
-            sync_module_grade_score(graded)
-
-            notify_submission_feedback(
-                graded
-            )
-
-            messages.success(
-                request,
-                "Module score and feedback saved.",
-            )
-            return redirect("classroom:module_review", submission_id=submission.pk)
-
-        return render(
-            request,
-            "classroom/modules/live_review.html",
-            {
-                "classroom": classroom,
-                "module": module,
-                "submission": submission,
-                "submission_grade_form": grade_form,
-                "direct_pdf_submission": True,
-                "pdf_url": reverse(
-                    "classroom:submission_pdf",
-                    args=[submission.pk],
-                ),
-                "can_edit": False,
-                "deadline_closed": False,
-                "is_teacher": True,
-            },
+            ]
         )
 
-    responses = submission.section_responses.select_related("section").prefetch_related(
-        "answers__question", "attachments"
-    )
-    forms = []
-    posted_response = request.POST.get("response_id")
-    for response in responses:
-        bound = request.POST if request.method == "POST" and posted_response == str(response.pk) else None
-        grade_form = SectionGradeForm(response.section, bound, instance=response, prefix=f"grade-{response.pk}")
-        forms.append({"response": response, "form": grade_form})
-        if bound is not None and grade_form.is_valid():
-            graded = grade_form.save(commit=False)
-            graded.graded_at = timezone.now()
-            graded.save()
-            submission.update_total_score()
-            sync_module_grade_score(submission)
-            required_responses = submission.section_responses.filter(
-                section__required=True, section__include_in_grade=True
-            )
-            if required_responses.exists() and not required_responses.filter(score__isnull=True).exists():
-                submission.status = ModuleSubmission.Status.GRADED
-                submission.graded_at = timezone.now()
-                submission.save(update_fields=["status", "graded_at", "updated_at"])
-            messages.success(request, f"Score saved for {response.section.title}.")
-            return redirect("classroom:module_review", submission_id=submission.pk)
+        sync_module_grade_score(graded)
+        notify_submission_feedback(graded)
+
+        messages.success(
+            request,
+            "Module score and feedback saved.",
+        )
+
+        return redirect(
+            "classroom:module_review",
+            submission_id=submission.pk,
+        )
+
+    extra_pages = list(submission.extra_pages.all())
+    preview_draft_state = None
+    if draft_preview:
+        preview_draft_state = {
+            "annotations": submission.annotation_data,
+            "extra_pages": [
+                _serialize_extra_page(extra_page)
+                for extra_page in extra_pages
+            ],
+            "current_page": submission.current_page,
+            "draft_saved_at": (
+                submission.draft_saved_at.isoformat()
+                if submission.draft_saved_at else None
+            ),
+        }
 
     return render(
         request,
@@ -2853,7 +3117,18 @@ def module_review_view(request, submission_id):
             "classroom": classroom,
             "module": module,
             "submission": submission,
-            "response_forms": forms,
+            "submission_grade_form": grade_form,
+            "direct_pdf_submission": not draft_preview,
+            "pdf_url": (
+                reverse("classroom:submission_pdf", args=[submission.pk])
+                if not draft_preview
+                else reverse("classroom:module_pdf", args=[module.pk])
+            ),
+            "draft_preview": draft_preview,
+            "preview_draft_state": preview_draft_state,
+            "extra_pages": extra_pages,
+            "can_edit": False,
+            "deadline_closed": False,
             "is_teacher": True,
         },
     )
@@ -3235,6 +3510,632 @@ def grade_item_delete_view(request, item_id):
         )
     return redirect("classroom:gradebook", classroom_id=classroom.pk)
 
+@login_required(login_url="accounts:login")
+@require_GET
+def teacher_offline_roster_view(request, classroom_id):
+    if request.user.role != User.Role.TEACHER:
+        return JsonResponse(
+            {
+                "error": (
+                    "Only the assigned Teacher can download "
+                    "an attendance roster."
+                )
+            },
+            status=403,
+        )
+
+    teacher = getattr(
+        request.user,
+        "teacher_profile",
+        None,
+    )
+
+    if teacher is None:
+        return JsonResponse(
+            {"error": "The Teacher profile could not be found."},
+            status=403,
+        )
+
+    classroom = get_object_or_404(
+        Classroom.objects.select_related(
+            "teacher",
+            "teacher__user",
+            "teacher__school",
+        ),
+        class_id=classroom_id,
+        teacher=teacher,
+        is_archived=False,
+    )
+
+    enrollments = (
+        ClassEnrollment.objects.filter(
+            classroom=classroom,
+            status=ClassEnrollment.Status.APPROVED,
+        )
+        .select_related(
+            "student",
+            "student__user",
+        )
+        .order_by(
+            "student__gender",
+            "student__lastname",
+            "student__firstname",
+        )
+    )
+
+    students = []
+
+    for enrollment in enrollments:
+        student = enrollment.student
+
+        students.append({
+            "student_id": student.pk,
+            "user_id": student.user_id,
+            "enrollment_id": enrollment.pk,
+            "lrn": student.lrn,
+            "firstname": student.firstname,
+            "middlename": student.middlename or "",
+            "lastname": student.lastname,
+            "suffix": student.suffix or "",
+            "gender": student.gender,
+            "full_name": " ".join(
+                part
+                for part in [
+                    student.firstname,
+                    student.middlename,
+                    student.lastname,
+                    student.suffix,
+                ]
+                if part
+            ),
+        })
+
+    return JsonResponse({
+        "schema_version": 1,
+        "downloaded_at": timezone.now().isoformat(),
+        "classroom": {
+            "id": classroom.pk,
+            "teacher_id": teacher.pk,
+            "teacher_user_id": request.user.pk,
+            "class_name": classroom.class_name,
+            "class_code": classroom.class_code,
+            "grade_level": classroom.grade_level,
+            "subject": classroom.subject,
+            "section": classroom.section,
+            "school_year": classroom.school_year,
+            "quarter": classroom.quarter,
+            "school_name": classroom.teacher.school.school_name,
+            "student_count": len(students),
+            "attendance_sync_url": reverse( "classroom:teacher_offline_attendance_sync", args=[classroom.pk],),
+        },
+        "students": students,
+        "attendance_statuses": [
+            {
+                "value": value,
+                "label": label,
+            }
+            for value, label
+            in AttendanceRecord.Status.choices
+        ],
+        "day_types": [
+            {
+                "value": value,
+                "label": label,
+            }
+            for value, label
+            in AttendanceDay.DayType.choices
+        ],
+    })
+
+@login_required(login_url="accounts:login")
+@require_POST
+def teacher_offline_attendance_sync_view(
+    request,
+    classroom_id,
+):
+    if request.user.role != User.Role.TEACHER:
+        return JsonResponse(
+            {
+                "error": (
+                    "Only the assigned Teacher can "
+                    "synchronize attendance."
+                )
+            },
+            status=403,
+        )
+
+    teacher = getattr(
+        request.user,
+        "teacher_profile",
+        None,
+    )
+
+    if teacher is None:
+        return JsonResponse(
+            {"error": "The Teacher profile could not be found."},
+            status=403,
+        )
+
+    classroom = get_object_or_404(
+        Classroom,
+        class_id=classroom_id,
+        teacher=teacher,
+        is_archived=False,
+    )
+
+    try:
+        data = json.loads(request.body or b"{}")
+
+        attendance_date = date.fromisoformat(
+            str(data.get("attendance_date", ""))
+        )
+
+        day_type = str(
+            data.get("day_type", "")
+        ).strip()
+
+        note = str(
+            data.get("note", "")
+        ).strip()[:150]
+
+        device_id = str(
+            data.get("device_id", "")
+        ).strip()
+
+        records = data.get("records", [])
+
+        if not isinstance(records, list):
+            raise ValueError
+
+    except (
+        json.JSONDecodeError,
+        TypeError,
+        ValueError,
+    ):
+        return JsonResponse(
+            {"error": "The offline attendance data is invalid."},
+            status=400,
+        )
+
+    if day_type not in AttendanceDay.DayType.values:
+        return JsonResponse(
+            {"error": "Select a valid attendance day type."},
+            status=400,
+        )
+
+    device = DeviceRegistry.objects.filter(
+        device_id=device_id,
+        user=request.user,
+        is_active=True,
+    ).first()
+
+    if device is None:
+        return JsonResponse(
+            {
+                "error": (
+                    "This device is not registered or has "
+                    "been revoked. Reconnect and register it again."
+                )
+            },
+            status=403,
+        )
+
+    approved_student_ids = set(
+        ClassEnrollment.objects.filter(
+            classroom=classroom,
+            status=ClassEnrollment.Status.APPROVED,
+        ).values_list(
+            "student_id",
+            flat=True,
+        )
+    )
+
+    cleaned_records = []
+    seen_student_ids = set()
+    valid_statuses = set(
+        AttendanceRecord.Status.values
+    )
+
+    if day_type == AttendanceDay.DayType.CLASS_DAY:
+        for record in records:
+            if not isinstance(record, dict):
+                return JsonResponse(
+                    {"error": "An attendance record is invalid."},
+                    status=400,
+                )
+
+            try:
+                student_id = int(
+                    record.get("student_id")
+                )
+            except (TypeError, ValueError):
+                return JsonResponse(
+                    {"error": "A Student identifier is invalid."},
+                    status=400,
+                )
+
+            if student_id in seen_student_ids:
+                return JsonResponse(
+                    {
+                        "error": (
+                            "The attendance data contains "
+                            "a duplicate Student."
+                        )
+                    },
+                    status=400,
+                )
+
+            if student_id not in approved_student_ids:
+                return JsonResponse(
+                    {
+                        "error": (
+                            "The offline roster is outdated. "
+                            "Download the class roster again."
+                        )
+                    },
+                    status=409,
+                )
+
+            status = str(
+                record.get("status", "")
+            ).strip()
+
+            if status not in valid_statuses:
+                return JsonResponse(
+                    {
+                        "error": (
+                            "A Student attendance status "
+                            "is invalid."
+                        )
+                    },
+                    status=400,
+                )
+
+            cleaned_records.append({
+                "student_id": student_id,
+                "status": status,
+                "remarks": str(
+                    record.get("remarks", "")
+                ).strip()[:200],
+            })
+
+            seen_student_ids.add(student_id)
+
+    synchronized_records = []
+
+    with transaction.atomic():
+        attendance_day, _ = (
+            AttendanceDay.objects.update_or_create(
+                classroom=classroom,
+                date=attendance_date,
+                defaults={
+                    "day_type": day_type,
+                    "note": note,
+                    "recorded_by": teacher,
+                },
+            )
+        )
+
+        if day_type != AttendanceDay.DayType.CLASS_DAY:
+            attendance_day.records.all().delete()
+
+        else:
+            for record in cleaned_records:
+                attendance_record, _ = (
+                    AttendanceRecord.objects.update_or_create(
+                        attendance_day=attendance_day,
+                        student_id=record["student_id"],
+                        defaults={
+                            "status": record["status"],
+                            "remarks": record["remarks"],
+                        },
+                    )
+                )
+
+                synchronized_records.append({
+                    "attendance_id":
+                        attendance_record.pk,
+                    "student_id":
+                        attendance_record.student_id,
+                    "status":
+                        attendance_record.status,
+                    "remarks":
+                        attendance_record.remarks,
+                    "recorded_at":
+                        attendance_record.recorded_at.isoformat(),
+                })
+
+                notify_attendance_record(
+                    attendance_record
+                )
+
+        device.last_sync_at = timezone.now()
+        device.save(
+            update_fields=["last_sync_at"]
+        )
+
+    return JsonResponse({
+        "synchronized": True,
+        "class_id": classroom.pk,
+        "attendance_day_id": attendance_day.pk,
+        "attendance_date": attendance_date.isoformat(),
+        "day_type": attendance_day.day_type,
+        "note": attendance_day.note,
+        "records": synchronized_records,
+        "server_updated_at":
+            attendance_day.updated_at.isoformat(),
+    })
+
+@login_required(login_url="accounts:login")
+@require_GET
+def teacher_offline_gradebook_data_view(
+    request,
+    classroom_id,
+):
+    if request.user.role != User.Role.TEACHER:
+        return JsonResponse(
+            {
+                "error": (
+                    "Only the assigned Teacher can download "
+                    "the offline gradebook."
+                )
+            },
+            status=403,
+        )
+
+    teacher = getattr(
+        request.user,
+        "teacher_profile",
+        None,
+    )
+
+    if teacher is None:
+        return JsonResponse(
+            {"error": "The Teacher profile could not be found."},
+            status=403,
+        )
+
+    classroom = get_object_or_404(
+        Classroom.objects.select_related(
+            "teacher",
+            "teacher__school",
+        ),
+        class_id=classroom_id,
+        teacher=teacher,
+        is_archived=False,
+    )
+
+    term = request.GET.get("term", "1")
+
+    if term not in {"1", "2", "3"}:
+        return JsonResponse(
+            {"error": "Select a valid term."},
+            status=400,
+        )
+
+    # The normal gradebook view has already synchronized module-backed
+    # grade items and scores. Keep this download endpoint read-only so the
+    # browser receives the offline payload immediately instead of waiting
+    # for module submissions to be processed again.
+
+    students = list(
+        Student.objects.filter(
+            class_enrollments__classroom=classroom,
+            class_enrollments__status=(
+                ClassEnrollment.Status.APPROVED
+            ),
+        )
+        .distinct()
+        .order_by(
+            "gender",
+            "lastname",
+            "firstname",
+        )
+    )
+
+    items = list(
+        GradeItem.objects.filter(
+            classroom=classroom,
+            term=term,
+        ).order_by(
+            "component",
+            "position",
+            "item_id",
+        )
+    )
+
+    score_lookup = {
+        (score.item_id, score.student_id): score
+        for score in GradeScore.objects.filter(
+            item__classroom=classroom,
+            item__term=term,
+            student__in=students,
+        )
+    }
+
+    grade_items = [
+        {
+            "item_id": item.pk,
+            "term": item.term,
+            "component": item.component,
+            "component_label": item.get_component_display(),
+            "title": item.title,
+            "position": item.position,
+            "highest_possible_score": str(
+                item.highest_possible_score
+            ),
+            "module_id": item.module_id,
+            "activity_id": item.activity_id,
+        }
+        for item in items
+    ]
+
+    student_data = [
+        {
+            "student_id": student.pk,
+            "lrn": student.lrn,
+            "firstname": student.firstname,
+            "middlename": student.middlename or "",
+            "lastname": student.lastname,
+            "suffix": student.suffix or "",
+            "gender": student.gender,
+            "full_name": " ".join(
+                part
+                for part in [
+                    student.lastname + ",",
+                    student.firstname,
+                    student.middlename,
+                    student.suffix,
+                ]
+                if part
+            ),
+        }
+        for student in students
+    ]
+
+    score_data = []
+
+    # Include every learner/item combination, including blank scores.
+    for item in items:
+        for student in students:
+            score = score_lookup.get(
+                (item.pk, student.pk)
+            )
+
+            score_data.append({
+                "item_id": item.pk,
+                "student_id": student.pk,
+                "score": (
+                    str(score.score)
+                    if score is not None
+                    else None
+                ),
+                "server_updated_at": (
+                    score.updated_at.isoformat()
+                    if score is not None
+                    else None
+                ),
+            })
+
+    settings, _ = GradebookSettings.objects.get_or_create(
+        classroom=classroom
+    )
+
+    report_locked = (
+        GradeReportSubmission.objects.filter(
+            classroom=classroom,
+            term=GradeReportSubmission.ReportPeriod.FINAL,
+            status__in=[
+                GradeReportSubmission.Status.SUBMITTED,
+                GradeReportSubmission.Status.APPROVED,
+            ],
+        ).exists()
+    )
+
+    return JsonResponse({
+        "schema_version": 1,
+        "downloaded_at": timezone.now().isoformat(),
+        "classroom": {
+            "id": classroom.pk,
+            "class_name": classroom.class_name,
+            "subject": classroom.subject,
+            "grade_level": classroom.grade_level,
+            "section": classroom.section,
+            "school_year": classroom.school_year,
+            "teacher_id": teacher.pk,
+            "term": term,
+            "grade_sync_url": reverse(
+                "classroom:teacher_offline_scores_sync",
+                args=[classroom.pk],
+            ),
+            "grade_item_create_url": reverse(
+                "classroom:teacher_offline_grade_item_create",
+                args=[classroom.pk],
+            ),
+        },
+        "settings": {
+            "written_work_weight":
+                settings.written_work_weight,
+            "performance_task_weight":
+                settings.performance_task_weight,
+            "assessment_weight":
+                settings.assessment_weight,
+        },
+        "report_locked": report_locked,
+        "students": student_data,
+        "items": grade_items,
+        "scores": score_data,
+    })
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def teacher_offline_grade_item_create_view(request, classroom_id):
+    """Create one teacher-added grade column queued by the offline client."""
+    if request.user.role != User.Role.TEACHER:
+        return JsonResponse({"error": "Only the assigned Teacher can add activities."}, status=403)
+
+    teacher = getattr(request.user, "teacher_profile", None)
+    classroom = get_object_or_404(
+        Classroom,
+        pk=classroom_id,
+        teacher=teacher,
+        is_archived=False,
+    )
+
+    if GradeReportSubmission.objects.filter(
+        classroom=classroom,
+        term=GradeReportSubmission.ReportPeriod.FINAL,
+        status__in=[
+            GradeReportSubmission.Status.SUBMITTED,
+            GradeReportSubmission.Status.APPROVED,
+        ],
+    ).exists():
+        return JsonResponse(
+            {"error": "This class record is locked because the final report was already submitted."},
+            status=409,
+        )
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "The activity data is invalid."}, status=400)
+
+    title = str(payload.get("title") or "").strip()
+    component = str(payload.get("component") or "")
+    term = str(payload.get("term") or "")
+    try:
+        highest_possible_score = Decimal(str(payload.get("highest_possible_score")))
+    except (TypeError, InvalidOperation):
+        highest_possible_score = Decimal("0")
+
+    valid_components = {choice for choice, _label in GradeItem.Component.choices}
+    if not title or len(title) > 150:
+        return JsonResponse({"error": "Enter an activity title (up to 150 characters)."}, status=400)
+    if component not in valid_components:
+        return JsonResponse({"error": "Select Written Work, Performance Task, or Term Assessment."}, status=400)
+    if term not in {"1", "2", "3"}:
+        return JsonResponse({"error": "Select a valid term."}, status=400)
+    if highest_possible_score <= 0:
+        return JsonResponse({"error": "The highest possible score must be greater than zero."}, status=400)
+
+    item = GradeItem.objects.create(
+        classroom=classroom,
+        term=term,
+        component=component,
+        title=title,
+        highest_possible_score=highest_possible_score,
+        position=next_item_position(classroom, term, component),
+    )
+    return JsonResponse({
+        "item_id": item.pk,
+        "term": item.term,
+        "component": item.component,
+        "component_label": item.get_component_display(),
+        "title": item.title,
+        "position": item.position,
+        "highest_possible_score": str(item.highest_possible_score),
+    })
 
 @login_required(login_url="accounts:login")
 @require_http_methods(["GET", "POST"])
@@ -3437,6 +4338,285 @@ def attendance_view(request, classroom_id):
         "monthly_rows": monthly_rows,
     })
 
+@login_required(login_url="accounts:login")
+@require_POST
+def teacher_offline_scores_sync_view(
+    request,
+    classroom_id,
+):
+    if request.user.role != User.Role.TEACHER:
+        return JsonResponse(
+            {
+                "error": (
+                    "Only the assigned Teacher can "
+                    "synchronize scores."
+                )
+            },
+            status=403,
+        )
+
+    teacher = getattr(
+        request.user,
+        "teacher_profile",
+        None,
+    )
+
+    if teacher is None:
+        return JsonResponse(
+            {"error": "The Teacher profile could not be found."},
+            status=403,
+        )
+
+    classroom = get_object_or_404(
+        Classroom,
+        class_id=classroom_id,
+        teacher=teacher,
+        is_archived=False,
+    )
+
+    try:
+        data = json.loads(request.body or b"{}")
+
+        term = str(
+            data.get("term", "")
+        ).strip()
+
+        device_id = str(
+            data.get("device_id", "")
+        ).strip()
+
+        records = data.get("records", [])
+
+        if (
+            term not in {"1", "2", "3"}
+            or not isinstance(records, list)
+        ):
+            raise ValueError
+
+    except (
+        json.JSONDecodeError,
+        TypeError,
+        ValueError,
+    ):
+        return JsonResponse(
+            {"error": "The offline score data is invalid."},
+            status=400,
+        )
+
+    device = DeviceRegistry.objects.filter(
+        device_id=device_id,
+        user=request.user,
+        is_active=True,
+    ).first()
+
+    if device is None:
+        return JsonResponse(
+            {
+                "error": (
+                    "This device is not registered or has "
+                    "been revoked."
+                )
+            },
+            status=403,
+        )
+
+    report_locked = (
+        GradeReportSubmission.objects.filter(
+            classroom=classroom,
+            term=GradeReportSubmission.ReportPeriod.FINAL,
+            status__in=[
+                GradeReportSubmission.Status.SUBMITTED,
+                GradeReportSubmission.Status.APPROVED,
+            ],
+        ).exists()
+    )
+
+    if report_locked:
+        return JsonResponse(
+            {
+                "error": (
+                    "This class record is locked because "
+                    "the final report was already submitted."
+                )
+            },
+            status=409,
+        )
+
+    approved_student_ids = set(
+        ClassEnrollment.objects.filter(
+            classroom=classroom,
+            status=ClassEnrollment.Status.APPROVED,
+        ).values_list(
+            "student_id",
+            flat=True,
+        )
+    )
+
+    grade_items = {
+        item.pk: item
+        for item in GradeItem.objects.filter(
+            classroom=classroom,
+            term=term,
+        )
+    }
+
+    cleaned_records = []
+    seen_pairs = set()
+
+    for record in records:
+        if not isinstance(record, dict):
+            return JsonResponse(
+                {"error": "A score record is invalid."},
+                status=400,
+            )
+
+        try:
+            item_id = int(record.get("item_id"))
+            student_id = int(record.get("student_id"))
+        except (TypeError, ValueError):
+            return JsonResponse(
+                {
+                    "error": (
+                        "A grade item or Student identifier "
+                        "is invalid."
+                    )
+                },
+                status=400,
+            )
+
+        pair = (item_id, student_id)
+
+        if pair in seen_pairs:
+            return JsonResponse(
+                {
+                    "error": (
+                        "The offline gradebook contains "
+                        "a duplicate score."
+                    )
+                },
+                status=400,
+            )
+
+        item = grade_items.get(item_id)
+
+        if item is None:
+            return JsonResponse(
+                {
+                    "error": (
+                        "The gradebook structure changed. "
+                        "Download the gradebook again."
+                    )
+                },
+                status=409,
+            )
+
+        if student_id not in approved_student_ids:
+            return JsonResponse(
+                {
+                    "error": (
+                        "The class roster changed. Download "
+                        "the gradebook again."
+                    )
+                },
+                status=409,
+            )
+
+        raw_score = record.get("score")
+
+        if raw_score in {None, ""}:
+            score = None
+        else:
+            try:
+                score = Decimal(str(raw_score))
+            except InvalidOperation:
+                return JsonResponse(
+                    {"error": "A score is not a valid number."},
+                    status=400,
+                )
+
+            if not score.is_finite():
+                return JsonResponse(
+                    {"error": "A score is not a valid number."},
+                    status=400,
+                )
+
+            if (
+                score < 0
+                or score > item.highest_possible_score
+            ):
+                return JsonResponse(
+                    {
+                        "error": (
+                            f"{item.title}: the score must be "
+                            f"between 0 and "
+                            f"{item.highest_possible_score}."
+                        )
+                    },
+                    status=400,
+                )
+
+        cleaned_records.append({
+            "item": item,
+            "student_id": student_id,
+            "score": score,
+        })
+
+        seen_pairs.add(pair)
+
+    synchronized_records = []
+
+    with transaction.atomic():
+        for record in cleaned_records:
+            item = record["item"]
+            student_id = record["student_id"]
+            score_value = record["score"]
+
+            if score_value is None:
+                GradeScore.objects.filter(
+                    item=item,
+                    student_id=student_id,
+                ).delete()
+
+                synchronized_records.append({
+                    "item_id": item.pk,
+                    "student_id": student_id,
+                    "score": None,
+                    "server_updated_at": None,
+                })
+
+                continue
+
+            grade_score, _ = (
+                GradeScore.objects.update_or_create(
+                    item=item,
+                    student_id=student_id,
+                    defaults={
+                        "score": score_value,
+                    },
+                )
+            )
+
+            synchronized_records.append({
+                "item_id": item.pk,
+                "student_id": student_id,
+                "score": str(grade_score.score),
+                "server_updated_at":
+                    grade_score.updated_at.isoformat(),
+            })
+
+        device.last_sync_at = timezone.now()
+        device.save(
+            update_fields=["last_sync_at"]
+        )
+
+    return JsonResponse({
+        "synchronized": True,
+        "class_id": classroom.pk,
+        "term": term,
+        "record_count": len(synchronized_records),
+        "records": synchronized_records,
+        "server_updated_at": timezone.now().isoformat(),
+    })
 # =========================================================
 # ROLE-BASED CLASSROOM CALENDAR
 # =========================================================
@@ -3875,6 +5055,131 @@ def _build_task_overview(tasks):
         "progress_percent": progress_percent,
         "week_tasks": week_tasks,
     }
+
+@login_required(login_url="accounts:login")
+def student_feedback_view(request):
+    if request.user.role != User.Role.STUDENT:
+        messages.error(request, "Only Students can view feedback.")
+        return redirect("classroom:dashboard")
+
+    student = getattr(request.user, "student_profile", None)
+
+    if student is None:
+        messages.error(request, "Your Student profile was not found.")
+        return redirect("classroom:dashboard")
+
+    selected_type = request.GET.get("type", "all")
+
+    if selected_type not in {"all", "module", "activity"}:
+        selected_type = "all"
+
+    feedback_items = []
+
+    module_submissions = (
+        ModuleSubmission.objects
+        .filter(student=student)
+        .exclude(feedback="")
+        .select_related(
+            "module",
+            "module__classroom",
+        )
+    )
+
+    for submission in module_submissions:
+        feedback = (submission.feedback or "").strip()
+
+        if not feedback:
+            continue
+
+        feedback_items.append({
+            "type": "module",
+            "type_label": "Module",
+            "title": submission.module.title,
+            "classroom": submission.module.classroom,
+            "score": submission.score,
+            "maximum_score": submission.module.max_score,
+            "feedback": feedback,
+            "status": submission.get_status_display(),
+            "reviewed_at": (
+                submission.graded_at
+                or submission.updated_at
+            ),
+            "detail_url": reverse(
+                "classroom:module_work",
+                args=[submission.module_id],
+            ),
+        })
+
+    activity_submissions = (
+        ActivitySubmission.objects
+        .filter(student=student)
+        .exclude(feedback="")
+        .select_related(
+            "activity",
+            "activity__classroom",
+        )
+    )
+
+    for submission in activity_submissions:
+        feedback = (submission.feedback or "").strip()
+
+        if not feedback:
+            continue
+
+        feedback_items.append({
+            "type": "activity",
+            "type_label": "Activity",
+            "title": submission.activity.title,
+            "classroom": submission.activity.classroom,
+            "score": submission.score,
+            "maximum_score": submission.activity.score,
+            "feedback": feedback,
+            "status": submission.get_status_display(),
+            "reviewed_at": (
+                submission.graded_at
+                or submission.updated_at
+            ),
+            "detail_url": reverse(
+                "classroom:activity_detail",
+                args=[submission.activity_id],
+            ),
+        })
+
+    feedback_items.sort(
+        key=lambda item: item["reviewed_at"],
+        reverse=True,
+    )
+
+    module_count = sum(
+        item["type"] == "module"
+        for item in feedback_items
+    )
+
+    activity_count = sum(
+        item["type"] == "activity"
+        for item in feedback_items
+    )
+
+    total_count = len(feedback_items)
+
+    if selected_type != "all":
+        feedback_items = [
+            item
+            for item in feedback_items
+            if item["type"] == selected_type
+        ]
+
+    return render(
+        request,
+        "classroom/student_feedback.html",
+        {
+            "feedback_items": feedback_items,
+            "selected_type": selected_type,
+            "total_count": total_count,
+            "module_count": module_count,
+            "activity_count": activity_count,
+        },
+    )
 
 @login_required(login_url="accounts:login")
 def tasks_view(request):
@@ -4561,31 +5866,6 @@ def submission_pdf_view(request, submission_id):
         as_attachment=False,
     )
 
-
-@login_required(login_url="accounts:login")
-def section_attachment_view(request, attachment_id):
-    attachment = get_object_or_404(
-        SubmissionAttachment.objects.select_related(
-            "response__submission__module", "response__submission__student"
-        ),
-        pk=attachment_id,
-    )
-    submission = attachment.response.submission
-    module, classroom, is_teacher, student = _get_module_access(request, submission.module_id)
-    if not is_teacher and submission.student_id != student.pk:
-        raise PermissionDenied("You cannot open another Student's answer.")
-    if is_teacher and submission.status == ModuleSubmission.Status.DRAFT:
-        raise PermissionDenied("Student drafts are private.")
-    extension = Path(attachment.file.name).suffix.lower()
-    content_types = {
-        ".pdf": "application/pdf", ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg", ".png": "image/png",
-    }
-    return _private_file_response(
-        attachment.file,
-        attachment.original_name,
-        content_types.get(extension, "application/octet-stream"),
-    )
 
 def _learner_progress_context(student, request):
     """Build one read-only progress view for a Student or Parent."""

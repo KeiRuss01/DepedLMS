@@ -1,7 +1,7 @@
 {% extends "classroom/master.html" %}
 {% load static %}
 
-{% block title %}{{ document_title }} | District 1 Classroom{% endblock %}
+ {% block title %}{{ document_title }} | North 1 District Classroom{% endblock %}
 {% block extra_css %}<link rel="stylesheet" href="{% static 'classroom/css/activity_pdf_viewer.css' %}?v=1">{% endblock %}
 
 {% block content %}
@@ -20,8 +20,8 @@
         id="appPdfViewer"
         class="app-pdf-viewer"
         data-pdf-url="{{ pdf_url }}"
-        data-library="{% static 'vendor/pdfjs/build/pdf.min.mjs' %}"
-        data-worker="{% static 'vendor/pdfjs/build/pdf.worker.min.mjs' %}"
+        data-library="{% static 'vendor/pdfjs/legacy/build/pdf.min.mjs' %}"
+        data-worker="{% static 'vendor/pdfjs/legacy/build/pdf.worker.min.mjs' %}"
         data-assets="{% static 'vendor/pdfjs/' %}"
     >
         <div class="app-pdf-toolbar" aria-label="PDF controls">

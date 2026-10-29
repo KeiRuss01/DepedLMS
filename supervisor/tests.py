@@ -4,7 +4,12 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import Principal, School, Student, Teacher, User
-from classroom.models import Classroom
+from classroom.models import (
+    AttendanceDay,
+    AttendanceRecord,
+    ClassEnrollment,
+    Classroom,
+)
 from supervisor.forms import (
     _available_generated_email,
     _generated_temporary_password,
@@ -90,7 +95,7 @@ class SchoolAccessTests(TestCase):
             password="TestPass123!",
             role=User.Role.STUDENT,
         )
-        Student.objects.create(
+        self.student = Student.objects.create(
             user=student_user,
             school=self.school_a,
             lrn="123456789012",
@@ -99,13 +104,18 @@ class SchoolAccessTests(TestCase):
             gender=Student.Gender.MALE,
             birth_date=date(2010, 1, 1),
         )
-        Classroom.objects.create(
+        self.classroom = Classroom.objects.create(
             teacher=self.teacher,
             class_name="Science 8",
             grade_level="Grade 8",
             subject="Science",
             section="A",
             school_year="2026-2027",
+        )
+        self.enrollment = ClassEnrollment.objects.create(
+            classroom=self.classroom,
+            student=self.student,
+            status=ClassEnrollment.Status.APPROVED,
         )
 
     def test_supervisor_can_view_any_school(self):
@@ -167,3 +177,96 @@ class SchoolAccessTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.context["teachers"]), 1)
         self.assertContains(response, "Sample Teacher")
+
+    def test_principal_can_monitor_own_class_attendance_and_performance(self):
+        attendance_day = AttendanceDay.objects.create(
+            classroom=self.classroom,
+            date=date(2026, 10, 29),
+            recorded_by=self.teacher,
+        )
+        AttendanceRecord.objects.create(
+            attendance_day=attendance_day,
+            student=self.student,
+            status=AttendanceRecord.Status.PRESENT,
+        )
+        self.client.force_login(self.principal_user)
+
+        class_response = self.client.get(
+            reverse(
+                "supervisor:principal_class_detail",
+                args=[self.classroom.pk],
+            )
+        )
+        daily_response = self.client.get(
+            reverse(
+                "supervisor:principal_class_attendance",
+                args=[self.classroom.pk],
+            ),
+            {"view": "daily", "date": "2026-10-29"},
+        )
+        monthly_response = self.client.get(
+            reverse(
+                "supervisor:principal_class_attendance",
+                args=[self.classroom.pk],
+            ),
+            {"view": "monthly", "month": "2026-10"},
+        )
+        performance_response = self.client.get(
+            reverse(
+                "supervisor:principal_student_performance",
+                args=[self.classroom.pk, self.student.pk],
+            )
+        )
+
+        self.assertEqual(class_response.status_code, 200)
+        self.assertContains(class_response, "View performance")
+        self.assertEqual(daily_response.status_code, 200)
+        self.assertContains(daily_response, "Present")
+        self.assertEqual(monthly_response.status_code, 200)
+        self.assertContains(monthly_response, "School Form 2")
+        self.assertEqual(performance_response.status_code, 200)
+        self.assertContains(performance_response, "Student Performance Report")
+
+    def test_principal_cannot_monitor_another_schools_class(self):
+        other_teacher_user = User.objects.create_user(
+            email="other-teacher@example.com",
+            password="TestPass123!",
+            role=User.Role.TEACHER,
+        )
+        other_teacher = Teacher.objects.create(
+            user=other_teacher_user,
+            school=self.school_b,
+            employee_id="T-OTHER",
+            firstname="Other",
+            lastname="Teacher",
+        )
+        other_classroom = Classroom.objects.create(
+            teacher=other_teacher,
+            class_name="Other Class",
+            grade_level="Grade 8",
+            subject="Mathematics",
+            section="B",
+            school_year="2026-2027",
+        )
+        self.client.force_login(self.principal_user)
+
+        response = self.client.get(
+            reverse(
+                "supervisor:principal_class_attendance",
+                args=[other_classroom.pk],
+            )
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_principal_attendance_monitor_is_read_only(self):
+        self.client.force_login(self.principal_user)
+        response = self.client.post(
+            reverse(
+                "supervisor:principal_class_attendance",
+                args=[self.classroom.pk],
+            ),
+            {"date": "2026-10-29"},
+        )
+
+        self.assertEqual(response.status_code, 405)

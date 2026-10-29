@@ -12,7 +12,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const statusUrl = bell.dataset.statusUrl;
     const notificationsUrl = bell.dataset.notificationsUrl;
     const userId = bell.dataset.userId;
-    const storageKey = `district1-last-notification-${userId}`;
+    const storageKey = `north1-last-notification-${userId}`;
 
     let userHasInteracted = false;
 

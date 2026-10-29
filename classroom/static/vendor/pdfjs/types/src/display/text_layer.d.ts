@@ -1,6 +1,5 @@
-export type PageViewport = import("./page_viewport").PageViewport;
+export type PageViewport = import("./display_utils").PageViewport;
 export type TextContent = import("./api").TextContent;
-export type TextLayerImages = import("./text_layer_images").TextLayerImages;
 export type TextLayerParameters = {
     /**
      * - Text content to
@@ -18,11 +17,6 @@ export type TextLayerParameters = {
      * the text runs.
      */
     viewport: PageViewport;
-    /**
-     * - An optional TextLayerImages instance
-     * that handles right clicking on images.
-     */
-    images?: import("./text_layer_images").TextLayerImages | undefined;
 };
 export type TextLayerUpdateParameters = {
     /**
@@ -37,28 +31,28 @@ export type TextLayerUpdateParameters = {
     onBefore?: Function | undefined;
 };
 export class TextLayer {
-    static #ascentCache: Map<any, any>;
-    static #canvasContexts: Map<any, any>;
-    static #canvasCtxFonts: WeakMap<object, any>;
-    static #minFontSize: null;
-    static #pendingTextLayers: Set<any>;
+    static "__#53@#ascentCache": Map<any, any>;
+    static "__#53@#canvasContexts": Map<any, any>;
+    static "__#53@#canvasCtxFonts": WeakMap<object, any>;
+    static "__#53@#minFontSize": null;
+    static "__#53@#pendingTextLayers": Set<any>;
     static get fontFamilyMap(): any;
     /**
      * Clean-up global textLayer data.
      * @returns {undefined}
      */
     static cleanup(): undefined;
-    static #getCtx(lang?: null): any;
-    static #ensureCtxFont(ctx: any, size: any, family: any): void;
+    static "__#53@#getCtx"(lang?: null): any;
+    static "__#53@#ensureCtxFont"(ctx: any, size: any, family: any): void;
     /**
      * Compute the minimum font size enforced by the browser.
      */
-    static #ensureMinFontSizeComputed(): void;
-    static #getAscent(fontFamily: any, style: any, lang: any): any;
+    static "__#53@#ensureMinFontSizeComputed"(): void;
+    static "__#53@#getAscent"(fontFamily: any, lang: any): any;
     /**
      * @param {TextLayerParameters} options
      */
-    constructor({ textContentSource, images, container, viewport }: TextLayerParameters);
+    constructor({ textContentSource, container, viewport }: TextLayerParameters);
     /**
      * Render the textLayer.
      * @returns {Promise}

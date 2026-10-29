@@ -1,0 +1,9 @@
+<a class="activity-list-row{% if row.is_completed %} is-completed{% endif %}" href="{% url 'classroom:activity_detail' row.activity.pk %}">
+    <span class="activity-list-icon"><i class="bi bi-clipboard-check"></i></span>
+    <span class="activity-list-main"><span class="activity-list-label">{{ row.activity.get_activity_type_display }}</span><strong>{{ row.activity.title }}</strong><small>Term {{ row.activity.term }}{% if row.activity.due_date %} · Due {{ row.activity.due_date|date:"M d, Y · g:i A" }}{% endif %}</small></span>
+    <span class="activity-list-score">{{ row.activity.score|floatformat:-2 }} pts</span>
+    {% if is_teacher %}<span class="activity-status {% if row.activity.is_closed %}graded{% elif row.activity.is_published %}published{% else %}draft{% endif %}">{% if row.activity.is_closed %}Closed{% elif row.activity.is_published %}Published{% else %}Draft{% endif %}</span>
+    {% elif row.submission %}<span class="activity-status {{ row.submission.status }}">{{ row.submission.get_status_display }}</span>
+    {% else %}<span class="activity-status">To do</span>{% endif %}
+    <i class="bi bi-chevron-right"></i>
+</a>

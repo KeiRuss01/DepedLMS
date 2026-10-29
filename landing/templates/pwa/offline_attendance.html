@@ -1,0 +1,353 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="{% static 'accounts/js/appearance.js' %}?v=1"></script>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <meta name="theme-color" content="#0b3977">
+
+    <title>Offline Attendance | North 1 District LMS</title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}"
+    >
+
+    <style>
+        body {
+            margin: 0;
+            background: #f4f7fb;
+            color: #102342;
+        }
+
+        .offline-header {
+            background: #ffffff;
+            border-bottom: 1px solid #d8e0eb;
+            padding: 14px 18px;
+        }
+
+        .offline-header-inner,
+        .offline-container {
+            width: min(1100px, calc(100% - 32px));
+            margin: 0 auto;
+        }
+
+        .offline-header-inner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .offline-container {
+            padding: 24px 0 48px;
+        }
+
+        .attendance-panel {
+            background: #ffffff;
+            border: 1px solid #d8e0eb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 18px;
+        }
+
+        .attendance-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .attendance-table th,
+        .attendance-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e1e7ef;
+            vertical-align: middle;
+        }
+
+        .student-name {
+            min-width: 190px;
+        }
+
+        .student-name strong,
+        .student-name small {
+            display: block;
+        }
+
+        .student-name small {
+            color: #667085;
+        }
+
+        .connection-status {
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: #e9f8ef;
+            color: #176b3a;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .connection-status.offline {
+            background: #fff0d9;
+            color: #8a5200;
+        }
+
+        .save-message {
+            min-height: 24px;
+        }
+
+        @media (max-width: 700px) {
+            .offline-header-inner,
+            .offline-container {
+                width: min(100% - 20px, 1100px);
+            }
+
+            .attendance-panel {
+                padding: 14px;
+            }
+
+            .attendance-table th:nth-child(1),
+            .attendance-table td:nth-child(1) {
+                display: none;
+            }
+
+            .attendance-table th,
+            .attendance-table td {
+                padding: 9px 6px;
+            }
+
+            .remarks-input {
+                min-width: 130px;
+            }
+        }
+    </style>
+    <link rel="stylesheet" href="{% static 'accounts/css/appearance.css' %}?v=1">
+</head>
+
+<body>
+<header class="offline-header">
+    <div class="offline-header-inner">
+        <div>
+            <strong>North 1 District LMS</strong>
+            <div class="small text-muted">
+                Offline attendance
+            </div>
+        </div>
+
+        <span
+            id="connectionStatus"
+            class="connection-status"
+        >
+            Online
+        </span>
+    </div>
+</header>
+
+<main
+    id="offlineAttendanceApp"
+    class="offline-container"
+    hidden
+>
+    <div class="mb-3">
+        <a
+            id="backToOfflineHome"
+            href="{% url 'offline' %}"
+            class="btn btn-sm btn-outline-secondary"
+        >
+            <i class="bi bi-arrow-left me-1"></i>
+            Offline home
+        </a>
+    </div>
+
+    <section class="attendance-panel">
+        <div
+            class="d-flex flex-wrap justify-content-between
+                   align-items-start gap-3"
+        >
+            <div>
+                <h1
+                    id="offlineClassName"
+                    class="h3 mb-1"
+                >
+                    Offline Attendance
+                </h1>
+
+                <p
+                    id="offlineClassDetails"
+                    class="text-muted mb-0"
+                ></p>
+            </div>
+
+            <span
+                id="rosterCount"
+                class="badge text-bg-light border"
+            ></span>
+        </div>
+    </section>
+
+    <form id="offlineAttendanceForm">
+        <section class="attendance-panel">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label
+                        for="offlineAttendanceDate"
+                        class="form-label"
+                    >
+                        Attendance date
+                    </label>
+
+                    <input
+                        id="offlineAttendanceDate"
+                        class="form-control"
+                        type="date"
+                        required
+                    >
+                </div>
+
+                <div class="col-md-8">
+                    <span class="form-label d-block">
+                        Date type
+                    </span>
+
+                    <div class="d-flex flex-wrap gap-3">
+                        <label>
+                            <input
+                                type="radio"
+                                name="offline_day_type"
+                                value="class_day"
+                                checked
+                            >
+                            Class day
+                        </label>
+
+                        <label>
+                            <input
+                                type="radio"
+                                name="offline_day_type"
+                                value="holiday"
+                            >
+                            Holiday
+                        </label>
+
+                        <label>
+                            <input
+                                type="radio"
+                                name="offline_day_type"
+                                value="no_class"
+                            >
+                            No class
+                        </label>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <label
+                        for="offlineDayNote"
+                        class="form-label"
+                    >
+                        Holiday or no-class reason
+                    </label>
+
+                    <input
+                        id="offlineDayNote"
+                        class="form-control"
+                        type="text"
+                        maxlength="150"
+                        placeholder="Optional"
+                    >
+                </div>
+            </div>
+        </section>
+
+        <section class="attendance-panel">
+            <div class="table-responsive">
+                <table class="attendance-table">
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Learner</th>
+                        <th>Status</th>
+                        <th>Remarks</th>
+                    </tr>
+                    </thead>
+
+                    <tbody id="offlineAttendanceRows"></tbody>
+                </table>
+            </div>
+
+            <div
+                id="nonClassDayMessage"
+                class="alert alert-info mt-3"
+                hidden
+            >
+                Student attendance is not required for a
+                holiday or no-class day.
+            </div>
+        </section>
+
+        <section class="attendance-panel">
+            <div
+                class="d-flex flex-wrap justify-content-between
+                       align-items-center gap-3"
+            >
+                <div>
+                    <strong>Save attendance on this device</strong>
+
+                    <div class="small text-muted">
+                        It will remain queued until attendance
+                        synchronization is implemented.
+                    </div>
+
+                    <div
+                        id="offlineAttendanceMessage"
+                        class="save-message small mt-1"
+                    ></div>
+                </div>
+
+                <button
+                    id="saveOfflineAttendance"
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    <i class="bi bi-device-ssd me-1"></i>
+                    Save Offline
+                </button>
+            </div>
+        </section>
+    </form>
+</main>
+
+<section
+    id="offlineAttendanceError"
+    class="offline-container"
+    hidden
+>
+    <div class="alert alert-danger">
+        <strong>Attendance unavailable</strong>
+
+        <div id="offlineAttendanceErrorText" class="mt-1"></div>
+
+        <a
+            href="{% url 'offline' %}"
+            class="btn btn-outline-danger mt-3"
+        >
+            Return to offline home
+        </a>
+    </div>
+</section>
+
+<script src="{% static 'pwa/js/offline-db.js' %}?v=5"></script>
+<script src="{% static 'pwa/js/device-registry.js' %}?v=2"></script>
+<script src="{% static 'pwa/js/offline-attendance-sync.js' %}?v=1"></script>
+<script src="{% static 'pwa/js/offline-attendance-entry.js' %}?v=3"></script>
+</body>
+</html>

@@ -1,3 +1,12 @@
+import re
+
+from django import forms
+from django.contrib.auth import authenticate
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.utils import timezone
 from django import forms
 from django.contrib.auth import authenticate
 from django.contrib.auth.forms import PasswordChangeForm
@@ -17,6 +26,12 @@ from .models import (
 class AccountLoginForm(forms.Form):
     email = forms.EmailField()
     password = forms.CharField(widget=forms.PasswordInput)
+
+    remember_me = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Remember me",
+    )
 
     def __init__(self, request=None, *args, allowed_roles=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -62,9 +77,43 @@ class AccountSignupForm(forms.Form):
     lastname = forms.CharField(max_length=100)
     suffix = forms.CharField(max_length=20, required=False)
     email = forms.EmailField(max_length=100)
-    phone_number = forms.CharField(max_length=11, required=False)
-    password1 = forms.CharField(widget=forms.PasswordInput)
-    password2 = forms.CharField(widget=forms.PasswordInput)
+    phone_number = forms.CharField(
+        max_length=11,
+        min_length=11,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "type": "tel",
+                "inputmode": "numeric",
+                "autocomplete": "tel",
+                "maxlength": "11",
+                "pattern": "09[0-9]{9}",
+                "placeholder": "09XXXXXXXXX",
+            }
+        ),
+    )
+
+    password1 = forms.CharField(
+        label="Password",
+        widget=forms.PasswordInput(
+            attrs={
+                "autocomplete": "new-password",
+                "minlength": "8",
+                "placeholder": "At least 8 characters",
+            }
+        ),
+    )
+
+    password2 = forms.CharField(
+        label="Confirm password",
+        widget=forms.PasswordInput(
+            attrs={
+                "autocomplete": "new-password",
+                "minlength": "8",
+                "placeholder": "Repeat password",
+            }
+        ),
+    )
     role = forms.ChoiceField(choices=PUBLIC_ROLES)
     school = forms.ModelChoiceField(queryset=School.objects.none(), required=False)
 
@@ -78,7 +127,17 @@ class AccountSignupForm(forms.Form):
         required=False,
         widget=forms.DateInput(attrs={"type": "date"}),
     )
-    address = forms.CharField(required=False, widget=forms.Textarea)
+    address = forms.CharField(
+        required=False,
+        max_length=500,
+        widget=forms.Textarea(
+            attrs={
+                "rows": 2,
+                "maxlength": 500,
+                "placeholder": "House number, street, barangay, city/province",
+            }
+        ),
+    )
 
     relationship = forms.ChoiceField(
         choices=Parent.Relationship.choices,
@@ -102,9 +161,20 @@ class AccountSignupForm(forms.Form):
         return email
 
     def clean_phone_number(self):
-        phone_number = self.cleaned_data.get("phone_number", "").strip()
-        if phone_number and not phone_number.isdigit():
-            raise forms.ValidationError("Enter numbers only for the phone number.")
+        phone_number = self.cleaned_data.get(
+            "phone_number",
+            "",
+        ).strip()
+
+        if not phone_number:
+            return ""
+
+        if not re.fullmatch(r"09\d{9}", phone_number):
+            raise forms.ValidationError(
+                "Enter a valid Philippine mobile number in "
+                "09XXXXXXXXX format."
+            )
+
         return phone_number
 
     def clean(self):
@@ -114,9 +184,38 @@ class AccountSignupForm(forms.Form):
         role = cleaned_data.get("role")
 
         if password1 and password2 and password1 != password2:
-            self.add_error("password2", "The passwords do not match.")
-        if password1 and len(password1) < 8:
-            self.add_error("password1", "Use at least 8 characters.")
+            self.add_error(
+                "password2",
+                "The passwords do not match.",
+            )
+
+        if password1:
+            validation_user = User(
+                email=cleaned_data.get("email", ""),
+            )
+
+            try:
+                validate_password(
+                    password1,
+                    user=validation_user,
+                )
+            except ValidationError as errors:
+                self.add_error(
+                    "password1",
+                    errors,
+                )
+
+            if not any(character.isupper() for character in password1):
+                self.add_error(
+                    "password1",
+                    "Password must contain at least one uppercase letter.",
+                )
+
+            if not any(character.isdigit() for character in password1):
+                self.add_error(
+                    "password1",
+                    "Password must contain at least one number.",
+                )
 
         if role in {User.Role.STUDENT, User.Role.TEACHER, User.Role.PRINCIPAL}:
             if not cleaned_data.get("school"):
@@ -178,6 +277,8 @@ class AccountSignupForm(forms.Form):
                 gender=data["gender"],
                 birth_date=data["birth_date"],
                 address=data.get("address") or None,
+                acc_status=Student.AccStatus.APPROVED,
+                approved_at=timezone.now(),
                 **common_name,
             )
         elif data["role"] == User.Role.TEACHER:

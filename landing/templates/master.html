@@ -4,14 +4,18 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Hybrid Learning Management System for DepEd Iligan City Division – District 1.">
+    <meta name="description" content="Hybrid Learning Management System for DepEd Iligan City Division – North 1 District.">
+    <meta name="theme-color" content="#075dce">
     <title>{% block title %}Hybrid Learning Management System{% endblock %}</title>
+    <link rel="manifest" href="{% static 'pwa/manifest.webmanifest' %}">
+    <link rel="icon" href="{% static 'pwa/icons/icon-192.svg' %}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
     <link href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}" rel="stylesheet">
     <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    <link href="{% static 'css/legal-modals.css' %}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -21,7 +25,7 @@
         <nav class="navbar navbar-expand-lg" aria-label="Main navigation">
             <div class="container site-container">
                 <a class="navbar-brand brand" href="{% url 'home' %}" aria-label="HLMS home">
-                    <span class="brand-seal" aria-hidden="true"><span>D1</span></span>
+                    <span class="brand-seal" aria-hidden="true"><span>N1</span></span>
                     <span class="brand-copy">
                         <strong>Hybrid Learning</strong>
                         <small>Management System</small>
@@ -103,10 +107,10 @@
             <div class="row g-4">
                 <div class="col-lg-5">
                     <div class="footer-brand d-flex align-items-center gap-3">
-                        <span class="brand-seal brand-seal-light" aria-hidden="true"><span>D1</span></span>
+                        <span class="brand-seal brand-seal-light" aria-hidden="true"><span>N1</span></span>
                         <div>
                             <strong>Hybrid Learning Management System</strong>
-                            <p class="mb-0 mt-1">DepEd Iligan City Division – District 1 (Dalipuga)</p>
+                        <p class="mb-0 mt-1">DepEd Iligan City Division – North 1 District (Dalipuga)</p>
                         </div>
                     </div>
                 </div>
@@ -119,8 +123,8 @@
                 <div class="col-6 col-lg-2">
                     <h2 class="footer-title">Support</h2>
                     <a href="{% url 'contact' %}">Contact Us</a>
-                    <a href="#">User Guide</a>
-                    <a href="#">Privacy Policy</a>
+                    <a href="#userGuideModal" data-bs-toggle="modal" data-bs-target="#userGuideModal">User Guide</a>
+                    <a href="#privacyPolicyModal" data-bs-toggle="modal" data-bs-target="#privacyPolicyModal">Privacy Policy</a>
                 </div>
                 <div class="col-lg-3">
                     <h2 class="footer-title">Contact Us</h2>
@@ -133,7 +137,10 @@
         </div>
     </footer>
 
+    {% include 'includes/legal_modals.html' %}
+
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'pwa/js/pwa-register.js' %}" defer></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

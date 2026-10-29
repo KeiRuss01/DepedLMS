@@ -123,3 +123,5 @@ class SchoolReportSubmission(models.Model):
             f"{self.get_status_display()}"
         )
 
+
+

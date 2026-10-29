@@ -1,0 +1,113 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="{% static 'accounts/js/appearance.js' %}?v=1"></script>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <meta name="theme-color" content="#0b3977">
+
+    <title>Answer Module Offline | North 1 District LMS</title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}"
+    >
+
+    <link
+        rel="stylesheet"
+        href="{% static 'classroom/css/mobile_module_editor.css' %}"
+    >
+
+    <style>
+        body {
+            margin: 0;
+            background: #f4f7fb;
+            color: #102342;
+        }
+
+        .offline-editor-navigation {
+            padding: 12px 16px;
+            background: #ffffff;
+            border-bottom: 1px solid #d8e0eb;
+        }
+
+        .offline-editor-container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+    </style>
+    <link rel="stylesheet" href="{% static 'accounts/css/appearance.css' %}?v=1">
+</head>
+
+<body>
+    <nav class="offline-editor-navigation">
+        <a
+            id="backToClassModules"
+            href="{% url 'classroom:classes' %}"
+            class="btn btn-sm btn-outline-secondary"
+        >
+            <i class="bi bi-arrow-left"></i>
+            Back to class modules
+        </a>
+    </nav>
+
+    <main class="offline-editor-container">
+        {% include "classroom/modules/mobile_pdf_editor.html" with offline_mode=True can_edit=True %}
+
+        <section class="card mt-3">
+            <div class="card-body">
+                <h2 class="h5">Submit module</h2>
+                <p class="text-muted small">
+                    You may queue the completed module while offline. It will
+                    synchronize automatically when this device reconnects.
+                </p>
+                <button
+                    id="queueOfflineSubmission"
+                    type="button"
+                    class="btn btn-primary w-100"
+                >
+                    Submit module
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <script src="{% static 'pwa/js/offline-db.js' %}?v=5"></script>
+    <script src="{% static 'pwa/js/device-registry.js' %}?v=2"></script>
+    <script src="{% static 'pwa/js/offline-sync.js' %}?v=7"></script>
+
+    <script>
+        (() => {
+            const parameters = new URLSearchParams(
+                window.location.search
+            );
+
+            const moduleId = parameters.get("module");
+            const editor = document.getElementById(
+                "mobileModuleEditor"
+            );
+
+            if (editor && moduleId) {
+                editor.dataset.moduleId = moduleId;
+            }
+        })();
+    </script>
+
+    <script
+        type="module"
+        src="{% static 'classroom/js/mobile_module_editor.js' %}?v=local-first-12"
+    ></script>
+</body>
+</html>

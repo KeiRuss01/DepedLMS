@@ -5,8 +5,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#0b3c82">
-    <meta name="description" content="District 1 Classroom login for Teachers, Students, and Parents.">
-    <title>{% block title %}District 1 Classroom{% endblock %}</title>
+    <meta name="description" content="North 1 District Classroom login for Teachers, Students, and Parents.">
+    <title>{% block title %}North 1 District Classroom{% endblock %}</title>
+    <link rel="manifest" href="{% static 'pwa/manifest.webmanifest' %}">
+    <link rel="icon" href="{% static 'pwa/icons/icon-192.svg' %}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -15,6 +17,8 @@
     <link href="{% static 'accounts/css/auth.css' %}" rel="stylesheet">
     <link href="{% static 'accounts/css/auth-layout.css' %}" rel="stylesheet">
     {% block extra_css %}{% endblock %}
+    <link href="{% static 'accounts/css/formal-auth.css' %}?v=1" rel="stylesheet">
+    <link href="{% static 'css/legal-modals.css' %}" rel="stylesheet">
 </head>
 <body class="auth-page app-auth-page">
     <a class="visually-hidden-focusable" href="#auth-content">Skip to login</a>
@@ -35,18 +39,18 @@
             <div class="container auth-container py-lg-5">
                 <div class="shared-auth-card {% block auth_card_class %}{% endblock %}">
                     <aside class="shared-auth-visual">
-                        <img src="{% static 'images/img.jpg' %}" alt="District 1 school community">
+                        <img src="{% static 'images/ed.png' %}" alt="North 1 District school community">
                         <div class="shared-auth-overlay">
-                            <span class="shared-auth-badge"><i class="bi bi-shield-check"></i> District 1 LMS</span>
+                            <span class="shared-auth-badge"><i class="bi bi-shield-check"></i> North 1 District LMS</span>
                             <h1>{% block visual_heading %}Learn. Connect. Succeed.{% endblock %}</h1>
                             <p>{% block visual_text %}One secure learning space for the whole school community.{% endblock %}</p>
                         </div>
                     </aside>
 
                     <div class="shared-auth-form-panel">
-                        <div class="auth-mobile-brand" aria-label="District 1 Classroom">
-                            <span>D1</span>
-                            <div><strong>District 1</strong><small>Classroom</small></div>
+                        <div class="auth-mobile-brand" aria-label="North 1 District Classroom">
+                            <span>N1</span>
+                            <div><strong>North 1 District</strong><small>Classroom</small></div>
                         </div>
                         {% block auth_content %}{% endblock %}
                     </div>
@@ -55,8 +59,11 @@
         </section>
     </main>
 
+    {% include 'includes/legal_modals.html' %}
+
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     <script src="{% static 'accounts/js/auth.js' %}"></script>
+    <script src="{% static 'pwa/js/pwa-register.js' %}" defer></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

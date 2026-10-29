@@ -8,8 +8,20 @@
     <small class="text-muted">One deadline for the complete module: {{ module.due_at|date:"M d, Y g:i A"|default:"No deadline" }}</small>
   </div>
   <div class="d-flex gap-2 align-self-start">
+    <a class="btn btn-outline-secondary" href="{% url 'classroom:module_edit' module.pk %}">
+      <i class="bi bi-pencil-square me-1"></i>Edit
+    </a>
     <a class="btn btn-outline-primary" href="{% url 'classroom:module_work' module.pk %}">Student preview</a>
     <a class="btn btn-outline-primary" href="{% url 'classroom:module_submissions' module.pk %}">Submissions</a>
+    <form method="post" action="{% url 'classroom:module_delete' module.pk %}">
+      {% csrf_token %}
+      <button
+        class="btn btn-outline-danger"
+        type="submit"
+        onclick="return confirm('Delete this module? Its student submissions and gradebook item will also be deleted. This cannot be undone.');">
+        <i class="bi bi-trash me-1"></i>Delete
+      </button>
+    </form>
   </div>
 </div>
 
@@ -33,8 +45,7 @@
         <div class="direct-pdf-feature"><i class="bi bi-fonts"></i><span><strong>Type on the PDF</strong><small>Students click a blank area and enter an answer.</small></span></div>
         <div class="direct-pdf-feature"><i class="bi bi-pencil"></i><span><strong>Draw and mark</strong><small>Students may circle, underline, draw, or erase.</small></span></div>
         <div class="direct-pdf-feature"><i class="bi bi-cloud-check"></i><span><strong>Private draft</strong><small>Every Student receives a separate saved copy.</small></span></div>
-        <div class="direct-pdf-feature"><i class="bi bi-check2-square"></i><span><strong>One Module score</strong><small>You review the answered PDF and grade the complete worksheet.</small></span></div>
-        {% if sections %}<div class="alert alert-secondary small mt-3 mb-0">Older answer-section records remain stored for compatibility, but Students now answer directly on the PDF.</div>{% endif %}
+        <div class="direct-pdf-feature"><i class="bi bi-check2-square"></i><span><strong>One Module score</strong><small>You review the answered PDF and grade the complete worksheet.</small></span></div>  
       </div>
     </section>
   </div>

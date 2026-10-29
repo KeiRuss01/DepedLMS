@@ -29,6 +29,13 @@ urlpatterns = [
         views.tasks_view,
         name="tasks",
     ),
+
+    path(
+        "feedback/",
+        views.student_feedback_view,
+        name="student_feedback",
+    ),
+    
     path(
         "messages/",
         messaging_views.message_inbox_view,
@@ -106,6 +113,11 @@ urlpatterns = [
         "join-requests/<int:enrollment_id>/<str:action>/",
         views.respond_to_join_request_view,
         name="respond_to_join_request",
+    ),
+    path(
+        "enrollments/<int:enrollment_id>/remove/",
+        views.remove_student_view,
+        name="remove_student",
     ),
 
     path(
@@ -210,6 +222,26 @@ urlpatterns = [
         name="attendance",
     ),
     path(
+        "classes/<int:classroom_id>/attendance/offline-roster/",
+        views.teacher_offline_roster_view,
+        name="teacher_offline_roster",
+    ),
+    path(
+        "classes/<int:classroom_id>/grades/offline-data/",
+        views.teacher_offline_gradebook_data_view,
+        name="teacher_offline_gradebook_data",
+    ),
+    path(
+        "classes/<int:classroom_id>/grades/offline-sync/",
+        views.teacher_offline_scores_sync_view,
+        name="teacher_offline_scores_sync",
+    ),
+    path(
+        "classes/<int:classroom_id>/grades/offline-create-item/",
+        views.teacher_offline_grade_item_create_view,
+        name="teacher_offline_grade_item_create",
+    ),
+    path(
         "classes/<int:classroom_id>/my-attendance/",
         views.student_attendance_view,
         name="student_attendance",
@@ -250,6 +282,12 @@ urlpatterns = [
     ),
 
     path(
+        "modules/<int:module_id>/offline-data/",
+        views.module_offline_data_view,
+        name="module_offline_data",
+    ),
+    
+    path(
         "classes/<int:classroom_id>/modules/",
         views.module_list_view,
         name="module_list",
@@ -268,21 +306,15 @@ urlpatterns = [
     ),
 
     path(
-        "modules/<int:module_id>/sections/add/",
-        views.module_section_create_view,
-        name="module_section_create",
+        "modules/<int:module_id>/edit/",
+        views.module_edit_view,
+        name="module_edit",
     ),
 
     path(
-        "module-sections/<int:section_id>/edit/",
-        views.module_section_edit_view,
-        name="module_section_edit",
-    ),
-
-    path(
-        "module-sections/<int:section_id>/delete/",
-        views.module_section_delete_view,
-        name="module_section_delete",
+        "modules/<int:module_id>/delete/",
+        views.module_delete_view,
+        name="module_delete",
     ),
 
     path(
@@ -292,9 +324,21 @@ urlpatterns = [
     ),
 
     path(
+        "modules/<int:module_id>/reopen-submission/",
+        views.module_reopen_submission_view,
+        name="module_reopen_submission",
+    ),
+
+    path(
         "modules/<int:module_id>/mobile-draft/",
         views.module_mobile_draft_view,
         name="module_mobile_draft",
+    ),
+
+    path(
+        "modules/<int:module_id>/offline-submit/",
+        views.module_offline_submit_view,
+        name="module_offline_submit",
     ),
 
     path(
@@ -327,11 +371,6 @@ urlpatterns = [
         name="module_extra_page_file",
     ),
 
-    path(
-        "module-sections/<int:section_id>/work/",
-        views.module_section_work_view,
-        name="module_section_work",
-    ),
 
     path(
         "modules/<int:module_id>/submissions/",
@@ -362,10 +401,11 @@ urlpatterns = [
         views.submission_pdf_view,
         name="submission_pdf",
     ),
-
+    
     path(
-        "module-attachments/<int:attachment_id>/file/",
-        views.section_attachment_view,
-        name="section_attachment",
+        "classes/<int:classroom_id>/attendance/offline-sync/",
+        views.teacher_offline_attendance_sync_view,
+        name="teacher_offline_attendance_sync",
     ),
+
 ]

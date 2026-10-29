@@ -6,9 +6,7 @@ export class BaseCanvasFactory {
         canvas: void;
         context: any;
     };
-    reset({ canvas }: {
-        canvas: any;
-    }, width: any, height: any): void;
+    reset(canvasAndContext: any, width: any, height: any): void;
     destroy(canvasAndContext: any): void;
     /**
      * @ignore

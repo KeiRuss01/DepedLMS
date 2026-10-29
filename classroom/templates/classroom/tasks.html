@@ -1,7 +1,7 @@
 {% extends "classroom/master.html" %}
 {% load static %}
 
-{% block title %}Tasks | District 1 Classroom{% endblock %}
+ {% block title %}Tasks | North 1 District Classroom{% endblock %}
 
 {% block extra_css %}
 <link
@@ -38,6 +38,16 @@
                 {% endif %}
             </p>
         </div>
+
+        {% if role_view == "student" %}
+            <a
+                href="{% url 'classroom:student_feedback' %}"
+                class="btn btn-outline-primary"
+            >
+                <i class="bi bi-chat-square-text"></i>
+                My Feedback
+            </a>
+        {% endif %}
 
         {% if read_only %}
             <span class="tasks-read-only">

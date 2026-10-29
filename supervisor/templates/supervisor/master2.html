@@ -1,15 +1,17 @@
 {% load static %}
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="{{ request.user.preferences.theme|default:'light' }}">
 <head>
     <meta charset="utf-8">
+    <script src="{% static 'accounts/js/appearance.js' %}?v=1"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Administration Portal{% endblock %} | Hybrid LMS</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}" rel="stylesheet">
     <link href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}" rel="stylesheet">
-    <link href="{% static 'supervisor/css/dashboard.css' %}?v=3" rel="stylesheet">
+    <link href="{% static 'supervisor/css/dashboard.css' %}?v=4" rel="stylesheet">
     {% block extra_css %}{% endblock %}
+    <link href="{% static 'accounts/css/appearance.css' %}?v=1" rel="stylesheet">
 </head>
 <body class="sv-body">
 
@@ -20,7 +22,7 @@
                 <i class="bi bi-list"></i>
             </button>
             <a class="sv-brand" href="{% if request.user.role == 'principal' %}{% url 'supervisor:principal_dashboard' %}{% else %}{% url 'supervisor:dashboard' %}{% endif %}">
-                <span class="sv-brand-seal">D1</span>
+        <span class="sv-brand-seal">N1</span>
                 <span class="sv-brand-copy">
                     <strong>Hybrid LMS</strong>
                     <small>Administration Portal</small>
@@ -44,27 +46,14 @@
                 >{{ unread_notification_count }}</span>
             </a>
 
-            <div class="dropdown">
-                <button class="sv-user-menu btn btn-link text-decoration-none p-0 border-0" type="button"
-                        data-bs-toggle="dropdown" aria-expanded="false">
+            <div class="sv-user-menu">
                     <span class="sv-avatar">
-                        {{ request.user.full_name|default:request.user.email|slice:":1" }}
+                        {% if request.user.role == 'principal' and request.user.principal_profile %}{{ request.user.principal_profile.firstname|slice:":1"|upper }}{% elif request.user.role == 'supervisor' and request.user.supervisor_profile %}{{ request.user.supervisor_profile.firstname|slice:":1"|upper }}{% else %}{{ request.user.email|slice:":1"|upper }}{% endif %}
                     </span>
                     <span class="sv-user-copy d-none d-sm-block">
-                        <strong>{{ request.user.full_name|default:request.user.email }}</strong>
+                        <strong>{% if request.user.role == 'principal' and request.user.principal_profile %}{{ request.user.principal_profile.firstname }} {{ request.user.principal_profile.lastname }}{% elif request.user.role == 'supervisor' and request.user.supervisor_profile %}{{ request.user.supervisor_profile.firstname }} {{ request.user.supervisor_profile.lastname }}{% elif request.user.role == 'principal' %}Principal{% else %}District Supervisor{% endif %}</strong>
                         <small>{{ request.user.get_role_display }}</small>
                     </span>
-                    <i class="bi bi-chevron-down small ms-1 d-none d-sm-inline"></i>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i>My Profile</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li>
-                        <a class="dropdown-item text-danger" href="{% url 'supervisor:logout' %}">
-                            <i class="bi bi-box-arrow-right me-2"></i>Logout
-                        </a>
-                    </li>
-                </ul>
             </div>
         </div>
     </header>
@@ -72,6 +61,7 @@
     <!-- Left navigation -->
     <!-- Left navigation -->
     <aside class="sv-sidebar">
+        <div class="sv-sidebar-scroll">
         <div class="sv-nav-section">Main</div>
 
         <a
@@ -101,6 +91,11 @@
             Principals
         </a>
 
+        <a class="sv-nav-link {% block nav_monitoring %}{% endblock %}" href="{% url 'supervisor:school_monitoring' %}">
+            <i class="bi bi-graph-up-arrow"></i>
+            School Monitoring
+        </a>
+
         <a
             class="sv-nav-link {% block nav_calendar %}{% endblock %}"
             href="{% url 'supervisor:district_calendar' %}"
@@ -109,21 +104,6 @@
             District Calendar
         </a>
 
-        <a
-            class="sv-nav-link {% block nav_district_teachers %}{% endblock %}"
-            href="{% url 'supervisor:teachers' %}"
-        >
-            <i class="bi bi-person-workspace"></i>
-            Teachers
-        </a>
-
-        <a
-            class="sv-nav-link {% block nav_district_students %}{% endblock %}"
-            href="{% url 'supervisor:students' %}"
-        >
-            <i class="bi bi-mortarboard"></i>
-            Students
-        </a>
     {% else %}
         {% if request.user.principal_profile %}
             <a
@@ -176,7 +156,7 @@
         </a>
     {% endif %}
 
-    {# Available to both Supervisor and Principal #}
+    {% if request.user.role == 'principal' %}
     <a
         class="sv-nav-link {% block nav_parents %}{% endblock %}"
         href="{% url 'supervisor:parents' %}"
@@ -184,6 +164,7 @@
         <i class="bi bi-people"></i>
         Parents
     </a>
+    {% endif %}
 
     <div class="sv-nav-section">System</div>
 
@@ -194,6 +175,20 @@
         <i class="bi bi-file-earmark-bar-graph"></i>
         Reports
     </a>
+        </div>
+
+    <div class="sv-sidebar-footer">
+        {% if request.user.role == 'principal' %}
+        <a class="sv-nav-link {% block nav_principal_profile %}{% endblock %}" href="{% url 'supervisor:principal_profile' %}">
+            <i class="bi bi-person-circle"></i>
+            My Profile
+        </a>
+        {% endif %}
+        <a class="sv-nav-link sv-logout-link" href="{% url 'supervisor:logout' %}">
+            <i class="bi bi-box-arrow-right"></i>
+            Logout
+        </a>
+    </div>
     </aside>
 
     <!-- Page content -->

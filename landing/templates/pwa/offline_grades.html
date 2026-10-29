@@ -1,0 +1,31 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <script src="{% static 'accounts/js/appearance.js' %}?v=1"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#123d78">
+    <title>Offline Grades | North 1 District LMS</title>
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}">
+    <style>
+        body{margin:0;background:#f4f7fb;color:#102342}.page-header{background:#fff;border-bottom:1px solid #d8e0eb;padding:16px}.page-width{width:min(1400px,calc(100% - 32px));margin:0 auto}.page-header .page-width,.page-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px}main{padding:28px 0 70px}.panel{overflow:hidden;border:1px solid #d8e0eb;border-radius:12px;background:#fff}.table-wrap{overflow:auto}table{width:max-content;min-width:100%;border-collapse:collapse}th,td{border:1px solid #d8e0eb;padding:8px;text-align:center;white-space:nowrap}th{background:#edf3fa}.student-name{position:sticky;left:0;z-index:2;min-width:220px;background:#fff;text-align:left}th.student-name{background:#edf3fa}.score-input{width:78px;min-height:38px;text-align:center}.score-input.pending{border-color:#e09a00;background:#fff8df}.score-input.failed{border-color:#dc3545;background:#fff0f1}.empty-message{padding:48px 20px;color:#68758a;text-align:center}.connection-status{padding:5px 10px;border-radius:20px;background:#e8f6ee;color:#157347;font-size:.82rem;font-weight:700}.connection-status.offline{background:#fff1df;color:#946200}
+    </style>
+    <link rel="stylesheet" href="{% static 'accounts/css/appearance.css' %}?v=1">
+</head>
+<body>
+    <header class="page-header"><div class="page-width"><div><strong>North 1 District LMS</strong><div class="text-muted small">Offline teacher gradebook</div></div><span id="connectionStatus" class="connection-status"></span></div></header>
+    <main class="page-width">
+<div class="page-actions mb-3"><div><h1 class="h3 mb-1" id="pageTitle">Offline Grades</h1><p class="text-muted mb-0" id="pageDescription">Scores are stored on this device.</p></div><div class="d-flex flex-wrap gap-2"><a href="{% url 'offline' %}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> Offline home</a><button type="button" class="btn btn-outline-primary" id="addOfflineActivityButton" data-bs-toggle="modal" data-bs-target="#offlineActivityModal" hidden><i class="bi bi-plus-lg"></i> Add activity</button><button type="button" class="btn btn-primary" id="syncGradesButton"><i class="bi bi-arrow-repeat"></i> Synchronize</button></div></div>
+        <div id="gradebookMessage" class="alert alert-info">Loading the saved gradebook…</div>
+        <section class="panel"><div class="table-wrap"><table id="offlineGradeTable" hidden><thead id="gradeTableHead"></thead><tbody id="gradeTableBody"></tbody></table><div id="emptyGradebook" class="empty-message" hidden>Download this term’s gradebook while online first.</div></div></section>
+    </main>
+    <div class="modal fade" id="offlineActivityModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog"><form class="modal-content" id="offlineActivityForm"><div class="modal-header"><h5 class="modal-title">Add offline activity</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><p class="text-muted">The activity and its scores will be saved on this device and synchronized when you are online.</p><div class="mb-3"><label class="form-label" for="offlineActivityTitle">Activity title</label><input class="form-control" id="offlineActivityTitle" maxlength="150" required></div><div class="mb-3"><label class="form-label" for="offlineActivityComponent">Component</label><select class="form-select" id="offlineActivityComponent" required><option value="written_work">Written Work (WW)</option><option value="performance_task">Performance Task (PT)</option><option value="assessment">Term Assessment (TA)</option></select></div><div><label class="form-label" for="offlineActivityMaximum">Highest possible score</label><input class="form-control" id="offlineActivityMaximum" type="number" min="1" step="0.01" value="100" required></div><div id="offlineActivityError" class="alert alert-danger mt-3" hidden></div></div><div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" type="submit">Add activity</button></div></form></div></div>
+    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'pwa/js/offline-db.js' %}?v=5"></script>
+    <script src="{% static 'pwa/js/device-registry.js' %}?v=2"></script>
+    <script src="{% static 'pwa/js/offline-grade-sync.js' %}?v=2"></script>
+    <script src="{% static 'pwa/js/offline-gradebook.js' %}?v=3"></script>
+</body>
+</html>

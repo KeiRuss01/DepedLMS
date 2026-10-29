@@ -32,12 +32,26 @@ if ENV_FILE.exists():
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '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'
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-local-development-only-change-before-hosting",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in {"1", "true", "yes"}
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        "DJANGO_ALLOWED_HOSTS",
+        "127.0.0.1,localhost,192.168.1.5"
+    ).split(",")
+    if host.strip()
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://192.168.1.5:8000",
+]
 
 
 # Application definition
@@ -53,6 +67,7 @@ INSTALLED_APPS = [
     'accounts',
     'supervisor',
     'classroom',
+    "offline_sync.apps.OfflineSyncConfig",
 ]
 
 MIDDLEWARE = [
@@ -92,12 +107,12 @@ WSGI_APPLICATION = 'DepedLMS.wsgi.application'
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": "lms_db",
-        "USER": "root",
-        "PASSWORD": "",
-        "HOST": "127.0.0.1",
-        "PORT": "3306",
+        "ENGINE": os.getenv("DB_ENGINE", "django.db.backends.mysql"),
+        "NAME": os.getenv("DB_NAME", "lms_db"),
+        "USER": os.getenv("DB_USER", "root"),
+        "PASSWORD": os.getenv("DB_PASSWORD", ""),
+        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+        "PORT": os.getenv("DB_PORT", "3306"),
     }
 }
 
@@ -110,7 +125,13 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": (
+            "django.contrib.auth.password_validation."
+            "MinimumLengthValidator"
+        ),
+        "OPTIONS": {
+            "min_length": 8,
+        },
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -126,7 +147,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'Asia/Manila'
+TIME_ZONE = os.getenv("DJANGO_TIME_ZONE", "Asia/Manila")
 
 USE_I18N = True
 
@@ -137,6 +158,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [
     BASE_DIR / 'static',
 ]
@@ -161,6 +183,19 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 
-PRIVATE_LEARNING_ROOT = BASE_DIR.parent / "DepedLMS-private"
+PRIVATE_LEARNING_ROOT = Path(
+    os.getenv("PRIVATE_LEARNING_ROOT", BASE_DIR.parent / "DepedLMS-private")
+)
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
+
+# PythonAnywhere and other HTTPS reverse proxies terminate TLS before Django.
+# These settings remain disabled during local development.
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.getenv("DJANGO_HSTS_SECONDS", "3600"))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = False

@@ -1,0 +1,24 @@
+<article class="module-compact-card{% if row.is_completed %} is-completed{% endif %}">
+    <div class="module-card-topline">
+        <span class="module-term">{{ row.module.get_term_display }}</span>
+        {% if is_teacher %}<span class="module-status">{{ row.module.get_status_display }}</span>
+        {% elif row.submission %}<span class="module-status status-{{ row.submission.status }}">{{ row.submission.get_status_display }}</span>
+        {% else %}<span class="module-status">Not started</span>{% endif %}
+    </div>
+    <h4>{{ row.module.title }}</h4>
+    <div class="module-card-meta">
+        <span><i class="bi bi-journal-text"></i>Written Work</span>
+        <span><i class="bi bi-star"></i>{% if row.module.total_points %}{{ row.module.total_points|floatformat:-2 }} pts{% else %}No score{% endif %}</span>
+        <span><i class="bi bi-calendar-event"></i>{% if row.module.due_at %}{{ row.module.due_at|date:"M d, Y · g:i A" }}{% else %}No deadline{% endif %}</span>
+    </div>
+    <div class="module-card-actions">
+        {% if is_teacher %}
+        <a class="btn btn-primary btn-sm" href="{% url 'classroom:module_manage' row.module.pk %}"><i class="bi bi-pencil-square me-1"></i>Manage</a>
+        <a class="btn btn-outline-primary btn-sm" href="{% url 'classroom:module_submissions' row.module.pk %}">Submissions</a>
+        {% else %}
+        <a class="btn btn-primary btn-sm" href="{% url 'classroom:module_work' row.module.pk %}">{% if row.is_completed %}View work{% elif row.submission %}Continue{% else %}Open module{% endif %}</a>
+        {% if row.can_download %}<button type="button" class="btn btn-outline-primary btn-sm" data-module-download data-module-id="{{ row.module.pk }}" data-download-url="{% url 'classroom:module_offline_data' row.module.pk %}"><i class="bi bi-download me-1"></i>Download</button>{% endif %}
+        {% endif %}
+    </div>
+    {% if not is_teacher and not row.can_download and row.download_unavailable_reason %}<p class="module-card-note"><i class="bi bi-info-circle me-1"></i>{{ row.download_unavailable_reason }}</p>{% endif %}
+</article>

@@ -34,7 +34,6 @@ export type AnnotationEditorParameters = {
  */
 export class AnnotationEditor {
     static _l10n: null;
-    static _l10nAlert: null;
     static _l10nResizer: null;
     static _borderLineWidth: number;
     static _colorManager: ColorManager;
@@ -74,7 +73,7 @@ export class AnnotationEditor {
      * @param {AnnotationEditorLayer} parent
      */
     static paste(item: DataTransferItem, parent: AnnotationEditorLayer): void;
-    static #rotatePoint(x: any, y: any, angle: any): any[];
+    static "__#41@#rotatePoint"(x: any, y: any, angle: any): any[];
     static _round(x: any): number;
     /**
      * Deserialize the editor.
@@ -92,8 +91,6 @@ export class AnnotationEditor {
      * @param {AnnotationEditorParameters} parameters
      */
     constructor(parameters: AnnotationEditorParameters);
-    isSelected: boolean;
-    _isCopy: boolean;
     _editToolbar: null;
     _initialOptions: any;
     _initialData: null;
@@ -110,9 +107,6 @@ export class AnnotationEditor {
     annotationElementId: any;
     _willKeepAspectRatio: boolean;
     _structTreeParentId: any;
-    creationDate: any;
-    modificationDate: any;
-    canAddComment: boolean;
     rotation: number;
     pageRotation: number;
     pageDimensions: any[];
@@ -121,9 +115,7 @@ export class AnnotationEditor {
     y: number;
     isAttachedToDOM: boolean;
     deleted: boolean;
-    updatePageIndex(newPageIndex: any): void;
     get editorType(): any;
-    get mode(): any;
     /**
      * Get the properties to update in the UI for this editor.
      * @returns {Array}
@@ -131,7 +123,6 @@ export class AnnotationEditor {
     get propertiesToUpdate(): any[];
     set _isDraggable(value: boolean);
     get _isDraggable(): boolean;
-    get uid(): any;
     /**
      * @returns {boolean} true if the editor handles the Enter key itself.
      */
@@ -175,7 +166,6 @@ export class AnnotationEditor {
      * @param {number} ty - y-translation in screen coordinates.
      */
     setAt(x: number, y: number, tx: number, ty: number): void;
-    _moveAfterPaste(baseX: any, baseY: any): void;
     /**
      * Translate the editor position within its parent.
      * @param {number} x - x-translation in screen coordinates.
@@ -189,7 +179,6 @@ export class AnnotationEditor {
      * @param {number} y - y-translation in page coordinates.
      */
     translateInPage(x: number, y: number): void;
-    translationDone(): void;
     drag(tx: any, ty: any): void;
     /**
      * Called when the editor is being translated.
@@ -240,8 +229,11 @@ export class AnnotationEditor {
     get parentDimensions(): number[];
     /**
      * Set the dimensions of this editor.
+     * @param {number} width
+     * @param {number} height
      */
-    setDims(): void;
+    setDims(width: number, height: number): void;
+    fixDims(): void;
     /**
      * Get the translation used to position this editor when it's created.
      * @returns {Array<number>}
@@ -260,25 +252,14 @@ export class AnnotationEditor {
      */
     altTextFinish(): void;
     /**
-     * Get the toolbar buttons for this editor.
-     * @returns {Array<Array<string|object|null>>|null}
-     */
-    get toolbarButtons(): Array<Array<string | object | null>> | null;
-    /**
      * Add a toolbar for this editor.
      * @returns {Promise<EditorToolbar|null>}
      */
     addEditToolbar(): Promise<EditorToolbar | null>;
-    addCommentButtonInToolbar(): void;
-    removeCommentButtonFromToolbar(): void;
     removeEditToolbar(): void;
     addContainer(container: any): void;
     getClientDimensions(): DOMRect;
-    /**
-     * Create the alt text for this editor.
-     * @returns {object}
-     */
-    createAltText(): object;
+    addAltTextButton(): Promise<void>;
     /**
      * Set the alt text data.
      */
@@ -289,46 +270,6 @@ export class AnnotationEditor {
     serializeAltText(isForCopying: any): any;
     hasAltText(): boolean;
     hasAltTextData(): any;
-    focusCommentButton(): void;
-    addCommentButton(): Comment | null;
-    addStandaloneCommentButton(): void;
-    removeStandaloneCommentButton(): void;
-    hideStandaloneCommentButton(): void;
-    set comment(value: {
-        text: never;
-        richText: never;
-        date: never;
-        deleted: never;
-        color: any;
-        opacity: any;
-    } | null);
-    get comment(): {
-        text: never;
-        richText: never;
-        date: never;
-        deleted: never;
-        color: any;
-        opacity: any;
-    } | null;
-    setCommentData({ comment, popupRef, richText }: {
-        comment: any;
-        popupRef: any;
-        richText: any;
-    }): void;
-    get hasEditedComment(): any;
-    get hasDeletedComment(): any;
-    get hasComment(): boolean;
-    editComment(options: any): Promise<void>;
-    toggleComment(isSelected: any, visibility?: undefined): void;
-    setSelectedCommentButton(selected: any): void;
-    addComment(serialized: any): void;
-    updateFromAnnotationLayer({ popup: { contents, deleted } }: {
-        popup: {
-            contents: any;
-            deleted: any;
-        };
-    }): void;
-    get parentBoundingClientRect(): DOMRect;
     /**
      * Render this editor in a div.
      * @returns {HTMLDivElement | null}
@@ -339,6 +280,7 @@ export class AnnotationEditor {
      * @param {PointerEvent} event
      */
     pointerdown(event: PointerEvent): void;
+    get isSelected(): any;
     _onStartDragging(): void;
     _onStopDragging(): void;
     moveInDOM(): void;
@@ -352,31 +294,6 @@ export class AnnotationEditor {
     getRect(tx: number, ty: number, rotation?: number): any[];
     getRectInCurrentCoords(rect: any, pageHeight: any): any[];
     /**
-     * Get the rect in page coordinates without any translation.
-     * It's used when serializing the editor.
-     * @returns {Array<number>}
-     */
-    getPDFRect(): Array<number>;
-    getNonHCMColor(): any;
-    /**
-     * The color has been changed.
-     */
-    onUpdatedColor(): void;
-    getData(): {
-        id: any;
-        pageIndex: number;
-        rect: number[];
-        richText: any;
-        contentsObj: {
-            str: any;
-        };
-        creationDate: any;
-        modificationDate: any;
-        popupRef: boolean;
-        color: any;
-        opacity: any;
-    };
-    /**
      * Executed once this editor has been rendered.
      * @param {boolean} focus - true if the editor should be focused.
      */
@@ -388,14 +305,12 @@ export class AnnotationEditor {
     isEmpty(): boolean;
     /**
      * Enable edit mode.
-     * @returns {boolean} - true if the edit mode has been enabled.
      */
-    enableEditMode(): boolean;
+    enableEditMode(): void;
     /**
      * Disable edit mode.
-     * @returns {boolean} - true if the edit mode has been disabled.
      */
-    disableEditMode(): boolean;
+    disableEditMode(): void;
     /**
      * Check if the editor is edited.
      * @returns {boolean}
@@ -463,23 +378,7 @@ export class AnnotationEditor {
      * Add the resizers to this editor.
      */
     makeResizable(): void;
-    /**
-     * @returns {Array<number>|null}
-     */
-    get toolbarPosition(): Array<number> | null;
-    /**
-     * Get the position of the comment button.
-     * @returns {Array<number>|null}
-     */
-    get commentButtonPosition(): Array<number> | null;
-    get commentButtonPositionInPage(): number[];
-    get commentButtonColor(): any;
-    set commentPopupPosition(pos: any);
-    get commentPopupPosition(): any;
-    hasDefaultPopupPosition(): any;
-    get commentButtonWidth(): any;
-    get elementBeforePopup(): HTMLDivElement | null;
-    setCommentButtonStates(options: any): void;
+    get toolbarPosition(): null;
     /**
      * onkeydown callback.
      * @param {KeyboardEvent} event
@@ -491,12 +390,10 @@ export class AnnotationEditor {
      * Select this editor.
      */
     select(): void;
-    focus(): void;
     /**
      * Unselect this editor.
      */
     unselect(): void;
-    hideCommentPopup(): void;
     /**
      * Update some parameters which have been changed through the UI.
      * @param {number} type
@@ -514,25 +411,13 @@ export class AnnotationEditor {
      */
     enableEditing(): void;
     /**
-     * Check if the content of this editor can be changed.
-     * For example, a FreeText editor can be changed (the user can change the
-     * text), but a Stamp editor cannot.
-     * @returns {boolean}
-     */
-    get canChangeContent(): boolean;
-    /**
      * The editor is about to be edited.
      */
     enterInEditMode(): void;
     /**
-     * ondblclick callback.
-     * @param {MouseEvent} event
-     */
-    dblclick(event: MouseEvent): void;
-    /**
      * @returns {HTMLElement | null} the element requiring an alt text.
      */
-    getElementForAltText(): HTMLElement | null;
+    getImageForAltText(): HTMLElement | null;
     /**
      * Get the div which really contains the displayed content.
      * @returns {HTMLDivElement | undefined}
@@ -548,6 +433,12 @@ export class AnnotationEditor {
      * @type {boolean}
      */
     get isEditing(): boolean;
+    /**
+     * Set the aspect ratio to use when resizing.
+     * @param {number} width
+     * @param {number} height
+     */
+    setAspectRatio(width: number, height: number): void;
     /**
      * Get the data to report to the telemetry when the editor is added.
      * @returns {Object}
@@ -566,7 +457,6 @@ export class AnnotationEditor {
     show(visible?: boolean | undefined): void;
     enable(): void;
     disable(): void;
-    updateFakeAnnotationElement(annotationLayer: any): void;
     /**
      * Render an annotation in the annotation layer.
      * @param {Object} annotation
@@ -578,5 +468,4 @@ export class AnnotationEditor {
 }
 import { AnnotationEditorUIManager } from "./tools.js";
 import { EditorToolbar } from "./toolbar.js";
-import { Comment } from "./comment.js";
 import { ColorManager } from "./tools.js";

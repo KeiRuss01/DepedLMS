@@ -1,8 +1,3 @@
-export class InkDrawingOptions extends DrawingOptions {
-    constructor(viewerParameters: any);
-    _viewParameters: any;
-    clone(): InkDrawingOptions;
-}
 /**
  * Basic draw editor in order to generate an Ink annotation.
  */
@@ -17,22 +12,9 @@ export class InkEditor extends DrawingEditor {
     /** @inheritdoc */
     static get typesMap(): any;
     /** @inheritdoc */
-    static createDrawerInstance({ x, y, box: [, , width, height], rotation }: {
-        x: any;
-        y: any;
-        box: [any, any, any, any];
-        rotation: any;
-    }): InkDrawOutliner;
+    static createDrawerInstance(x: any, y: any, parentWidth: any, parentHeight: any, rotation: any): InkDrawOutliner;
     /** @inheritdoc */
-    static deserializeDraw(pageX: any, pageY: any, pageWidth: any, pageHeight: any, innerMargin: any, data: any): any;
-    defaultL10nId: string;
-    /** @inheritdoc */
-    get toolbarButtons(): (string | null)[][];
-    get colorType(): number;
-    get colorAndOpacityType(): number;
-    get opacityType(): number;
-    get color(): any;
-    get opacity(): any;
+    static deserializeDraw(pageX: any, pageY: any, pageWidth: any, pageHeight: any, innerMargin: any, data: any): InkDrawOutline;
     /** @inheritdoc */
     createDrawingOptions({ color, thickness, opacity }: {
         color: any;
@@ -44,6 +26,6 @@ export class InkEditor extends DrawingEditor {
     serialize(isForCopying?: boolean): Object | null;
     #private;
 }
-import { DrawingOptions } from "./draw.js";
 import { DrawingEditor } from "./draw.js";
 import { InkDrawOutliner } from "./drawers/inkdraw.js";
+import { InkDrawOutline } from "./drawers/inkdraw.js";

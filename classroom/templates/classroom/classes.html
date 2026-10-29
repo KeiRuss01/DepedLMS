@@ -1,6 +1,11 @@
 {% extends "classroom/master.html" %}
+{% load static %}
 
-{% block title %}Classes | District 1 Classroom{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'classroom/css/modules.css' %}?v=2">
+{% endblock %}
+
+ {% block title %}Classes | North 1 District Classroom{% endblock %}
 
 {% block content %}
 
@@ -28,6 +33,13 @@
         </a>
     {% endif %}
 </section>
+
+<form method="get" class="module-filter-bar classes-filter-bar" role="search">
+    <label for="classSearch" class="visually-hidden">Search classes</label>
+    <input type="search" name="q" id="classSearch" class="form-control" value="{{ search }}" placeholder="Search classes by name, subject, section, or code">
+    <button class="btn btn-outline-primary" type="submit"><i class="bi bi-search me-1"></i>Search</button>
+    {% if search %}<a class="btn btn-light border" href="{% url 'classroom:classes' %}">Clear</a>{% endif %}
+</form>
 
 {% if request.user.role == "teacher" %}
 
@@ -94,9 +106,13 @@
             <div class="empty-state classes-empty-state">
                 <i class="bi bi-journal-plus"></i>
                 <h3>No active classes</h3>
-                <p>Create your first class to get started.</p>
+                <p>{% if search %}No class matched “{{ search }}”. Try another search.{% else %}Create your first class to get started.{% endif %}</p>
+                {% if search %}
+                <a href="{% url 'classroom:classes' %}" class="btn btn-outline-primary btn-sm">Clear search</a>
+                {% else %}
                 <a href="{% url 'classroom:create_class' %}"
                    class="btn btn-primary btn-sm">Create Class</a>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -227,9 +243,13 @@
             <div class="empty-state classes-empty-state">
                 <i class="bi bi-door-open"></i>
                 <h3>No enrolled classes</h3>
-                <p>Join a class using the code provided by your Teacher.</p>
+                <p>{% if search %}No class matched “{{ search }}”. Try another search.{% else %}Join a class using the code provided by your Teacher.{% endif %}</p>
+                {% if search %}
+                <a href="{% url 'classroom:classes' %}" class="btn btn-outline-primary btn-sm">Clear search</a>
+                {% else %}
                 <a href="{% url 'classroom:join_class' %}"
                    class="btn btn-primary btn-sm">Join Class</a>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
@@ -319,7 +339,8 @@
                 <div class="empty-state classes-empty-state">
                     <i class="bi bi-journals"></i>
                     <h3>No enrolled classes</h3>
-                    <p>The linked learner has no approved classes yet.</p>
+                    <p>{% if search %}No class matched “{{ search }}”.{% else %}The linked learner has no approved classes yet.{% endif %}</p>
+                    {% if search %}<a href="{% url 'classroom:classes' %}" class="btn btn-outline-primary btn-sm">Clear search</a>{% endif %}
                 </div>
                 {% endfor %}
             </div>

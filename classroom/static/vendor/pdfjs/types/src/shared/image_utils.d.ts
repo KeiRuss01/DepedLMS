@@ -10,17 +10,6 @@ export function convertBlackAndWhiteToRGBA({ src, srcPos, dest, width, height, n
     srcPos: number;
     destPos: number;
 };
-export function convertRGBToRGBA({ src, srcPos, dest, destPos, width, height, }: {
-    src: any;
-    srcPos?: number | undefined;
-    dest: any;
-    destPos?: number | undefined;
-    width: any;
-    height: any;
-}): {
-    srcPos: number;
-    destPos: number;
-};
 export function convertToRGBA(params: any): {
     srcPos: number;
     destPos: number;

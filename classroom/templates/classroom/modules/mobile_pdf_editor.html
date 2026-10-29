@@ -3,19 +3,28 @@
 <section
     id="mobileModuleEditor"
     class="mobile-module-editor"
-    data-pdf-url="{% if direct_pdf_submission or submission.status == 'submitted' or submission.status == 'graded' %}{% url 'classroom:submission_pdf' submission.pk %}{% else %}{% url 'classroom:module_pdf' module.pk %}{% endif %}"
-    data-library="{% static 'vendor/pdfjs/build/pdf.min.mjs' %}"
-    data-worker="{% static 'vendor/pdfjs/build/pdf.worker.min.mjs' %}"
+    data-storage-mode="{% if offline_mode %}offline{% else %}online{% endif %}"
+    data-module-id="{{ module.pk|default:'' }}"
+    data-pdf-url="{% if not offline_mode %}{% if direct_pdf_submission or submission.status == 'submitted' or submission.status == 'graded' %}{% url 'classroom:submission_pdf' submission.pk %}{% else %}{% url 'classroom:module_pdf' module.pk %}{% endif %}{% endif %}"
+    data-library="{% static 'vendor/pdfjs/legacy/build/pdf.min.mjs' %}"
+    data-worker="{% static 'vendor/pdfjs/legacy/build/pdf.worker.min.mjs' %}"
     data-assets="{% static 'vendor/pdfjs/' %}"
     data-editable="{% if can_edit %}true{% else %}false{% endif %}"
-    data-draft-state-url="{% url 'classroom:module_mobile_draft' module.pk %}"
-    data-annotation-save-url="{% url 'classroom:module_mobile_annotations_save' module.pk %}"
-    data-extra-page-create-url="{% url 'classroom:module_extra_page_create' module.pk %}"
-    data-csrf-token="{{ csrf_token }}"
+    data-draft-state-url="{% if not offline_mode %}{% url 'classroom:module_mobile_draft' module.pk %}{% endif %}"
+    data-offline-data-url="{% if not offline_mode %}{% url 'classroom:module_offline_data' module.pk %}{% endif %}"
+    data-annotation-save-url="{% if not offline_mode %}{% url 'classroom:module_mobile_annotations_save' module.pk %}{% endif %}"
+    data-extra-page-create-url="{% if not offline_mode %}{% url 'classroom:module_extra_page_create' module.pk %}{% endif %}"
+    data-csrf-token="{% if not offline_mode %}{{ csrf_token }}{% endif %}"
 >
     <header class="mobile-editor-header">
         <div>
-            <strong>{{ module.title }}</strong>
+            <strong id="mobileEditorTitle">
+                {% if offline_mode %}
+                    Offline module
+                {% else %}
+                    {{ module.title }}
+                {% endif %}
+            </strong>
 
             <small>
                 {% if can_edit %}

@@ -4,8 +4,8 @@
          class="card pdf-reader"
          aria-label="Module PDF reader"
          data-url="{% url 'classroom:module_pdf' module.pk %}"
-         data-library="{% static 'vendor/pdfjs/build/pdf.mjs' %}"
-         data-worker="{% static 'vendor/pdfjs/build/pdf.worker.mjs' %}"
+         data-library="{% static 'vendor/pdfjs/legacy/build/pdf.mjs' %}"
+         data-worker="{% static 'vendor/pdfjs/legacy/build/pdf.worker.mjs' %}"
          data-assets="{% static 'vendor/pdfjs/' %}">
 
     <div class="card-header">

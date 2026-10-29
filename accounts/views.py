@@ -42,6 +42,14 @@ def login_view(request):
     if request.method == "POST" and form.is_valid():
         user = form.get_user()
         login(request, user)
+
+        if form.cleaned_data.get("remember_me"):
+            # Keep the user logged in for 30 days.
+            request.session.set_expiry(60 * 60 * 24 * 30)
+        else:
+            # Session expires when the browser closes.
+            request.session.set_expiry(0)
+
         return _role_redirect(user)
 
     return render(

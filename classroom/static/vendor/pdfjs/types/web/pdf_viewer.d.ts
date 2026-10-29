@@ -1,13 +1,13 @@
 export type PDFDocumentProxy = import("../src/display/api").PDFDocumentProxy;
 export type PDFPageProxy = import("../src/display/api").PDFPageProxy;
-export type PageViewport = import("../src/display/page_viewport").PageViewport;
+export type PageViewport = import("../src/display/display_utils").PageViewport;
 export type OptionalContentConfig = import("../src/display/optional_content_config").OptionalContentConfig;
 export type EventBus = import("./event_utils").EventBus;
+export type IDownloadManager = import("./interfaces").IDownloadManager;
+export type IL10n = import("./interfaces").IL10n;
+export type IPDFLinkService = import("./interfaces").IPDFLinkService;
 export type PDFFindController = import("./pdf_find_controller").PDFFindController;
 export type PDFScriptingManager = import("./pdf_scripting_manager").PDFScriptingManager;
-export type PDFLinkService = import("./pdf_link_service.js").PDFLinkService;
-export type BaseDownloadManager = import("./base_download_manager.js").BaseDownloadManager;
-export type L10n = import("./l10n.js").L10n;
 export type PDFViewerOptions = {
     /**
      * - The container for the viewer element.
@@ -24,12 +24,12 @@ export type PDFViewerOptions = {
     /**
      * - The navigation/linking service.
      */
-    linkService?: import("./pdf_link_service.js").PDFLinkService | undefined;
+    linkService?: import("./interfaces").IPDFLinkService | undefined;
     /**
      * - The download manager
      * component.
      */
-    downloadManager?: import("./base_download_manager.js").BaseDownloadManager | undefined;
+    downloadManager?: import("./interfaces").IDownloadManager | undefined;
     /**
      * - The find controller
      * component.
@@ -91,48 +91,9 @@ export type PDFViewerOptions = {
      */
     maxCanvasPixels?: number | undefined;
     /**
-     * - The maximum supported canvas dimension,
-     * in either width or height. Use `-1` for no limit.
-     * The default value is 32767.
-     */
-    maxCanvasDim?: number | undefined;
-    /**
-     * - Cap the canvas area to the
-     * viewport increased by the value in percent. Use `-1` for no limit.
-     * The default value is 200%.
-     */
-    capCanvasAreaFactor?: number | undefined;
-    /**
-     * - When enabled, if the rendered
-     * pages would need a canvas that is larger than `maxCanvasPixels` or
-     * `maxCanvasDim`, it will draw a second canvas on top of the CSS-zoomed one,
-     * that only renders the part of the page that is close to the viewport.
-     * The default value is `true`.
-     */
-    enableDetailCanvas?: boolean | undefined;
-    /**
-     * - Enables rendering of text
-     * selections in the draw layer.
-     * The default value is `true`.
-     */
-    enableSelectionRendering?: boolean | undefined;
-    /**
-     * - All images whose width and
-     * height are at least this value (in pixels) will be lazily inserted in the
-     * dom to allow right-clicking and saving them. Use `-1` to disable this.
-     */
-    imagesRightClickMinSize?: number | undefined;
-    /**
-     * - When enabled, PDF
-     * rendering will keep track of which areas of the page each PDF operation
-     * affects. Then, when rendering a partial page (if `enableDetailCanvas` is
-     * enabled), it will only run through the operations that affect that portion.
-     */
-    enableOptimizedPartialRendering?: boolean | undefined;
-    /**
      * - Localization service.
      */
-    l10n?: import("./l10n.js").L10n | undefined;
+    l10n?: import("./interfaces").IL10n | undefined;
     /**
      * - Enables PDF document permissions,
      * when they exist. The default value is `false`.
@@ -145,20 +106,15 @@ export type PDFViewerOptions = {
      */
     pageColors?: Object | undefined;
     /**
+     * - Enables hardware acceleration for
+     * rendering. The default value is `false`.
+     */
+    enableHWA?: boolean | undefined;
+    /**
      * - Enable zooming on pinch gesture.
      * The default value is `true`.
      */
     supportsPinchToZoom?: boolean | undefined;
-    /**
-     * - Enable creation of hyperlinks from
-     * text that look like URLs. The default value is `true`.
-     */
-    enableAutoLinking?: boolean | undefined;
-    /**
-     * - Minimum duration to wait
-     * before updating the canvas. The default value is `500`.
-     */
-    minDurationToUpdateCanvas?: number | undefined;
 };
 export namespace PagesCountLimit {
     let FORCE_SCROLL_MODE_PAGE: number;
@@ -170,8 +126,8 @@ export namespace PagesCountLimit {
  * @property {HTMLDivElement} container - The container for the viewer element.
  * @property {HTMLDivElement} [viewer] - The viewer element.
  * @property {EventBus} eventBus - The application event bus.
- * @property {PDFLinkService} [linkService] - The navigation/linking service.
- * @property {BaseDownloadManager} [downloadManager] - The download manager
+ * @property {IPDFLinkService} [linkService] - The navigation/linking service.
+ * @property {IDownloadManager} [downloadManager] - The download manager
  *   component.
  * @property {PDFFindController} [findController] - The find controller
  *   component.
@@ -200,39 +156,16 @@ export namespace PagesCountLimit {
  * @property {number} [maxCanvasPixels] - The maximum supported canvas size in
  *   total pixels, i.e. width * height. Use `-1` for no limit, or `0` for
  *   CSS-only zooming. The default value is 4096 * 8192 (32 mega-pixels).
- * @property {number} [maxCanvasDim] - The maximum supported canvas dimension,
- *   in either width or height. Use `-1` for no limit.
- *   The default value is 32767.
- * @property {number} [capCanvasAreaFactor] - Cap the canvas area to the
- *   viewport increased by the value in percent. Use `-1` for no limit.
- *   The default value is 200%.
- * @property {boolean} [enableDetailCanvas] - When enabled, if the rendered
- *   pages would need a canvas that is larger than `maxCanvasPixels` or
- *   `maxCanvasDim`, it will draw a second canvas on top of the CSS-zoomed one,
- *   that only renders the part of the page that is close to the viewport.
- *   The default value is `true`.
- * @property {boolean} [enableSelectionRendering] - Enables rendering of text
- *   selections in the draw layer.
- *   The default value is `true`.
- * @property {number} [imagesRightClickMinSize] - All images whose width and
- *  height are at least this value (in pixels) will be lazily inserted in the
- *  dom to allow right-clicking and saving them. Use `-1` to disable this.
- * @property {boolean} [enableOptimizedPartialRendering] - When enabled, PDF
- *   rendering will keep track of which areas of the page each PDF operation
- *   affects. Then, when rendering a partial page (if `enableDetailCanvas` is
- *   enabled), it will only run through the operations that affect that portion.
- * @property {L10n} [l10n] - Localization service.
+ * @property {IL10n} [l10n] - Localization service.
  * @property {boolean} [enablePermissions] - Enables PDF document permissions,
  *   when they exist. The default value is `false`.
  * @property {Object} [pageColors] - Overwrites background and foreground colors
  *   with user defined ones in order to improve readability in high contrast
  *   mode.
+ * @property {boolean} [enableHWA] - Enables hardware acceleration for
+ *   rendering. The default value is `false`.
  * @property {boolean} [supportsPinchToZoom] - Enable zooming on pinch gesture.
  *   The default value is `true`.
- * @property {boolean} [enableAutoLinking] - Enable creation of hyperlinks from
- *   text that look like URLs. The default value is `true`.
- * @property {number} [minDurationToUpdateCanvas] - Minimum duration to wait
- *   before updating the canvas. The default value is `500`.
  */
 export class PDFPageViewBuffer {
     constructor(size: any);
@@ -260,21 +193,15 @@ export class PDFViewer {
     container: HTMLDivElement;
     viewer: Element | null;
     eventBus: import("./event_utils").EventBus;
-    linkService: import("./pdf_link_service.js").PDFLinkService;
-    downloadManager: import("./base_download_manager.js").BaseDownloadManager | null;
+    linkService: import("./interfaces").IPDFLinkService | SimpleLinkService;
+    downloadManager: import("./interfaces").IDownloadManager | null;
     findController: import("./pdf_find_controller").PDFFindController | null;
     _scriptingManager: import("./pdf_scripting_manager").PDFScriptingManager | null;
     imageResourcesPath: string;
     enablePrintAutoRotate: boolean;
     removePageBorders: boolean | undefined;
     maxCanvasPixels: number | undefined;
-    maxCanvasDim: number | undefined;
-    capCanvasAreaFactor: number | undefined;
-    enableDetailCanvas: boolean;
-    enableOptimizedPartialRendering: boolean;
-    enableSelectionRendering: boolean;
-    imagesRightClickMinSize: number;
-    l10n: import("./l10n.js").L10n | undefined;
+    l10n: import("./interfaces").IL10n | GenericL10n | undefined;
     pageColors: Object | null;
     defaultRenderingQueue: boolean;
     renderingQueue: PDFRenderingQueue | undefined;
@@ -283,9 +210,9 @@ export class PDFViewer {
         down: boolean;
         lastX: any;
         lastY: any;
+        _eventHandler: (evt: any) => void;
     };
     presentationModeState: number;
-    get printingAllowed(): boolean;
     get pagesCount(): number;
     getPageView(index: any): any;
     getCachedPageViews(): Set<any>;
@@ -293,10 +220,6 @@ export class PDFViewer {
      * @type {boolean} - True if all {PDFPageView} objects are initialized.
      */
     get pageViewsReady(): boolean;
-    /**
-     * Clear text selections within the viewer.
-     */
-    clearSelection(): void;
     /**
      * @type {boolean}
      */
@@ -357,7 +280,7 @@ export class PDFViewer {
     get onePageRendered(): any;
     get pagesPromise(): any;
     get _layerProperties(): any;
-    getAllText(interruptSignal?: null): Promise<string | null>;
+    getAllText(): Promise<string | null>;
     /**
      * @param {PDFDocumentProxy} pdfDocument
      */
@@ -365,26 +288,20 @@ export class PDFViewer {
     pdfDocument: import("../src/display/api").PDFDocumentProxy | undefined;
     _scrollMode: any;
     _optionalContentConfigPromise: Promise<import("../src/display/optional_content_config").OptionalContentConfig> | null | undefined;
-    onPagesEdited({ pagesMapper, type, hasBeenCut, pageNumbers }: {
-        pagesMapper: any;
-        type: any;
-        hasBeenCut: any;
-        pageNumbers: any;
-    }): void;
-    _pages: any[] | undefined;
     /**
      * @param {Array|null} labels
      */
     setPageLabels(labels: any[] | null): void;
     _pageLabels: any[] | null | undefined;
     _resetView(): void;
+    _pages: any[] | undefined;
     _currentScale: any;
     _currentScaleValue: any;
     _location: {
         pageNumber: any;
         scale: any;
-        top: any;
-        left: any;
+        top: number;
+        left: number;
         rotation: any;
         pdfOpenParams: string;
     } | null | undefined;
@@ -394,13 +311,6 @@ export class PDFViewer {
     _previousScrollMode: any;
     _spreadMode: any;
     _scrollUpdate(): void;
-    /**
-     * Scroll the viewer by the given gesture deltas: like `GrabToPan` does, the
-     * content follows the gesture.
-     * @param {number} dx - Horizontal delta.
-     * @param {number} dy - Vertical delta.
-     */
-    panBy(dx: number, dy: number): void;
     /**
      * @param {string} label - The page label.
      * @returns {number|null} The page number corresponding to the page label,
@@ -416,15 +326,12 @@ export class PDFViewer {
      *   The default value is `false`.
      * @property {boolean} [ignoreDestinationZoom] - Ignore the zoom argument in
      *   the destination array. The default value is `false`.
-     * @property {string} [center] - Center the view on the specified coordinates.
-     *   The default value is `null`. Possible values are: `null` (don't center),
-     *  `horizontal`, `vertical` and `both`.
      */
     /**
      * Scrolls page into view.
      * @param {ScrollPageIntoViewParameters} params
      */
-    scrollPageIntoView({ pageNumber, destArray, allowNegativeOffset, ignoreDestinationZoom, center, }: {
+    scrollPageIntoView({ pageNumber, destArray, allowNegativeOffset, ignoreDestinationZoom, }: {
         /**
          * - The page number.
          */
@@ -444,12 +351,6 @@ export class PDFViewer {
          * the destination array. The default value is `false`.
          */
         ignoreDestinationZoom?: boolean | undefined;
-        /**
-         * - Center the view on the specified coordinates.
-         * The default value is `null`. Possible values are: `null` (don't center),
-         * `horizontal`, `vertical` and `both`.
-         */
-        center?: string | undefined;
     }): void;
     _updateLocation(firstPage: any): void;
     update(): void;
@@ -509,6 +410,10 @@ export class PDFViewer {
     get spreadMode(): number;
     _updateSpreadMode(pageNumber?: null): void;
     /**
+     * @private
+     */
+    private _getPageAdvance;
+    /**
      * Go to the next page, taking scroll/spread-modes into account.
      * @returns {boolean} Whether navigation occurred.
      */
@@ -525,13 +430,12 @@ export class PDFViewer {
      * @property {number} [steps]
      * @property {Array} [origin] x and y coordinates of the scale
      *                            transformation origin.
-     * @property {Array<number>} [pan] - Horizontal and vertical gesture deltas.
      */
     /**
      * Changes the current zoom level by the specified amount.
      * @param {ChangeScaleOptions} [options]
      */
-    updateScale({ drawingDelay, scaleFactor, steps, origin, pan, }?: {
+    updateScale({ drawingDelay, scaleFactor, steps, origin }?: {
         drawingDelay?: number | undefined;
         scaleFactor?: number | undefined;
         steps?: number | undefined;
@@ -540,10 +444,6 @@ export class PDFViewer {
          *  transformation origin.
          */
         origin?: any[] | undefined;
-        /**
-         * - Horizontal and vertical gesture deltas.
-         */
-        pan?: number[] | undefined;
     }): void;
     /**
      * Increase the current zoom level one, or more, times.
@@ -558,10 +458,6 @@ export class PDFViewer {
          *  transformation origin.
          */
         origin?: any[] | undefined;
-        /**
-         * - Horizontal and vertical gesture deltas.
-         */
-        pan?: number[] | undefined;
     }): void;
     /**
      * Decrease the current zoom level one, or more, times.
@@ -576,10 +472,6 @@ export class PDFViewer {
          *  transformation origin.
          */
         origin?: any[] | undefined;
-        /**
-         * - Horizontal and vertical gesture deltas.
-         */
-        pan?: number[] | undefined;
     }): void;
     get containerTopLeft(): number[];
     /**
@@ -588,15 +480,11 @@ export class PDFViewer {
      * @property {string|null} [editId] - ID of the existing annotation to edit.
      * @property {boolean} [isFromKeyboard] - True if the mode change is due to a
      *   keyboard action.
-     * @property {boolean} [mustEnterInEditMode] - True if the editor must enter
-     *   edit mode.
-     * @property {boolean} [editComment] - True if the editor must enter
-     *   comment edit mode.
      */
     /**
      * @param {AnnotationEditorModeOptions} options
      */
-    set annotationEditorMode({ mode, editId, isFromKeyboard, mustEnterInEditMode, editComment, }: {
+    set annotationEditorMode({ mode, editId, isFromKeyboard }: {
         /**
          * - The editor mode (none, FreeText, ink, ...).
          */
@@ -610,16 +498,6 @@ export class PDFViewer {
          * keyboard action.
          */
         isFromKeyboard?: boolean | undefined;
-        /**
-         * - True if the editor must enter
-         * edit mode.
-         */
-        mustEnterInEditMode?: boolean | undefined;
-        /**
-         * - True if the editor must enter
-         * comment edit mode.
-         */
-        editComment?: boolean | undefined;
     });
     get annotationEditorMode(): {
         /**
@@ -635,18 +513,10 @@ export class PDFViewer {
          * keyboard action.
          */
         isFromKeyboard?: boolean | undefined;
-        /**
-         * - True if the editor must enter
-         * edit mode.
-         */
-        mustEnterInEditMode?: boolean | undefined;
-        /**
-         * - True if the editor must enter
-         * comment edit mode.
-         */
-        editComment?: boolean | undefined;
     };
     refresh(noUpdate?: boolean, updateArgs?: any): void;
     #private;
 }
 import { PDFRenderingQueue } from "./pdf_rendering_queue.js";
+import { SimpleLinkService } from "./pdf_link_service.js";
+import { GenericL10n } from "./genericl10n";

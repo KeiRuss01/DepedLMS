@@ -1,0 +1,312 @@
+{% extends "classroom/master.html" %}
+{% load static %}
+
+ {% block title %}My Feedback | North 1 District Classroom{% endblock %}
+
+{% block extra_css %}
+<style>
+    .feedback-page {
+        width: min(1100px, 100%);
+        margin: 0 auto;
+        padding: 32px 20px 110px;
+    }
+
+    .feedback-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+
+    .feedback-header h1 {
+        margin: 0 0 6px;
+        color: #0b2853;
+        font-size: 2rem;
+        font-weight: 750;
+    }
+
+    .feedback-header p {
+        margin: 0;
+        color: #64748b;
+    }
+
+    .feedback-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 24px;
+    }
+
+    .feedback-filter {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 10px 16px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        background: white;
+        color: #334155;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .feedback-filter:hover,
+    .feedback-filter.active {
+        border-color: #0d6efd;
+        background: #0d6efd;
+        color: white;
+    }
+
+    .feedback-list {
+        display: grid;
+        gap: 18px;
+    }
+
+    .feedback-card {
+        padding: 22px;
+        border: 1px solid #dbe3ee;
+        border-radius: 16px;
+        background: white;
+    }
+
+    .feedback-card-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    .feedback-type {
+        display: inline-flex;
+        margin-bottom: 8px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: #e8f1ff;
+        color: #0866ff;
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+
+    .feedback-card h2 {
+        margin: 0 0 5px;
+        color: #102a50;
+        font-size: 1.15rem;
+    }
+
+    .feedback-class {
+        margin: 0;
+        color: #64748b;
+    }
+
+    .feedback-score {
+        min-width: 95px;
+        text-align: right;
+    }
+
+    .feedback-score strong {
+        display: block;
+        color: #0866ff;
+        font-size: 1.25rem;
+    }
+
+    .feedback-score span {
+        color: #64748b;
+        font-size: 0.8rem;
+    }
+
+    .feedback-message {
+        margin-bottom: 16px;
+        padding: 16px;
+        border-left: 4px solid #0d6efd;
+        border-radius: 0 10px 10px 0;
+        background: #f4f8ff;
+        color: #1e293b;
+        line-height: 1.6;
+        white-space: pre-wrap;
+    }
+
+    .feedback-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .feedback-date {
+        color: #64748b;
+        font-size: 0.85rem;
+    }
+
+    .feedback-open {
+        color: #0866ff;
+        text-decoration: none;
+        font-weight: 650;
+    }
+
+    .feedback-empty {
+        padding: 60px 20px;
+        border: 1px solid #dbe3ee;
+        border-radius: 16px;
+        background: white;
+        text-align: center;
+    }
+
+    .feedback-empty i {
+        display: block;
+        margin-bottom: 14px;
+        color: #94a3b8;
+        font-size: 2.5rem;
+    }
+
+    .feedback-empty h2 {
+        color: #102a50;
+        font-size: 1.2rem;
+    }
+
+    .feedback-empty p {
+        color: #64748b;
+    }
+
+    @media (max-width: 600px) {
+        .feedback-page {
+            padding: 24px 14px 100px;
+        }
+
+        .feedback-header {
+            display: block;
+        }
+
+        .feedback-header h1 {
+            font-size: 1.6rem;
+        }
+
+        .feedback-filters {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        .feedback-filter {
+            justify-content: center;
+            padding: 9px 6px;
+            font-size: 0.85rem;
+        }
+
+        .feedback-card-header {
+            display: block;
+        }
+
+        .feedback-score {
+            margin-top: 12px;
+            text-align: left;
+        }
+
+        .feedback-footer {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="feedback-page">
+    <header class="feedback-header">
+        <div>
+            <h1>My Feedback</h1>
+            <p>
+                View comments and scores provided by your Teachers.
+            </p>
+        </div>
+    </header>
+
+    <nav class="feedback-filters" aria-label="Feedback filters">
+        <a
+            href="{% url 'classroom:student_feedback' %}"
+            class="feedback-filter {% if selected_type == 'all' %}active{% endif %}"
+        >
+            All
+            <span>{{ total_count }}</span>
+        </a>
+
+        <a
+            href="{% url 'classroom:student_feedback' %}?type=module"
+            class="feedback-filter {% if selected_type == 'module' %}active{% endif %}"
+        >
+            Modules
+            <span>{{ module_count }}</span>
+        </a>
+
+        <a
+            href="{% url 'classroom:student_feedback' %}?type=activity"
+            class="feedback-filter {% if selected_type == 'activity' %}active{% endif %}"
+        >
+            Activities
+            <span>{{ activity_count }}</span>
+        </a>
+    </nav>
+
+    {% if feedback_items %}
+        <div class="feedback-list">
+            {% for item in feedback_items %}
+                <article class="feedback-card">
+                    <div class="feedback-card-header">
+                        <div>
+                            <span class="feedback-type">
+                                {{ item.type_label }}
+                            </span>
+
+                            <h2>{{ item.title }}</h2>
+
+                            <p class="feedback-class">
+                                {{ item.classroom }}
+                                · {{ item.status }}
+                            </p>
+                        </div>
+
+                        <div class="feedback-score">
+                            {% if item.score != None %}
+                                <strong>
+                                    {{ item.score|floatformat:"-2" }}
+                                    {% if item.maximum_score != None %}
+                                        / {{ item.maximum_score|floatformat:"-2" }}
+                                    {% endif %}
+                                </strong>
+                                <span>Score</span>
+                            {% else %}
+                                <strong>—</strong>
+                                <span>No score</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="feedback-message">
+                        {{ item.feedback }}
+                    </div>
+
+                    <footer class="feedback-footer">
+                        <span class="feedback-date">
+                            Reviewed
+                            {{ item.reviewed_at|date:"F j, Y g:i A" }}
+                        </span>
+
+                        <a class="feedback-open" href="{{ item.detail_url }}">
+                            Open {{ item.type_label }}
+                            <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </footer>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="feedback-empty">
+            <i class="bi bi-chat-square-text"></i>
+            <h2>No feedback yet</h2>
+            <p>
+                Feedback from your Teachers will appear here after they
+                review your work.
+            </p>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

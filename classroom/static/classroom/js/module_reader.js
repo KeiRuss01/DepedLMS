@@ -24,23 +24,6 @@ if (reader) {
     startReader();
 }
 
-const addQuestion = document.getElementById("addQuestion");
-
-if (addQuestion) {
-    addQuestion.addEventListener("click", () => {
-        const total = document.getElementById("id_questions-TOTAL_FORMS");
-        const template = document.getElementById("emptyQuestionForm");
-        const container = document.getElementById("questionForms");
-        const index = Number(total.value);
-        container.insertAdjacentHTML(
-            "beforeend",
-            template.innerHTML.replaceAll("__prefix__", String(index))
-        );
-        total.value = index + 1;
-        initializeAutoGrow(container);
-    });
-}
-
 function resizeTextarea(textarea) {
     textarea.style.height = "auto";
     textarea.style.height = `${Math.max(44, textarea.scrollHeight)}px`;

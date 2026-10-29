@@ -1,13 +1,14 @@
 {% extends "classroom/master.html" %}
 {% load static %}
 
-{% block title %}Review {{ submission.student.user.full_name }} | District 1 Classroom{% endblock %}
+ {% block title %}Review {{ submission.student.user.full_name }} | North 1 District Classroom{% endblock %}
 {% block extra_css %}<link rel="stylesheet" href="{% static 'classroom/css/activities.css' %}?v=1">{% endblock %}
 
 {% block content %}
 <main class="activity-page">
     <a class="activity-back" href="{% url 'classroom:activity_detail' activity.pk %}"><i class="bi bi-arrow-left"></i> Activity submissions</a>
     <div class="activity-page-heading"><div><span class="activity-kicker">{{ activity.title }}</span><h1>{{ submission.student.user.full_name }}</h1><p>{{ submission.get_method_display }}{% if submission.submitted_at %} · Submitted {{ submission.submitted_at|date:"M d, Y · g:i A" }}{% endif %}</p></div></div>
+    {% if draft_preview %}<div class="alert alert-warning"><strong>Read-only draft preview.</strong> The Student is still working and may change or remove this content. It cannot be graded until submitted.</div>{% endif %}
     <div class="activity-review-layout">
         <section class="activity-panel">
             <h2>Student answer</h2>
@@ -17,6 +18,10 @@
             {% if submission.note %}<div class="activity-note"><strong>Student note</strong><p>{{ submission.note|linebreaksbr }}</p></div>{% endif %}
         </section>
         <aside class="activity-panel">
+            {% if draft_preview %}
+            <h2>In progress</h2>
+            <p class="text-muted mb-0">Preview only. Review controls become available after the Student turns in the activity.</p>
+            {% else %}
             <h2>Review</h2>
             <form method="post">{% csrf_token %}
                 <div class="activity-field"><label>Score out of {{ activity.score|floatformat:-2 }}</label>{{ form.score }}{{ form.score.errors }}</div>
@@ -24,6 +29,7 @@
                 <div class="activity-field"><label>Decision</label>{{ form.status }}{{ form.status.errors }}</div>
                 <button class="btn btn-primary w-100">Save review</button>
             </form>
+            {% endif %}
         </aside>
     </div>
 </main>

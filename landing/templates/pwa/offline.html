@@ -1,0 +1,37 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <script src="{% static 'accounts/js/appearance.js' %}?v=1"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#123d78">
+    <title>Offline Home | North 1 District LMS</title>
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/font/bootstrap-icons.min.css' %}">
+    <style>
+        body{margin:0;background:#f4f7fb;color:#102342}.offline-header{background:#fff;border-bottom:1px solid #d8e0eb}.page-width{width:min(1120px,calc(100% - 32px));margin:0 auto}.offline-header .page-width{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 0}.brand{display:flex;align-items:center;gap:12px}.brand-mark{display:grid;place-items:center;width:44px;height:44px;border-radius:10px;background:#123d78;color:#fff;font-weight:800}.connection{padding:5px 11px;border-radius:999px;background:#fff1df;color:#946200;font-size:.82rem;font-weight:700}.connection.online{background:#e8f6ee;color:#157347}main{padding:34px 0 70px}.summary-grid,.class-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.summary-card,.class-card{border:1px solid #d8e0eb;border-radius:12px;background:#fff;padding:18px}.summary-card i{font-size:1.4rem;color:#075dce}.summary-number{font-size:1.65rem;font-weight:750}.class-card h3{font-size:1.05rem}.section-title{margin:30px 0 14px}.empty{border:1px dashed #b8c5d6;border-radius:12px;padding:24px;background:#fff;color:#68758a}.notice{border:1px solid #c9d8ea;border-radius:12px;background:#edf5ff;padding:14px 16px}
+    </style>
+    <link rel="stylesheet" href="{% static 'accounts/css/appearance.css' %}?v=1">
+</head>
+<body>
+    <header class="offline-header"><div class="page-width"><div class="brand"><span class="brand-mark">N1</span><div><strong>North 1 District LMS</strong><div class="small text-muted">Offline home</div></div></div><span id="connectionStatus" class="connection">Offline</span></div></header>
+    <main class="page-width">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-4"><div><p id="accountGreeting" class="text-primary fw-semibold mb-2" hidden></p><h1 class="h3 mb-1">Continue without internet</h1><p class="text-muted mb-0">Use learning content and class records already saved on this device.</p></div><a href="/classroom/" id="onlineSystemLink" class="btn btn-outline-primary"><i class="bi bi-wifi"></i> Open online system</a></div>
+        <div class="notice mb-4"><i class="bi bi-cloud-check me-1"></i> Changes made offline stay on this device and synchronize after you reconnect.</div>
+        <section class="summary-grid">
+            <a id="moduleSummaryCard" class="summary-card text-decoration-none text-reset" href="{% url 'offline_modules' %}"><i class="bi bi-journal-arrow-down"></i><div id="moduleCount" class="summary-number mt-2">0</div><div>Downloaded modules</div></a>
+            <div class="summary-card"><i class="bi bi-hourglass-split"></i><div id="pendingCount" class="summary-number mt-2">0</div><div>Waiting to synchronize</div></div>
+            <div id="draftSummaryCard" class="summary-card"><i class="bi bi-pencil-square"></i><div id="draftCount" class="summary-number mt-2">0</div><div>Saved module drafts</div></div>
+        </section>
+        <section id="studentModuleSection"><h2 class="h4 section-title">Downloaded modules</h2><div id="recentModules" class="class-grid"></div><div id="noModules" class="empty" hidden>No modules are stored for this Student account yet. Connect once and download a module before leaving the internet connection.</div></section>
+        <section id="teacherSection" hidden><h2 class="h4 section-title">Offline teacher tools</h2><div id="offlineClasses" class="class-grid"></div></section>
+    </main>
+    <script src="{% static 'pwa/js/offline-db.js' %}?v=5"></script>
+    <script src="{% static 'pwa/js/device-registry.js' %}?v=2"></script>
+    <script src="{% static 'pwa/js/offline-sync.js' %}?v=7"></script>
+    <script src="{% static 'pwa/js/offline-attendance-sync.js' %}?v=1"></script>
+    <script src="{% static 'pwa/js/offline-grade-sync.js' %}?v=2"></script>
+    <script src="{% static 'pwa/js/offline-home.js' %}?v=4"></script>
+</body>
+</html>

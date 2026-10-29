@@ -5,13 +5,17 @@
       data-text-size="{{ request.user.preferences.text_size|default:'default' }}">
 <head>
     <meta charset="utf-8">
+    <script src="{% static 'accounts/js/appearance.js' %}?v=1"></script>
 
     <meta name="viewport"
           content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#075dce">
 
     <title>
-        {% block title %}District 1 Classroom{% endblock %}
+        {% block title %}North 1 District Classroom{% endblock %}
     </title>
+    <link rel="manifest" href="{% static 'pwa/manifest.webmanifest' %}">
+    <link rel="icon" href="{% static 'pwa/icons/icon-192.svg' %}" type="image/svg+xml">
 
     <!-- Local Bootstrap package -->
     <link rel="stylesheet"
@@ -22,7 +26,7 @@
 
     <!-- Classroom design -->
     <link rel="stylesheet"
-          href="{% static 'classroom/css/classroom.css' %}">
+          href="{% static 'classroom/css/classroom.css' %}?v=2">
 
     <link rel="stylesheet"
           href="{% static 'accounts/css/user-preferences.css' %}">
@@ -32,6 +36,11 @@
     {% endif %}
 
     {% block extra_css %}{% endblock %}
+
+    <!-- Shared formal visual style; loaded last so every classroom page is consistent. -->
+    <link rel="stylesheet"
+          href="{% static 'classroom/css/formal.css' %}?v=2">
+    <link rel="stylesheet" href="{% static 'accounts/css/appearance.css' %}?v=1">
 </head>
 
 <body class="classroom-body">
@@ -43,10 +52,10 @@
 
                 <a class="classroom-brand"
                    href="{% url 'classroom:dashboard' %}">
-                    <span class="brand-icon">D1</span>
+                    <span class="brand-icon">N1</span>
 
                     <span class="brand-text">
-                        <strong>District 1</strong>
+                        <strong>North 1 District</strong>
                         <small>Classroom</small>
                     </span>
                 </a>
@@ -73,10 +82,10 @@
                     </a>
 
                     <a
-                        class="dock-link {% if current_page == 'tasks' %}active{% endif %}"
+                        class="dock-link {% if current_page == 'tasks' or current_page == 'student_feedback' %}active{% endif %}"
                         href="{% url 'classroom:tasks' %}"
                     >
-                        {% if current_page == "tasks" %}
+                        {% if current_page == "tasks" or current_page == "student_feedback" %}
                             <i class="bi bi-clipboard-check-fill"></i>
                         {% else %}
                             <i class="bi bi-clipboard-check"></i>
@@ -397,10 +406,10 @@
         </a>
 
         <!-- Classes -->
-        <a class="mobile-tab {% if current_page == 'classes' or current_page == 'class_page' or current_page == 'class_detail' or current_page == 'create_class' or current_page == 'join_class' or current_page == 'gradebook' or current_page == 'attendance' %}active{% endif %}"
+        <a class="mobile-tab {% if current_page == 'classes' or current_page == 'class_page' or current_page == 'class_detail' or current_page == 'create_class' or current_page == 'join_class' or current_page == 'gradebook' or current_page == 'attendance' or current_page|slice:":7" == 'module_' %}active{% endif %}"
            href="{% url 'classroom:classes' %}">
 
-            {% if current_page == "classes" or current_page == "class_page" or current_page == "class_detail" or current_page == "create_class" or current_page == "join_class" or current_page == "gradebook" or current_page == "attendance" %}
+            {% if current_page == "classes" or current_page == "class_page" or current_page == "class_detail" or current_page == "create_class" or current_page == "join_class" or current_page == "gradebook" or current_page == "attendance" or current_page|slice:":7" == 'module_' %}
                 <i class="bi bi-grid-fill"></i>
             {% else %}
                 <i class="bi bi-grid"></i>
@@ -411,10 +420,10 @@
 
         <!-- Tasks -->
         <a
-            class="mobile-tab {% if current_page == 'tasks' %}active{% endif %}"
+            class="mobile-tab {% if current_page == 'tasks' or current_page == 'student_feedback' %}active{% endif %}"
             href="{% url 'classroom:tasks' %}"
         >
-            {% if current_page == "tasks" %}
+            {% if current_page == "tasks" or current_page == "student_feedback" %}
                 <i class="bi bi-clipboard-check-fill"></i>
             {% else %}
                 <i class="bi bi-clipboard-check"></i>
@@ -455,9 +464,15 @@
     {% endwith %}
 
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script src="{% static 'pwa/js/pwa-register.js' %}" defer></script>
     <script src="{% static 'accounts/js/notification-bell.js' %}"></script>
     {% if messaging_enabled %}<script src="{% static 'classroom/js/messages.js' %}?v=1"></script>{% endif %}
 
     {% block extra_js %}{% endblock %}
+    <script src="{% static 'pwa/js/offline-db.js' %}?v=5"></script>
+    <script src="{% static 'pwa/js/device-registry.js' %}?v=2"></script>
+    <script src="{% static 'pwa/js/offline-sync.js' %}?v=7"></script>
+    <script src="{% static 'pwa/js/offline-attendance-sync.js' %}?v=1"></script>
+    <script src="{% static 'pwa/js/module-download.js' %}?v=4"></script>
 </body>
 </html>

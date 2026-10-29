@@ -1585,6 +1585,25 @@ body.classroom-body {
 
 /* People */
 
+.people-search {
+    position: relative;
+    max-width: 620px;
+}
+
+.people-search > i {
+    position: absolute;
+    top: 50%;
+    left: 15px;
+    z-index: 2;
+    color: var(--classroom-muted);
+    transform: translateY(-50%);
+}
+
+.people-search .form-control {
+    min-height: 44px;
+    padding-left: 42px;
+}
+
 .people-section-heading {
     padding-bottom: 13px;
     border-bottom: 1px solid var(--classroom-border);
@@ -1646,6 +1665,35 @@ body.classroom-body {
     margin-top: 3px;
     color: var(--classroom-muted);
     font-size: 11px;
+}
+
+.student-parent-summary {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 0.45rem;
+}
+
+.student-parent-summary > span {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--bs-secondary-color);
+    font-size: 0.82rem;
+}
+
+.student-parent-summary > span > strong {
+    color: var(--bs-body-color);
+    font-size: inherit;
+}
+
+.student-parent-summary > span > small {
+    display: inline;
+    margin-left: 0.15rem;
+}
+
+.person-row[hidden] {
+    display: none;
 }
 
 /* Grades */

@@ -1,7 +1,7 @@
 {% extends "classroom/master.html" %}
 {% load static %}
 
-{% block title %}{{ activity.title }} | District 1 Classroom{% endblock %}
+ {% block title %}{{ activity.title }} | North 1 District Classroom{% endblock %}
 {% block extra_css %}<link rel="stylesheet" href="{% static 'classroom/css/activities.css' %}?v=1">{% endblock %}
 
 {% block content %}
@@ -44,11 +44,11 @@
                     {% for item in submissions %}
                     <a href="{% url 'classroom:activity_review' item.pk %}">
                         <span class="activity-avatar">{{ item.student.user.full_name|slice:":1"|upper }}</span>
-                        <span><strong>{{ item.student.user.full_name }}</strong><small>{{ item.get_method_display }} · {{ item.get_status_display }}</small></span>
+                        <span><strong>{{ item.student.user.full_name }}</strong><small>{{ item.get_method_display }} · {% if item.status == 'draft' %}In progress{% else %}{{ item.get_status_display }}{% endif %}</small></span>
                         {% if item.score != None %}<b>{{ item.score|floatformat:-2 }}/{{ activity.score|floatformat:-2 }}</b>{% endif %}
                         <i class="bi bi-chevron-right"></i>
                     </a>
-                    {% empty %}<div class="activity-empty"><i class="bi bi-inbox"></i><strong>No submissions yet</strong><small>Student work will appear here.</small></div>{% endfor %}
+                    {% empty %}<div class="activity-empty"><i class="bi bi-inbox"></i><strong>No student work yet</strong><small>Saved drafts and submissions will appear here.</small></div>{% endfor %}
                 </div>
                 <form method="post" action="{% url 'classroom:activity_status' activity.pk %}" class="activity-management-actions">{% csrf_token %}
                     {% if activity.is_published %}<button class="btn btn-outline-secondary" name="action" value="unpublish">Unpublish</button>{% else %}<button class="btn btn-primary" name="action" value="publish">Publish</button>{% endif %}

@@ -5,10 +5,13 @@ from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.db import transaction
 from django.db.models import Q
 import calendar
+from datetime import date
 from django.utils import timezone
 
 from accounts.models import (
@@ -24,16 +27,19 @@ from classroom.models import (
     AcademicTerm,
     ActivitySubmission,
     AttendanceDay,
+    AttendanceRecord,
     CalendarEvent,
     ClassEnrollment,
     Classroom,
     ClassPost,
     GradebookSettings,
+    GradeScore,
     GradeReportSubmission,
     Module,
     ModuleSubmission,
 )
 from classroom.gradebook import build_summary
+from classroom.attendance_summary import build_parent_attendance, parse_month
 from classroom.notification_services import (
     notify_calendar_event,
     notify_final_grade_report_reviewed,
@@ -47,6 +53,7 @@ from .forms import (
     DistrictAnnouncementForm,
     DistrictCalendarEventForm,
     PrincipalAccountForm,
+    PrincipalProfileForm,
     SchoolCalendarEventForm,
     SchoolProfileForm,
     SchoolAnnouncementForm,
@@ -72,6 +79,8 @@ def _administration_redirect(user):
 
 
 
+@never_cache
+@ensure_csrf_cookie
 def login_view(request):
     if _is_supervisor(request.user) or _is_principal(request.user):
         return _administration_redirect(request.user)
@@ -81,7 +90,17 @@ def login_view(request):
     if request.method == "POST" and form.is_valid():
         user = form.get_user()
         auth_login(request, user)
-        messages.success(request, f"Welcome back, {user.full_name}.")
+
+        if form.cleaned_data.get("remember_me"):
+            request.session.set_expiry(60 * 60 * 24 * 30)
+        else:
+            request.session.set_expiry(0)
+
+        messages.success(
+            request,
+            f"Welcome back, {user.full_name}.",
+        )
+
         return _administration_redirect(user)
 
     return render(request, "supervisor/login.html", {"form": form})
@@ -238,6 +257,52 @@ def dashboard_view(request):
         "district_announcement_form": DistrictAnnouncementForm(),
     }
     return render(request, "supervisor/dashboard.html", context)
+
+
+@login_required(login_url="supervisor:login")
+def school_monitoring_view(request):
+    if not _is_supervisor(request.user):
+        messages.error(request, "Only the District Supervisor can open School Monitoring.")
+        return _administration_redirect(request.user)
+
+    school_years = list(
+        Classroom.objects.filter(is_archived=False)
+        .values_list("school_year", flat=True)
+        .distinct()
+        .order_by("-school_year")
+    )
+    selected_year = request.GET.get("school_year", "").strip()
+    if not selected_year and school_years:
+        selected_year = school_years[0]
+
+    query = request.GET.get("q", "").strip()
+    schools = School.objects.order_by("school_name")
+    supervisor = getattr(request.user, "supervisor_profile", None)
+    if supervisor and supervisor.district:
+        schools = schools.filter(district__iexact=supervisor.district)
+    if query:
+        schools = schools.filter(
+            Q(school_name__icontains=query)
+            | Q(school_id_number__icontains=query)
+            | Q(address__icontains=query)
+        )
+
+    rows = _build_school_monitoring(
+        schools=schools,
+        school_year=selected_year,
+    )
+
+    context = {
+        "school_years": school_years,
+        "selected_year": selected_year,
+        "query": query,
+        "rows": rows,
+        "school_count": len(rows),
+        "class_count": sum(row["class_count"] for row in rows),
+        "pending_review_count": sum(row["pending_review"] for row in rows),
+    }
+    return render(request, "supervisor/school_monitoring.html", context)
+
 
 @login_required(login_url="supervisor:login")
 def district_performance_report_view(request):
@@ -987,6 +1052,30 @@ def principal_school_profile_view(request):
         request,
         "supervisor/principal_school_profile.html",
         {"form": form, "school": principal.school},
+    )
+
+
+@login_required(login_url="supervisor:login")
+def principal_profile_view(request):
+    if not _is_principal(request.user):
+        messages.error(request, "Only a Principal can update this profile.")
+        return _administration_redirect(request.user)
+
+    principal = getattr(request.user, "principal_profile", None)
+    if principal is None:
+        messages.error(request, "Your Principal profile was not found.")
+        return redirect("supervisor:principal_dashboard")
+
+    form = PrincipalProfileForm(request.POST or None, principal=principal)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Your Principal profile was updated.")
+        return redirect("supervisor:principal_profile")
+
+    return render(
+        request,
+        "supervisor/principal_profile.html",
+        {"form": form, "principal": principal},
     )
 
 
@@ -1781,6 +1870,227 @@ def class_list_view(request):
         request,
         "supervisor/classes.html",
         {"classes": classes, "school": principal.school},
+    )
+
+
+def _principal_classroom_or_404(request, classroom_id):
+    """Return a class only when it belongs to the Principal's school."""
+    if not _is_principal(request.user):
+        raise PermissionDenied("Only a Principal can monitor school classes.")
+
+    principal = getattr(request.user, "principal_profile", None)
+    if principal is None:
+        raise PermissionDenied("Principal profile not found.")
+
+    return get_object_or_404(
+        Classroom.objects.select_related(
+            "teacher",
+            "teacher__user",
+            "teacher__school",
+        ),
+        pk=classroom_id,
+        teacher__school=principal.school,
+        is_archived=False,
+    )
+
+
+@login_required(login_url="supervisor:login")
+@require_GET
+def principal_class_detail_view(request, classroom_id):
+    classroom = _principal_classroom_or_404(request, classroom_id)
+    enrollments = ClassEnrollment.objects.filter(
+        classroom=classroom,
+        status=ClassEnrollment.Status.APPROVED,
+    ).select_related("student", "student__user").order_by(
+        "student__gender",
+        "student__lastname",
+        "student__firstname",
+    )
+
+    return render(
+        request,
+        "supervisor/principal_class_detail.html",
+        {
+            "classroom": classroom,
+            "enrollments": enrollments,
+        },
+    )
+
+
+@login_required(login_url="supervisor:login")
+@require_GET
+def principal_class_attendance_view(request, classroom_id):
+    classroom = _principal_classroom_or_404(request, classroom_id)
+    students = list(
+        Student.objects.filter(
+            class_enrollments__classroom=classroom,
+            class_enrollments__status=ClassEnrollment.Status.APPROVED,
+        ).distinct().order_by("gender", "lastname", "firstname")
+    )
+
+    view_mode = request.GET.get("view", "daily")
+    if view_mode not in {"daily", "monthly"}:
+        view_mode = "daily"
+
+    raw_date = request.GET.get("date", timezone.localdate().isoformat())
+    try:
+        selected_date = date.fromisoformat(raw_date)
+    except (TypeError, ValueError):
+        selected_date = timezone.localdate()
+
+    raw_month = request.GET.get("month", selected_date.strftime("%Y-%m"))
+    try:
+        month_year, month_number = (int(part) for part in raw_month.split("-", 1))
+        selected_month = date(month_year, month_number, 1)
+    except (AttributeError, TypeError, ValueError):
+        selected_month = selected_date.replace(day=1)
+
+    attendance_day = AttendanceDay.objects.filter(
+        classroom=classroom,
+        date=selected_date,
+    ).prefetch_related("records").first()
+    record_lookup = {
+        record.student_id: record
+        for record in attendance_day.records.all()
+    } if attendance_day else {}
+    daily_rows = [
+        {"student": student, "record": record_lookup.get(student.pk)}
+        for student in students
+    ]
+
+    days_in_month = calendar.monthrange(
+        selected_month.year,
+        selected_month.month,
+    )[1]
+    report_dates = [
+        date(selected_month.year, selected_month.month, day_number)
+        for day_number in range(1, days_in_month + 1)
+        if date(selected_month.year, selected_month.month, day_number).weekday() < 5
+    ]
+    month_days = {
+        day.date: day
+        for day in AttendanceDay.objects.filter(
+            classroom=classroom,
+            date__year=selected_month.year,
+            date__month=selected_month.month,
+        ).prefetch_related("records")
+    }
+    month_record_lookup = {
+        (day.date, record.student_id): record
+        for day in month_days.values()
+        for record in day.records.all()
+    }
+    monthly_columns = [
+        {
+            "date": report_date,
+            "number": report_date.day,
+            "weekday": report_date.strftime("%a")[:1],
+        }
+        for report_date in report_dates
+    ]
+    monthly_rows = []
+    for student in students:
+        cells = []
+        absent_total = 0
+        late_total = 0
+        remarks = []
+        for report_date in report_dates:
+            day = month_days.get(report_date)
+            record = month_record_lookup.get((report_date, student.pk))
+            code, title, css_class = "", "Not recorded", "unrecorded"
+            if day and day.day_type == AttendanceDay.DayType.HOLIDAY:
+                code, title, css_class = "H", day.note or "Holiday", "holiday"
+            elif day and day.day_type == AttendanceDay.DayType.NO_CLASS:
+                code, title, css_class = "NC", day.note or "No class", "no-class"
+            elif record:
+                code = {
+                    AttendanceRecord.Status.PRESENT: "✓",
+                    AttendanceRecord.Status.ABSENT: "A",
+                    AttendanceRecord.Status.LATE: "L",
+                    AttendanceRecord.Status.EXCUSED: "E",
+                }[record.status]
+                title = record.get_status_display()
+                css_class = record.status
+                absent_total += record.status == AttendanceRecord.Status.ABSENT
+                late_total += record.status == AttendanceRecord.Status.LATE
+                if record.remarks:
+                    remarks.append(f"{report_date.day}: {record.remarks}")
+            cells.append({
+                "date": report_date,
+                "code": code,
+                "title": title,
+                "css_class": css_class,
+            })
+        monthly_rows.append({
+            "student": student,
+            "cells": cells,
+            "absent_total": absent_total,
+            "late_total": late_total,
+            "remarks": "; ".join(remarks),
+        })
+
+    return render(
+        request,
+        "supervisor/principal_class_attendance.html",
+        {
+            "classroom": classroom,
+            "view_mode": view_mode,
+            "selected_date": selected_date,
+            "selected_month": selected_month,
+            "attendance_day": attendance_day,
+            "daily_rows": daily_rows,
+            "monthly_columns": monthly_columns,
+            "monthly_rows": monthly_rows,
+        },
+    )
+
+
+@login_required(login_url="supervisor:login")
+@require_GET
+def principal_student_performance_view(request, classroom_id, student_id):
+    classroom = _principal_classroom_or_404(request, classroom_id)
+    enrollment = get_object_or_404(
+        ClassEnrollment.objects.select_related("student", "student__user"),
+        classroom=classroom,
+        student_id=student_id,
+        status=ClassEnrollment.Status.APPROVED,
+    )
+    student = enrollment.student
+
+    # These builders are shared with the Teacher's report so both portals
+    # calculate task completion and statuses in exactly the same way.
+    from classroom.views import _build_student_module_tasks, _build_task_overview
+
+    tasks = _build_student_module_tasks(student, classroom.pk)
+    task_overview = _build_task_overview(tasks)
+    grade_rows = build_summary(classroom, [student])
+    grade_summary = grade_rows[0] if grade_rows else None
+    score_rows = GradeScore.objects.filter(
+        item__classroom=classroom,
+        student=student,
+    ).select_related("item").order_by(
+        "item__term",
+        "item__component",
+        "item__position",
+    )
+    attendance_summary = build_parent_attendance(
+        student,
+        classroom,
+        parse_month(request.GET.get("month")),
+    )
+
+    return render(
+        request,
+        "supervisor/principal_student_performance.html",
+        {
+            "classroom": classroom,
+            "student": student,
+            "tasks": tasks,
+            "task_overview": task_overview,
+            "grade_summary": grade_summary,
+            "score_rows": score_rows,
+            "attendance_summary": attendance_summary,
+        },
     )
 
 

@@ -1,0 +1,93 @@
+{% extends "supervisor/master2.html" %}
+
+{% block title %}My Profile{% endblock %}
+{% block nav_principal_profile %}active{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+    <div class="mb-4">
+        <h1 class="sv-page-title">My Profile</h1>
+        <p class="sv-page-subtitle">
+            Update your personal and account information.
+        </p>
+    </div>
+
+    <form method="post" class="sv-card" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <h2 class="h5 mb-3">Personal Information</h2>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">First name</label>
+                {{ form.firstname }}
+                {{ form.firstname.errors }}
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Last name</label>
+                {{ form.lastname }}
+                {{ form.lastname.errors }}
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Middle name</label>
+                {{ form.middlename }}
+                {{ form.middlename.errors }}
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Suffix</label>
+                {{ form.suffix }}
+                {{ form.suffix.errors }}
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">DepEd Employee ID</label>
+                {{ form.employee_id }}
+                {{ form.employee_id.errors }}
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Designation</label>
+                {{ form.designation }}
+                {{ form.designation.errors }}
+            </div>
+        </div>
+
+        <hr class="my-4">
+
+        <h2 class="h5 mb-3">Account Information</h2>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Login email</label>
+                {{ form.email }}
+                {{ form.email.errors }}
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Phone number</label>
+                {{ form.phone_number }}
+                <small class="text-muted">
+                    11 digits beginning with 09.
+                </small>
+                {{ form.phone_number.errors }}
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end mt-4">
+            <button type="submit" class="btn btn-primary px-4">
+                <i class="bi bi-check-lg me-2"></i>
+                Save Profile
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

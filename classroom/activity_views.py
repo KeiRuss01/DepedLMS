@@ -147,7 +147,7 @@ def activity_detail_view(request, activity_id):
         submissions = activity.activity_submissions.select_related(
             "student",
             "student__user",
-        ).exclude(status=ActivitySubmission.Status.DRAFT)
+        ).all()
     else:
         submission = ActivitySubmission.objects.filter(
             activity=activity,
@@ -284,18 +284,24 @@ def activity_review_view(request, submission_id):
         ),
         pk=submission_id,
     )
-    if submission.status == ActivitySubmission.Status.DRAFT:
-        raise PermissionDenied("A Student draft cannot be reviewed.")
     activity, is_teacher, _ = _activity_access(request, submission.activity_id)
     if not is_teacher:
         raise PermissionDenied("Only the Teacher can review this submission.")
 
-    form = ActivityReviewForm(
-        request.POST or None,
-        instance=submission,
-        activity=activity,
-    )
-    if request.method == "POST" and form.is_valid():
+    draft_preview = submission.status == ActivitySubmission.Status.DRAFT
+    if request.method == "POST" and draft_preview:
+        raise PermissionDenied(
+            "A draft cannot be graded before the Student submits it."
+        )
+
+    form = None
+    if not draft_preview:
+        form = ActivityReviewForm(
+            request.POST or None,
+            instance=submission,
+            activity=activity,
+        )
+    if request.method == "POST" and form and form.is_valid():
         submission = form.save(commit=False)
         if submission.status == ActivitySubmission.Status.GRADED:
             submission.graded_at = timezone.now()
@@ -320,7 +326,12 @@ def activity_review_view(request, submission_id):
     return render(
         request,
         "classroom/activities/review.html",
-        {"activity": activity, "submission": submission, "form": form},
+        {
+            "activity": activity,
+            "submission": submission,
+            "form": form,
+            "draft_preview": draft_preview,
+        },
     )
 
 

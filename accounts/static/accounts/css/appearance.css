@@ -1,0 +1,199 @@
+/* Loaded after page styles so online and cached pages share one palette. */
+:root {
+    --app-bg: #f4f6f8;
+    --app-surface: #ffffff;
+    --app-subtle: #eef2f6;
+    --app-text: #172033;
+    --app-muted: #667085;
+    --app-border: #d8dee8;
+    --app-accent: #1f4b7a;
+    --app-active-bg: #e9eef4;
+    --app-active-text: #172033;
+}
+html[data-theme="dark"] {
+    color-scheme: dark;
+    --app-bg: #0d1524;
+    --app-surface: #131f32;
+    --app-subtle: #192a40;
+    --app-text: #e7eefc;
+    --app-muted: #a7b6cb;
+    --app-border: #34445c;
+    --app-accent: #9bc7ff;
+    --app-active-bg: #24466e;
+    --app-active-text: #f0f6ff;
+    --classroom-navy: var(--app-text);
+    --classroom-background: var(--app-bg);
+    --classroom-border: var(--app-border);
+    --classroom-muted: var(--app-muted);
+    --classroom-blue-light: var(--app-subtle);
+    --navy: var(--app-text);
+    --muted: var(--app-muted);
+    --line: var(--app-border);
+    --sky: var(--app-bg);
+    --white: var(--app-surface);
+    --bs-body-bg: var(--app-bg);
+    --bs-body-color: var(--app-text);
+    --bs-border-color: var(--app-border);
+    --bs-secondary-color: var(--app-muted);
+    --bs-link-color: var(--app-accent);
+    --bs-link-hover-color: #c3ddff;
+}
+
+/* Account screens use the classroom's restrained blue, borders and corners. */
+.account-page :is(.account-card, .account-sidebar) {
+    border-color: var(--app-border);
+    border-radius: 8px;
+    background: var(--app-surface);
+    color: var(--app-text);
+}
+.account-page :is(h1, h2, h3, .field-heading label, .setting-row strong,
+    .settings-select-grid label, .password-form label) { color: var(--app-text); }
+.account-page :is(.account-page-header p, .settings-card-heading p, .field-help,
+    .profile-selected-file, .profile-photo-control small, .setting-row small,
+    .enrollment-item span, .registered-number small, .empty-information) {
+    color: var(--app-muted);
+}
+.account-page :is(.account-nav-link, .profile-upload-label, .account-secondary-button) {
+    color: var(--app-accent);
+    border-radius: 6px;
+}
+.account-page .account-nav-link.active,
+.account-page .account-nav-link:hover {
+    background: var(--app-active-bg);
+    color: var(--app-active-text);
+}
+.account-page :is(.profile-photo, .settings-heading-icon, .registered-number,
+    .enrollment-details span) {
+    background: var(--app-subtle);
+    color: var(--app-accent);
+}
+.account-page :is(.readonly-field, .required-notification-item, .enrollment-item) {
+    background: var(--app-subtle);
+    color: var(--app-text);
+    border-color: var(--app-border);
+    border-radius: 6px;
+}
+.account-page :is(.profile-photo-section, .setting-row, .enrollment-section) {
+    border-color: var(--app-border);
+}
+.account-page .account-primary-button {
+    background: #1f4b7a;
+    color: #fff;
+    border-radius: 6px;
+}
+.account-page .account-primary-button:hover { background: #173a60; }
+.account-page .form-check-input:checked { background-color: #1f4b7a; border-color: #1f4b7a; }
+.account-page :is(.profile-upload-label, .account-secondary-button):hover {
+    background: var(--app-active-bg);
+    color: var(--app-active-text);
+}
+
+/* Explicit paired foreground/background colors keep selected navigation readable. */
+html[data-theme="dark"] :is(.class-navigation, .learning-dock, .mobile-tab-navigation) {
+    background: var(--app-surface);
+    border-color: var(--app-border);
+}
+html[data-theme="dark"] :is(.class-navigation-link, .dock-link, .mobile-tab) {
+    color: var(--app-muted);
+}
+html[data-theme="dark"] :is(.class-navigation-link, .dock-link, .mobile-tab):is(.active, :hover, :focus-visible),
+html[data-theme="dark"] :is(.nav-link.active, .sv-nav-link.active, .sv-nav-link:hover) {
+    background: var(--app-active-bg);
+    color: var(--app-active-text);
+}
+html[data-theme="dark"] :is(.class-navigation-link, .dock-link, .mobile-tab).active i {
+    color: inherit;
+}
+html[data-theme="dark"] body { background: var(--app-bg); color: var(--app-text); }
+html[data-theme="dark"] :is(.classroom-header, .dropdown-menu, .classroom-card,
+    .class-chip, .form-card, .class-information-card, .join-class-card, .invitation-card,
+    .stream-create-card, .stream-feed-card, .module-card, .continue-learning-card,
+    .parent-child-bar, .class-list-card, .dashboard-empty-card, .learner-selector,
+    .module-compact-card, .mm-panel, .mm-module-card, .mm-empty, .mm-answer-pane,
+    .mm-preview-controls, .messages-card, .message-panel, .conversation-composer,
+    .notification-card, .notification-live-toast, .mobile-page-navigation,
+    .mobile-action-sheet, .mobile-page-button, .mobile-extra-page-item,
+    .sv-topbar, .sv-sidebar, .sv-card, .sv-stat-card, .admin-notification-card,
+    .offline-header, .page-header, .summary-card, .class-card, .panel,
+    .module-offline-card, .offline-editor-navigation, .attendance-panel,
+    .mobile-extra-page, .card, .modal-content) {
+    background: var(--app-surface);
+    color: var(--app-text);
+    border-color: var(--app-border);
+}
+html[data-theme="dark"] :is(.class-chip-icon, .item-icon, .continue-icon,
+    .attention-icon, .stream-post-icon, .module-number, .class-card-icon,
+    .message-panel-thread, .conversation-messages, .mobile-module-editor,
+    .stream-comment-content, .empty, .notice, .module-compact-card.is-completed) {
+    background: var(--app-subtle);
+    color: var(--app-text);
+    border-color: var(--app-border);
+}
+html[data-theme="dark"] :is(.class-list-card h3, .classes-page-heading h1,
+    .classes-section-heading h2, .classes-empty-state h3, .dashboard-empty-card h4,
+    .module-library-heading h2, .module-section-heading h3, .module-compact-card h4,
+    .module-empty-state strong, .module-completed-section > summary,
+    .messages-page-heading h1, .conversation-header h1, .stream-comment-content p,
+    .mobile-action-heading h2, .module-information h3) { color: var(--app-text); }
+html[data-theme="dark"] :is(.module-library-heading p, .module-card-meta,
+    .module-card-note, .module-completed-help, .class-list-card-body p,
+    .messages-page-heading p, .admin-notification-message, .notification-live-toast span,
+    .module-information p, .module-empty-state, .text-muted) { color: var(--app-muted); }
+html[data-theme="dark"] :is(.form-control, .form-select,
+    .classroom-body input[type="text"], .classroom-body input[type="email"],
+    .classroom-body input[type="password"], .classroom-body input[type="search"],
+    .classroom-body input[type="date"], .classroom-body input[type="datetime-local"],
+    .classroom-body textarea, .classroom-body select, .conversation-composer textarea) {
+    background-color: var(--app-subtle);
+    color: var(--app-text);
+    border-color: var(--app-border);
+}
+html[data-theme="dark"] :is(.form-control, textarea, input)::placeholder { color: var(--app-muted); opacity: 1; }
+html[data-theme="dark"] :is(.form-control, .form-select):focus { border-color: #9bc7ff; }
+html[data-theme="dark"] .classroom-body :is(.btn-outline-primary, .btn-outline-secondary) {
+    color: var(--app-accent);
+    border-color: var(--app-border);
+}
+html[data-theme="dark"] .classroom-body .btn-outline-primary:hover { background: #1f4b7a; color: #fff; }
+html[data-theme="dark"] :is(.brand-icon, .user-avatar) { background: #243f63; color: #fff; }
+html[data-theme="dark"] :is(.classroom-table, .table) {
+    color: var(--app-text);
+    --bs-table-color: var(--app-text);
+    --bs-table-bg: var(--app-surface);
+    --bs-table-border-color: var(--app-border);
+    --bs-table-striped-bg: var(--app-subtle);
+    --bs-table-striped-color: var(--app-text);
+    --bs-table-hover-bg: var(--app-active-bg);
+    --bs-table-hover-color: var(--app-text);
+}
+html[data-theme="dark"] :is(.classroom-table th, .classroom-body .table thead th,
+    .table-wrap th) { background: var(--app-subtle); color: var(--app-text); }
+html[data-theme="dark"] :is(.classroom-table td, .classroom-table th,
+    .classroom-body .table td, .classroom-body .table th) { border-color: var(--app-border); }
+html[data-theme="dark"] .mm-app {
+    --mm-line: var(--app-border);
+    --mm-muted: var(--app-muted);
+    color: var(--app-text);
+}
+html[data-theme="dark"] :is(.mm-upload, .mm-preview-note, .mm-answer-actions,
+    .mm-mobile-switch button, .mobile-tool-button) {
+    background: var(--app-subtle);
+    border-color: var(--app-border);
+    color: var(--app-text);
+}
+html[data-theme="dark"] .mobile-tool-button.is-selected {
+    background: #1f4b7a;
+    color: #fff;
+    border-color: #9bc7ff;
+}
+html[data-theme="dark"] :is(.mobile-tool-button i, .mobile-extra-page-info i) {
+    color: var(--app-accent);
+}
+html[data-theme="dark"] .mobile-tool-button.is-selected i { color: #fff; }
+html[data-theme="dark"] :is(.student-name small, .mobile-extra-page-info small) { color: var(--app-muted); }
+html[data-theme="dark"] .mobile-pdf-stage { background: #303d50; }
+html[data-theme="dark"] :is(.attendance-table td, .attendance-table th) { border-color: var(--app-border); }
+/* Preserve the white PDF/answer paper and annotation colors for faithful output. */
+@media print {
+    html[data-theme="dark"] { color-scheme: light; }
+}

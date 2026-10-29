@@ -49,4 +49,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     roleInputs.forEach((input) => input.addEventListener('change', updateRole));
     if (roleInputs.length) updateRole();
+
+    // Let the address start small and grow as the user types, up to a sensible limit.
+    const addressField = document.getElementById('id_address');
+    if (addressField) {
+        const resizeAddress = () => {
+            addressField.style.height = 'auto';
+            const maxHeight = 180;
+            addressField.style.height = `${Math.min(addressField.scrollHeight, maxHeight)}px`;
+            addressField.style.overflowY = addressField.scrollHeight > maxHeight ? 'auto' : 'hidden';
+        };
+        addressField.addEventListener('input', resizeAddress);
+        resizeAddress();
+    }
 });

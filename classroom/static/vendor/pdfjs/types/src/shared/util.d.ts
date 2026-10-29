@@ -1,4 +1,3 @@
-export function _isValidExplicitDest(validRef: any, validName: any, dest: any): boolean;
 declare const AbortException_base: any;
 /**
  * Error used to indicate task cancellation.
@@ -39,8 +38,8 @@ export namespace AnnotationEditorParamsType {
     let INK_COLOR: number;
     let INK_THICKNESS: number;
     let INK_OPACITY: number;
-    let INK_COLOR_AND_OPACITY: number;
     let HIGHLIGHT_COLOR: number;
+    let HIGHLIGHT_DEFAULT_COLOR: number;
     let HIGHLIGHT_THICKNESS: number;
     let HIGHLIGHT_FREE: number;
     let HIGHLIGHT_SHOW_ALL: number;
@@ -54,9 +53,6 @@ export namespace AnnotationEditorType {
     let HIGHLIGHT: number;
     let STAMP: number;
     let INK: number;
-    let POPUP: number;
-    let SIGNATURE: number;
-    let COMMENT: number;
 }
 export namespace AnnotationFieldFlag {
     let READONLY: number;
@@ -100,13 +96,6 @@ export namespace AnnotationMode {
     export let ENABLE_STORAGE: number;
 }
 export const AnnotationPrefix: "pdfjs_internal_id_";
-export namespace AnnotationRenditionOperation {
-    let PLAY_OR_RESUME: number;
-    let STOP: number;
-    let PAUSE: number;
-    let RESUME: number;
-    let PLAY: number;
-}
 export namespace AnnotationReplyType {
     let GROUP: string;
     let REPLY: string;
@@ -132,8 +121,7 @@ export namespace AnnotationType {
     export let CARET: number;
     let INK_1: number;
     export { INK_1 as INK };
-    let POPUP_1: number;
-    export { POPUP_1 as POPUP };
+    export let POPUP: number;
     export let FILEATTACHMENT: number;
     export let SOUND: number;
     export let MOVIE: number;
@@ -144,7 +132,6 @@ export namespace AnnotationType {
     export let WATERMARK: number;
     export let THREED: number;
     export let REDACT: number;
-    export let RICHMEDIA: number;
 }
 export function assert(cond: any, msg: any): void;
 /**
@@ -152,7 +139,6 @@ export function assert(cond: any, msg: any): void;
  */
 export const BaseException: any;
 export const BASELINE_FACTOR: number;
-export const BBOX_INIT: number[];
 export function bytesToString(bytes: any): string;
 /**
  * Attempts to create a valid absolute URL.
@@ -170,24 +156,13 @@ export namespace DocumentActionEventType {
     let WP: string;
     let DP: string;
 }
-export namespace DrawOPS {
-    let moveTo: number;
-    let lineTo: number;
-    let curveTo: number;
-    let quadraticCurveTo: number;
-    let closePath: number;
-}
-export const F32_BBOX_INIT: Float32Array<ArrayBuffer>;
 export class FeatureTest {
     static get isLittleEndian(): any;
+    static get isEvalSupported(): any;
     static get isOffscreenCanvasSupported(): any;
     static get isImageDecoderSupported(): any;
-    static get isFloat16ArraySupported(): any;
-    static get isSanitizerSupported(): any;
     static get platform(): any;
-    static get isCanvasFilterSupported(): any;
-    static get isAlphaColorInputSupported(): any;
-    static get isBackdropFilterSupported(): any;
+    static get isCSSRoundSupported(): any;
 }
 export const FONT_IDENTITY_MATRIX: number[];
 declare const FormatError_base: any;
@@ -198,8 +173,12 @@ export class FormatError extends FormatError_base {
     [x: string]: any;
     constructor(msg: any);
 }
+export function fromBase64Util(str: any): any;
+export function getModificationDate(date?: Date): string;
 export function getUuid(): string;
 export function getVerbosityLevel(): number;
+export const hexNumbers: string[];
+export const IDENTITY_MATRIX: number[];
 export namespace ImageKind {
     let GRAYSCALE_1BPP: number;
     let RGB_24BPP: number;
@@ -215,112 +194,106 @@ export function isArrayEqual(arr1: any, arr2: any): boolean;
 export const isNodeJS: any;
 export const LINE_DESCENT_FACTOR: 0.35;
 export const LINE_FACTOR: 1.35;
-export function makeArr(): never[];
-export function makeMap(): Map<any, any>;
-export function makeObj(): any;
-export function makeSet(): Set<any>;
-export namespace MeshFigureType {
-    let TRIANGLES: number;
-    let LATTICE: number;
-    let PATCH: number;
+export const MAX_IMAGE_SIZE_TO_CACHE: 10000000;
+declare const MissingPDFException_base: any;
+export class MissingPDFException extends MissingPDFException_base {
+    [x: string]: any;
+    constructor(msg: any);
 }
 export function normalizeUnicode(str: any): any;
+export function objectFromMap(map: any): any;
+export function objectSize(obj: any): number;
 export namespace OPS {
-    export let dependency: number;
-    export let setLineWidth: number;
-    export let setLineCap: number;
-    export let setLineJoin: number;
-    export let setMiterLimit: number;
-    export let setDash: number;
-    export let setRenderingIntent: number;
-    export let setFlatness: number;
-    export let setGState: number;
-    export let save: number;
-    export let restore: number;
-    export let transform: number;
-    let moveTo_1: number;
-    export { moveTo_1 as moveTo };
-    let lineTo_1: number;
-    export { lineTo_1 as lineTo };
-    let curveTo_1: number;
-    export { curveTo_1 as curveTo };
-    export let curveTo2: number;
-    export let curveTo3: number;
-    let closePath_1: number;
-    export { closePath_1 as closePath };
-    export let rectangle: number;
-    export let stroke: number;
-    export let closeStroke: number;
-    export let fill: number;
-    export let eoFill: number;
-    export let fillStroke: number;
-    export let eoFillStroke: number;
-    export let closeFillStroke: number;
-    export let closeEOFillStroke: number;
-    export let endPath: number;
-    export let clip: number;
-    export let eoClip: number;
-    export let beginText: number;
-    export let endText: number;
-    export let setCharSpacing: number;
-    export let setWordSpacing: number;
-    export let setHScale: number;
-    export let setLeading: number;
-    export let setFont: number;
-    export let setTextRenderingMode: number;
-    export let setTextRise: number;
-    export let moveText: number;
-    export let setLeadingMoveText: number;
-    export let setTextMatrix: number;
-    export let nextLine: number;
-    export let showText: number;
-    export let showSpacedText: number;
-    export let nextLineShowText: number;
-    export let nextLineSetSpacingShowText: number;
-    export let setCharWidth: number;
-    export let setCharWidthAndBounds: number;
-    export let setStrokeColorSpace: number;
-    export let setFillColorSpace: number;
-    export let setStrokeColor: number;
-    export let setStrokeColorN: number;
-    export let setFillColor: number;
-    export let setFillColorN: number;
-    export let setStrokeGray: number;
-    export let setFillGray: number;
-    export let setStrokeRGBColor: number;
-    export let setFillRGBColor: number;
-    export let setStrokeCMYKColor: number;
-    export let setFillCMYKColor: number;
-    export let shadingFill: number;
-    export let beginInlineImage: number;
-    export let beginImageData: number;
-    export let endInlineImage: number;
-    export let paintXObject: number;
-    export let markPoint: number;
-    export let markPointProps: number;
-    export let beginMarkedContent: number;
-    export let beginMarkedContentProps: number;
-    export let endMarkedContent: number;
-    export let beginCompat: number;
-    export let endCompat: number;
-    export let paintFormXObjectBegin: number;
-    export let paintFormXObjectEnd: number;
-    export let beginGroup: number;
-    export let endGroup: number;
-    export let beginAnnotation: number;
-    export let endAnnotation: number;
-    export let paintImageMaskXObject: number;
-    export let paintImageMaskXObjectGroup: number;
-    export let paintImageXObject: number;
-    export let paintInlineImageXObject: number;
-    export let paintInlineImageXObjectGroup: number;
-    export let paintImageXObjectRepeat: number;
-    export let paintImageMaskXObjectRepeat: number;
-    export let paintSolidColorImageMask: number;
-    export let constructPath: number;
-    export let setStrokeTransparent: number;
-    export let setFillTransparent: number;
-    export let rawFillPath: number;
+    let dependency: number;
+    let setLineWidth: number;
+    let setLineCap: number;
+    let setLineJoin: number;
+    let setMiterLimit: number;
+    let setDash: number;
+    let setRenderingIntent: number;
+    let setFlatness: number;
+    let setGState: number;
+    let save: number;
+    let restore: number;
+    let transform: number;
+    let moveTo: number;
+    let lineTo: number;
+    let curveTo: number;
+    let curveTo2: number;
+    let curveTo3: number;
+    let closePath: number;
+    let rectangle: number;
+    let stroke: number;
+    let closeStroke: number;
+    let fill: number;
+    let eoFill: number;
+    let fillStroke: number;
+    let eoFillStroke: number;
+    let closeFillStroke: number;
+    let closeEOFillStroke: number;
+    let endPath: number;
+    let clip: number;
+    let eoClip: number;
+    let beginText: number;
+    let endText: number;
+    let setCharSpacing: number;
+    let setWordSpacing: number;
+    let setHScale: number;
+    let setLeading: number;
+    let setFont: number;
+    let setTextRenderingMode: number;
+    let setTextRise: number;
+    let moveText: number;
+    let setLeadingMoveText: number;
+    let setTextMatrix: number;
+    let nextLine: number;
+    let showText: number;
+    let showSpacedText: number;
+    let nextLineShowText: number;
+    let nextLineSetSpacingShowText: number;
+    let setCharWidth: number;
+    let setCharWidthAndBounds: number;
+    let setStrokeColorSpace: number;
+    let setFillColorSpace: number;
+    let setStrokeColor: number;
+    let setStrokeColorN: number;
+    let setFillColor: number;
+    let setFillColorN: number;
+    let setStrokeGray: number;
+    let setFillGray: number;
+    let setStrokeRGBColor: number;
+    let setFillRGBColor: number;
+    let setStrokeCMYKColor: number;
+    let setFillCMYKColor: number;
+    let shadingFill: number;
+    let beginInlineImage: number;
+    let beginImageData: number;
+    let endInlineImage: number;
+    let paintXObject: number;
+    let markPoint: number;
+    let markPointProps: number;
+    let beginMarkedContent: number;
+    let beginMarkedContentProps: number;
+    let endMarkedContent: number;
+    let beginCompat: number;
+    let endCompat: number;
+    let paintFormXObjectBegin: number;
+    let paintFormXObjectEnd: number;
+    let beginGroup: number;
+    let endGroup: number;
+    let beginAnnotation: number;
+    let endAnnotation: number;
+    let paintImageMaskXObject: number;
+    let paintImageMaskXObjectGroup: number;
+    let paintImageXObject: number;
+    let paintInlineImageXObject: number;
+    let paintInlineImageXObjectGroup: number;
+    let paintImageXObjectRepeat: number;
+    let paintImageMaskXObjectRepeat: number;
+    let paintSolidColorImageMask: number;
+    let constructPath: number;
+    let setStrokeTransparent: number;
+    let setFillTransparent: number;
 }
 export namespace PageActionEventType {
     export let O: string;
@@ -360,19 +333,12 @@ export namespace RenderingIntentFlag {
     export let IS_EDITING: number;
     export let OPLIST: number;
 }
-declare const ResponseException_base: any;
-export class ResponseException extends ResponseException_base {
-    [x: string]: any;
-    constructor(msg: any, status: any, missing: any);
-    status: any;
-    missing: any;
-}
 export function setVerbosityLevel(level: any): void;
 export function shadow(obj: any, prop: any, value: any, nonSerializable?: boolean): any;
-export function stringToBytes(str: any): Uint8Array<ArrayBuffer>;
+export function string32(value: any): string;
+export function stringToBytes(str: any): Uint8Array<any>;
+export function stringToPDFString(str: any): string;
 export function stringToUTF8String(str: any): string;
-export function stripPath(str: any): any;
-export const SVG_NS: "http://www.w3.org/2000/svg";
 export namespace TextRenderingMode {
     export let FILL: number;
     export let STROKE: number;
@@ -386,45 +352,36 @@ export namespace TextRenderingMode {
     export let FILL_STROKE_MASK: number;
     export let ADD_TO_PATH_FLAG: number;
 }
+export function toBase64Util(arr: any): any;
+export function toHexUtil(arr: any): any;
+declare const UnexpectedResponseException_base: any;
+export class UnexpectedResponseException extends UnexpectedResponseException_base {
+    [x: string]: any;
+    constructor(msg: any, status: any);
+    status: any;
+}
 declare const UnknownErrorException_base: any;
 export class UnknownErrorException extends UnknownErrorException_base {
     [x: string]: any;
     constructor(msg: any, details: any);
     details: any;
 }
-/**
- * @param {string} msg
- * @returns {never}
- */
-export function unreachable(msg: string): never;
-/**
- * Remove, or replace, the hash property of the URL.
- *
- * @param {URL|string} url - The absolute, or relative, URL.
- * @param {string} hash - The hash property (use an empty string to remove it).
- * @param {boolean} [allowRel] - Allow relative URLs.
- * @returns {string} The resulting URL string.
- */
-export function updateUrlHash(url: URL | string, hash: string, allowRel?: boolean): string;
+export function unreachable(msg: any): void;
 export function utf8StringToString(str: any): string;
 export class Util {
-    static get hexNums(): any;
     static makeHexColor(r: any, g: any, b: any): string;
+    static scaleMinMax(transform: any, minMax: any): void;
     static transform(m1: any, m2: any): any[];
-    static multiplyByDOMMatrix(m: any, md: any): any[];
-    static applyTransform(p: any, m: any, pos?: number): void;
-    static applyTransformToBezier(p: any, transform: any, pos?: number): void;
-    static applyInverseTransform(p: any, m: any): void;
-    static axialAlignedBoundingBox(rect: any, transform: any, output: any): void;
+    static applyTransform(p: any, m: any): any[];
+    static applyInverseTransform(p: any, m: any): number[];
+    static getAxialAlignedBoundingBox(r: any, m: any): number[];
     static inverseTransform(m: any): number[];
-    static singularValueDecompose2dScale(matrix: any, output: any): void;
+    static singularValueDecompose2dScale(m: any): number[];
     static normalizeRect(rect: any): any;
     static intersect(rect1: any, rect2: any): number[] | null;
-    static pointBoundingBox(x: any, y: any, minMax: any): void;
-    static rectBoundingBox(x0: any, y0: any, x1: any, y1: any, minMax: any): void;
-    static #getExtremumOnCurve(x0: any, x1: any, x2: any, x3: any, y0: any, y1: any, y2: any, y3: any, t: any, minMax: any): void;
-    static #getExtremum(x0: any, x1: any, x2: any, x3: any, y0: any, y1: any, y2: any, y3: any, a: any, b: any, c: any, minMax: any): void;
-    static bezierBoundingBox(x0: any, y0: any, x1: any, y1: any, x2: any, y2: any, x3: any, y3: any, minMax: any): void;
+    static "__#1@#getExtremumOnCurve"(x0: any, x1: any, x2: any, x3: any, y0: any, y1: any, y2: any, y3: any, t: any, minMax: any): void;
+    static "__#1@#getExtremum"(x0: any, x1: any, x2: any, x3: any, y0: any, y1: any, y2: any, y3: any, a: any, b: any, c: any, minMax: any): void;
+    static bezierBoundingBox(x0: any, y0: any, x1: any, y1: any, x2: any, y2: any, x3: any, y3: any, minMax: any): any;
 }
 export namespace VerbosityLevel {
     let ERRORS: number;

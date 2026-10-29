@@ -12,7 +12,7 @@
             <thead>
                 <tr>
                     <th>Student</th>
-                    <th>Submitted</th>
+                    <th>Last activity</th>
                     <th>Status</th>
                     <th>Score</th>
                     <th></th>
@@ -25,31 +25,44 @@
                     <td>{{ submission.student }}</td>
 
                     <td>
-                        {{ submission.submitted_at|date:"M d, Y g:i A" }}
+                        {% if submission.status == "draft" %}
+                            Draft saved {{ submission.draft_saved_at|default:submission.updated_at|date:"M d, Y g:i A" }}
+                        {% elif submission.status == "returned" %}
+                            Updated {{ submission.updated_at|date:"M d, Y g:i A" }}
+                        {% else %}
+                            Submitted {{ submission.submitted_at|date:"M d, Y g:i A" }}
+                        {% endif %}
 
                         {% if submission.is_late %}
                             <span class="badge text-bg-warning">Late</span>
                         {% endif %}
                     </td>
 
-                    <td>{{ submission.get_status_display }}</td>
+                    <td>
+                        <span class="badge text-bg-{% if submission.status == 'draft' %}warning{% elif submission.status == 'graded' %}success{% elif submission.status == 'returned' %}info{% else %}primary{% endif %}">
+                            {% if submission.status == "draft" %}In progress{% else %}{{ submission.get_status_display }}{% endif %}
+                        </span>
+                    </td>
 
                     <td>
-                        {{ submission.score|default_if_none:"—" }}
-                        / {{ module.total_points }}
+                        {% if submission.status == "draft" or submission.status == "returned" %}
+                            Not gradeable
+                        {% else %}
+                            {{ submission.score|default_if_none:"—" }} / {{ module.total_points }}
+                        {% endif %}
                     </td>
 
                     <td>
                         <a class="btn btn-sm btn-primary"
                            href="{% url 'classroom:module_review' submission.pk %}">
-                            Review
+                            {% if submission.status == "draft" or submission.status == "returned" %}Preview draft{% else %}Review{% endif %}
                         </a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
                     <td colspan="5" class="text-center text-muted py-5">
-                        No submitted work yet. Student drafts are private.
+                        No student work has been saved yet.
                     </td>
                 </tr>
                 {% endfor %}

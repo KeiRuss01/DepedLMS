@@ -85,7 +85,7 @@ class AdministrationLoginForm(forms.Form):
         widget=forms.EmailInput(
             attrs={
                 "class": "form-control",
-                "placeholder": "you@deped.gov.ph",
+                "placeholder": "Email address",
                 "autofocus": True,
             }
         )
@@ -94,6 +94,17 @@ class AdministrationLoginForm(forms.Form):
         widget=forms.PasswordInput(
             attrs={"class": "form-control", "placeholder": "Password"}
         )
+    )
+
+    remember_me = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Remember me",
+        widget=forms.CheckboxInput(
+            attrs={
+                "class": "form-check-input",
+            }
+        ),
     )
 
     def __init__(self, request=None, *args, **kwargs):
@@ -302,6 +313,72 @@ class PrincipalAccountForm(GeneratedStaffAccountForm):
             designation="School Principal",
         )
         return principal
+
+
+class PrincipalProfileForm(forms.Form):
+    """Personal account details a Principal may update after account creation."""
+
+    email = forms.EmailField(label="Login email", max_length=100)
+    phone_number = forms.CharField(
+        label="Phone number",
+        max_length=11,
+        required=False,
+        help_text="Use 11 digits, for example 09171234567.",
+    )
+    firstname = forms.CharField(label="First name", max_length=100)
+    middlename = forms.CharField(label="Middle name", max_length=100, required=False)
+    lastname = forms.CharField(label="Last name", max_length=100)
+    suffix = forms.CharField(label="Suffix", max_length=20, required=False)
+    employee_id = forms.CharField(label="DepEd Employee ID", max_length=50, required=False)
+    designation = forms.CharField(label="Designation", max_length=150, required=False)
+
+    def __init__(self, *args, principal, **kwargs):
+        self.principal = principal
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "form-control"
+        if not self.is_bound:
+            self.initial.update(
+                email=principal.user.email,
+                phone_number=principal.user.phone_number or "",
+                firstname=principal.firstname,
+                middlename=principal.middlename or "",
+                lastname=principal.lastname,
+                suffix=principal.suffix or "",
+                employee_id=principal.employee_id or "",
+                designation=principal.designation or "",
+            )
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        if User.objects.filter(email__iexact=email).exclude(pk=self.principal.user_id).exists():
+            raise forms.ValidationError("That email address is already in use.")
+        return email
+
+    def clean_phone_number(self):
+        phone = self.cleaned_data.get("phone_number", "").strip()
+        if phone and (not phone.isdigit() or len(phone) != 11 or not phone.startswith("09")):
+            raise forms.ValidationError("Enter a valid 11-digit Philippine mobile number.")
+        return phone
+
+    @transaction.atomic
+    def save(self):
+        data = self.cleaned_data
+        user = self.principal.user
+        user.email = data["email"]
+        user.phone_number = data["phone_number"] or None
+        user.save(update_fields=["email", "phone_number", "updated_at"])
+        self.principal.firstname = data["firstname"].strip()
+        self.principal.middlename = data["middlename"].strip() or None
+        self.principal.lastname = data["lastname"].strip()
+        self.principal.suffix = data["suffix"].strip() or None
+        self.principal.employee_id = data["employee_id"].strip()
+        self.principal.designation = data["designation"].strip() or None
+        self.principal.save(update_fields=[
+            "firstname", "middlename", "lastname", "suffix",
+            "employee_id", "designation",
+        ])
+        return self.principal
 
 
 class TeacherAccountForm(GeneratedStaffAccountForm):

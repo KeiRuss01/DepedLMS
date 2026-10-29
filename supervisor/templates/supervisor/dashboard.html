@@ -6,8 +6,8 @@
 {% block content %}
 <h1 class="sv-page-title h4">Dashboard</h1>
 <p class="sv-page-subtitle">
-    Welcome back, {{ request.user.full_name|default:request.user.email }}. View the overall
-    information for all registered schools in District 1.
+    Welcome back, {% if request.user.supervisor_profile %}{{ request.user.supervisor_profile.firstname }} {{ request.user.supervisor_profile.lastname }}{% else %}District Supervisor{% endif %}. View the overall
+    information for all registered schools in North 1 District.
 </p>
 
 <div class="sv-stats-grid mb-4">
@@ -23,16 +23,16 @@
         <div>
             <h2 class="h6 fw-bold mb-1">School Monitoring</h2>
             <p class="mb-0 text-muted small">
-                Read-only learning and attendance summary for each school.
+                Read-only implementation summary for each school.
             </p>
         </div>
 
         <div class="d-flex flex-wrap gap-2">
             <a
                 class="btn btn-outline-primary"
-                href="{% url 'supervisor:schools' %}"
+                href="{% url 'supervisor:school_monitoring' %}"
             >
-                Open School List
+                Open Monitoring
             </a>
 
             <a
@@ -56,7 +56,7 @@
                     <th>Activities</th>
                     <th>Review</th>
                     <th>Overdue</th>
-                    <th>Attendance</th>
+                    <th>Released grades</th>
                 </tr>
             </thead>
 
@@ -98,17 +98,7 @@
                             {% endif %}
                         </td>
 
-                        <td>
-                            {% if row.attendance_pending %}
-                                <span class="text-warning fw-semibold">
-                                    {{ row.attendance_pending }} pending
-                                </span>
-                            {% else %}
-                                <span class="text-success">
-                                    Recorded
-                                </span>
-                            {% endif %}
-                        </td>
+                        <td>{{ row.released_gradebooks }}</td>
                     </tr>
                 {% empty %}
                     <tr>

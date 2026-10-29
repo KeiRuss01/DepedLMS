@@ -1,0 +1,132 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="{% static 'accounts/js/appearance.js' %}?v=1"></script>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+    <meta name="theme-color" content="#0b3977">
+
+    <title>Downloaded Modules | North 1 District LMS</title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'vendor/bootstrap/css/bootstrap.min.css' %}"
+    >
+
+    <style>
+        body {
+            background: #f4f7fb;
+            color: #102342;
+        }
+
+        .offline-header {
+            background: #ffffff;
+            border-bottom: 1px solid #d8e0eb;
+        }
+
+        .module-card {
+            background: #ffffff;
+            border: 1px solid #d8e0eb;
+            border-radius: 10px;
+        }
+
+        .pdf-page {
+            display: block;
+            max-width: 100%;
+            margin: 0 auto 16px;
+            background: white;
+            box-shadow: 0 2px 8px rgba(16, 35, 66, 0.12);
+        }
+
+        #pdfPages {
+            overflow-x: auto;
+        }
+    </style>
+    <link rel="stylesheet" href="{% static 'accounts/css/appearance.css' %}?v=1">
+</head>
+
+<body
+    data-pdf-library="{% static 'vendor/pdfjs/legacy/build/pdf.min.mjs' %}"
+    data-pdf-worker="{% static 'vendor/pdfjs/legacy/build/pdf.worker.min.mjs' %}"
+>
+    <header class="offline-header py-3">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center gap-3">
+                <div>
+                    <strong>North 1 District LMS</strong>
+                    <div class="small text-muted">Offline module library</div>
+                </div>
+
+                <span
+                    id="connectionStatus"
+                    class="badge text-bg-secondary"
+                >
+                    Checking connection
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container py-4">
+        <section id="moduleLibrary">
+            <div class="mb-3">
+                <a id="backToClassModules" href="{% url 'classroom:classes' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>
+                    Back to classes
+                </a>
+            </div>
+            <div class="mb-4">
+                <h1 class="h3">Downloaded Modules</h1>
+                <p class="text-muted">
+                    These modules are stored on this device.
+                </p>
+            </div>
+
+            <div id="moduleList" class="row g-3"></div>
+
+            <div
+                id="emptyModules"
+                class="alert alert-light border"
+                hidden
+            >
+                No modules have been downloaded on this device.
+            </div>
+        </section>
+
+        <section id="moduleViewer" hidden>
+            <button
+                type="button"
+                id="backToLibrary"
+                class="btn btn-outline-secondary mb-3"
+            >
+                ← Back to downloaded modules
+            </button>
+
+            <div class="module-card p-3 p-md-4 mb-3">
+                <h1 id="viewerTitle" class="h3"></h1>
+                <p id="viewerClass" class="text-muted mb-2"></p>
+                <p id="viewerInstructions" class="mb-0"></p>
+            </div>
+
+            <div
+                id="viewerMessage"
+                class="alert alert-info"
+            >
+                Loading module…
+            </div>
+
+            <div id="pdfPages"></div>
+        </section>
+    </main>
+
+    <script src="{% static 'pwa/js/offline-db.js' %}?v=5"></script>
+    <script src="{% static 'pwa/js/device-registry.js' %}?v=2"></script>
+    <script src="{% static 'pwa/js/offline-sync.js' %}?v=7"></script>
+    <script src="{% static 'pwa/js/offline-module-viewer.js' %}?v=4"></script>
+
+</body>
+</html>

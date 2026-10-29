@@ -1,0 +1,243 @@
+/* Formal authentication styling.
+   The main auth card radius and shadow are intentionally left unchanged. */
+:root {
+    --blue: #1f4b7a;
+    --blue-dark: #183d65;
+    --navy: #172033;
+    --muted: #667085;
+    --line: #d8dee8;
+    --soft-blue: #eef2f6;
+}
+
+.shared-auth-section,
+.auth-page {
+    background: #f4f6f8;
+}
+
+.shared-auth-visual {
+    background: #243f63;
+}
+
+.shared-auth-visual::after {
+    background: linear-gradient(
+        180deg,
+        rgba(23, 32, 51, .18) 20%,
+        rgba(23, 32, 51, .92) 100%
+    );
+}
+
+.shared-auth-badge {
+    border-color: rgba(255, 255, 255, .45);
+    border-radius: 5px;
+    background: rgba(23, 32, 51, .45);
+    backdrop-filter: none;
+}
+
+.shared-auth-overlay h1 {
+    font-weight: 700;
+    letter-spacing: -.025em;
+}
+
+.shared-auth-overlay p {
+    color: #e5e9ef;
+}
+
+.auth-heading-icon,
+.signup-heading-icon {
+    color: var(--navy);
+    border-radius: 6px;
+    background: #eef1f5;
+}
+
+.auth-heading h1,
+.signup-heading h1 {
+    color: var(--navy);
+    font-weight: 700;
+    letter-spacing: -.02em;
+}
+
+.auth-heading p,
+.signup-heading p {
+    color: var(--muted);
+}
+
+.form-control,
+.form-select {
+    border-color: #cbd3df;
+    color: var(--navy);
+    background-color: #fff;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #7088a3;
+    box-shadow: 0 0 0 .2rem rgba(31, 75, 122, .1);
+}
+
+.btn-auth-primary {
+    border: 1px solid var(--blue);
+    background: var(--blue);
+    box-shadow: none;
+}
+
+.btn-auth-primary:hover,
+.btn-auth-primary:focus {
+    border-color: var(--blue-dark);
+    background: var(--blue-dark);
+}
+
+.signup-prompt {
+    border-color: var(--line);
+    background: #f7f8fa;
+}
+
+.signup-prompt-icon {
+    color: var(--navy);
+    border-radius: 6px;
+    background: #e9edf2;
+}
+
+.signup-prompt-content strong {
+    color: var(--navy);
+}
+
+.signup-prompt-button {
+    color: var(--blue);
+    border-color: #9aa9ba;
+    border-radius: 6px;
+}
+
+.signup-prompt-button:hover {
+    border-color: var(--blue);
+    background: var(--blue);
+}
+
+.form-section {
+    border-color: var(--line);
+    background: #fff;
+}
+
+/* Compact role selection: keep it readable without making it a large feature card. */
+.signup-role-section {
+    padding: .95rem 1.1rem;
+}
+
+.signup-role-section .section-heading {
+    margin-bottom: .7rem;
+}
+
+.signup-role-section .section-number {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+}
+
+.signup-role-section .role-grid {
+    gap: .7rem;
+}
+
+.signup-role-section .role-card {
+    min-height: 92px;
+    display: grid !important;
+    align-content: center;
+    justify-content: start;
+    grid-template-columns: 36px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: .75rem;
+    padding: .7rem .8rem;
+    text-align: left;
+}
+
+.signup-role-section .role-icon {
+    width: 34px;
+    height: 34px;
+    grid-row: 1 / 3;
+    margin: 0;
+    border-radius: 6px;
+    background: #eef1f5;
+    color: var(--navy);
+}
+
+.signup-role-section .role-card strong {
+    align-self: end;
+    font-size: .78rem;
+}
+
+.signup-role-section .role-card small {
+    align-self: start;
+    max-width: none;
+    margin-top: .15rem;
+    font-size: .6rem;
+    line-height: 1.3;
+}
+
+.signup-role-section .role-check {
+    top: .45rem;
+    right: .45rem;
+    width: 16px;
+    height: 16px;
+}
+
+.staff-account-note {
+    margin-top: .7rem;
+    padding: .6rem .75rem;
+    border-radius: 6px;
+}
+
+.form-section h2,
+.form-section label {
+    color: #344054;
+}
+
+/* Keep the optional address field compact, while allowing longer addresses to grow. */
+.form-section textarea#id_address {
+    min-height: 72px;
+    max-height: 180px;
+    resize: vertical;
+    overflow-y: auto;
+}
+
+.role-card {
+    border-color: #cfd6df;
+    background: #fff;
+}
+
+.role-card:hover {
+    border-color: #8999aa;
+    background: #f7f8fa;
+}
+
+.role-card.selected {
+    border-color: var(--blue);
+    background: #eef2f6;
+    box-shadow: 0 0 0 1px var(--blue);
+}
+
+.role-card > i,
+.student-color,
+.teacher-color,
+.principal-color,
+.parent-color {
+    color: var(--navy);
+}
+
+.step-row .active {
+    color: var(--blue);
+}
+
+.step-row .active span,
+.step-row .active::after {
+    background: var(--blue);
+}
+
+.side-badge {
+    border: 1px solid rgba(255, 255, 255, .35);
+    border-radius: 5px;
+    background: rgba(23, 32, 51, .25);
+}
+
+.staff-login-note,
+.form-text,
+.terms-row label {
+    color: var(--muted);
+}

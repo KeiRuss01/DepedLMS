@@ -1,9 +1,9 @@
-export type PageViewport = import("../src/display/page_viewport").PageViewport;
+export type PageViewport = import("../src/display/display_utils").PageViewport;
 export type OptionalContentConfig = import("../src/display/optional_content_config").OptionalContentConfig;
 export type EventBus = import("./event_utils").EventBus;
+export type IL10n = import("./interfaces").IL10n;
+export type IRenderableView = import("./interfaces").IRenderableView;
 export type PDFRenderingQueue = import("./pdf_rendering_queue").PDFRenderingQueue;
-export type CommentManager = import("./comment_manager.js").CommentManager;
-export type L10n = import("./l10n.js").L10n;
 export type PDFPageViewOptions = {
     /**
      * - The viewer element.
@@ -61,46 +61,6 @@ export type PDFPageViewOptions = {
      */
     maxCanvasPixels?: number | undefined;
     /**
-     * - The maximum supported canvas dimension,
-     * in either width or height. Use `-1` for no limit.
-     * The default value is 32767.
-     */
-    maxCanvasDim?: number | undefined;
-    /**
-     * - Cap the canvas area to the
-     * viewport increased by the value in percent. Use `-1` for no limit.
-     * The default value is 200%.
-     */
-    capCanvasAreaFactor?: number | undefined;
-    /**
-     * - When enabled, if the rendered
-     * pages would need a canvas that is larger than `maxCanvasPixels` or
-     * `maxCanvasDim`, it will draw a second canvas on top of the CSS-zoomed one,
-     * that only renders the part of the page that is close to the viewport.
-     * The default value is `true`.
-     */
-    enableDetailCanvas?: boolean | undefined;
-    /**
-     * - All images whose width and
-     * height are at least this value (in pixels) will be lazily inserted in the
-     * dom to allow right-clicking and saving them. Use `-1` to disable this.
-     */
-    imagesRightClickMinSize?: number | undefined;
-    /**
-     * - When enabled, renders text
-     * selections in the draw layer.
-     * The default value is `true`.
-     */
-    enableSelectionRendering?: boolean | undefined;
-    /**
-     * - When enabled, PDF
-     * rendering will keep track of which areas of the page each PDF operation
-     * affects. Then, when rendering a partial page (if `enableDetailCanvas` is
-     * enabled), it will only run through the operations that affect that portion.
-     * The default value is `false`.
-     */
-    enableOptimizedPartialRendering?: boolean | undefined;
-    /**
      * - Overwrites background and foreground colors
      * with user defined ones in order to improve readability in high contrast
      * mode.
@@ -109,42 +69,43 @@ export type PDFPageViewOptions = {
     /**
      * - Localization service.
      */
-    l10n?: import("./l10n.js").L10n | undefined;
+    l10n?: import("./interfaces").IL10n | undefined;
     /**
      * - The object that is used to lookup
      * the necessary layer-properties.
      */
     layerProperties?: Object | undefined;
     /**
-     * - Enable creation of hyperlinks from
-     * text that look like URLs. The default value is `true`.
+     * - Enables hardware acceleration for
+     * rendering. The default value is `false`.
      */
-    enableAutoLinking?: boolean | undefined;
-    /**
-     * - The comment manager instance.
-     * to.
-     */
-    commentManager?: import("./comment_manager.js").CommentManager | undefined;
-    abortSignal?: AbortSignal | undefined;
+    enableHWA?: boolean | undefined;
 };
-export class PDFPageView extends BasePDFPageView {
+/**
+ * @implements {IRenderableView}
+ */
+export class PDFPageView implements IRenderableView {
     /**
      * @param {PDFPageViewOptions} options
      */
     constructor(options: PDFPageViewOptions);
+    id: number;
+    renderingId: string;
     pdfPage: any;
     pageLabel: string | null;
     rotation: number;
     scale: number;
-    viewport: import("../src/display/page_viewport").PageViewport;
+    viewport: import("../src/display/display_utils").PageViewport;
     pdfPageRotate: number;
     _optionalContentConfigPromise: Promise<import("../src/display/optional_content_config").OptionalContentConfig> | null;
     imageResourcesPath: string;
-    enableDetailCanvas: boolean;
     maxCanvasPixels: any;
-    maxCanvasDim: any;
-    capCanvasAreaFactor: any;
-    l10n: import("./l10n.js").L10n | undefined;
+    pageColors: Object | null;
+    eventBus: import("./event_utils").EventBus;
+    renderingQueue: import("./pdf_rendering_queue").PDFRenderingQueue | undefined;
+    l10n: import("./interfaces").IL10n | GenericL10n | undefined;
+    renderTask: any;
+    resume: (() => void) | null;
     _isStandalone: boolean | undefined;
     _container: HTMLDivElement | undefined;
     _annotationCanvasMap: any;
@@ -154,26 +115,22 @@ export class PDFPageView extends BasePDFPageView {
     xfaLayer: XfaLayerBuilder | null;
     structTreeLayer: any;
     drawLayer: any;
-    detailView: any;
     div: HTMLDivElement;
-    clone(id: any): PDFPageView;
-    updatePageNumber(newPageNumber: any): void;
+    set renderingState(state: number);
+    get renderingState(): number;
     setPdfPage(pdfPage: any): void;
     destroy(): void;
-    deleteMe(isCut: any): void;
     hasEditableAnnotations(): boolean;
     get _textHighlighter(): any;
-    _refreshAnnotationLayer(): void;
-    reset({ keepAnnotationLayer, keepAnnotationEditorLayer, keepXfaLayer, keepTextLayer, keepCanvasWrapper, preserveDetailViewState, }?: {
+    canvas: HTMLCanvasElement | null | undefined;
+    reset({ keepAnnotationLayer, keepAnnotationEditorLayer, keepXfaLayer, keepTextLayer, keepCanvasWrapper, }?: {
         keepAnnotationLayer?: boolean | undefined;
         keepAnnotationEditorLayer?: boolean | undefined;
         keepXfaLayer?: boolean | undefined;
         keepTextLayer?: boolean | undefined;
         keepCanvasWrapper?: boolean | undefined;
-        preserveDetailViewState?: boolean | undefined;
     }): void;
     toggleEditingMode(isEditing: any): void;
-    updateVisibleArea(visibleArea: any): void;
     /**
      * @typedef {Object} PDFPageViewUpdateParameters
      * @property {number} [scale] The new scale, if specified.
@@ -202,7 +159,6 @@ export class PDFPageView extends BasePDFPageView {
         optionalContentConfigPromise?: Promise<import("../src/display/optional_content_config").OptionalContentConfig> | undefined;
         drawingDelay?: number | undefined;
     }): void;
-    outputScale: OutputScale | undefined;
     /**
      * PLEASE NOTE: Most likely you want to use the `this.reset()` method,
      *              rather than calling this one directly.
@@ -224,20 +180,8 @@ export class PDFPageView extends BasePDFPageView {
     get width(): number;
     get height(): number;
     getPagePoint(x: any, y: any): any[];
-    _ensureCanvasWrapper(): null;
-    _getRenderingContext(canvas: any, transform: any, recordOperations: any, recordImages: any): {
-        canvas: any;
-        transform: any;
-        viewport: import("../src/display/page_viewport").PageViewport;
-        annotationMode: number;
-        optionalContentConfigPromise: Promise<import("../src/display/optional_content_config").OptionalContentConfig> | null;
-        annotationCanvasMap: any;
-        pageColors: null;
-        isEditing: boolean;
-        recordOperations: any;
-        recordImages: any;
-    };
-    draw(): Promise<void>;
+    draw(): Promise<any>;
+    outputScale: OutputScale | undefined;
     /**
      * @param {string|null} label
      */
@@ -246,10 +190,10 @@ export class PDFPageView extends BasePDFPageView {
      * For use by the `PDFThumbnailView.setImage`-method.
      * @ignore
      */
-    get thumbnailCanvas(): null;
+    get thumbnailCanvas(): HTMLCanvasElement | null | undefined;
     #private;
 }
-import { BasePDFPageView } from "./base_pdf_page_view.js";
+import { GenericL10n } from "./genericl10n";
 import { AnnotationLayerBuilder } from "./annotation_layer_builder.js";
 import { TextLayerBuilder } from "./text_layer_builder.js";
 import { XfaLayerBuilder } from "./xfa_layer_builder.js";

@@ -5,8 +5,13 @@ if (editor) {
 }
 
 async function startMobileModuleEditor(editor) {
-    const editable = editor.dataset.editable === "true";
+    let editable = editor.dataset.editable === "true";
     const csrfToken = editor.dataset.csrfToken;
+    const offlineMode = editor.dataset.storageMode === "offline";
+    const moduleId = Number(editor.dataset.moduleId);
+
+    let cachedModule = null;
+    let offlineDraftKey = null;
 
     const pdfCanvas = document.getElementById("mobilePdfCanvas");
     const annotationCanvas = document.getElementById(
@@ -30,6 +35,7 @@ async function startMobileModuleEditor(editor) {
     let currentPage = 1;
     let annotations = [];
     let extraPages = [];
+    let deletedExtraPages = [];
     let activeTool = "type";
     let activePointer = null;
     let previewAnnotation = null;
@@ -76,8 +82,10 @@ async function startMobileModuleEditor(editor) {
 
         if (state === "saved") {
             draftStatus.classList.add("is-saved");
+
             draftStatus.innerHTML =
-                '<i class="bi bi-cloud-check-fill"></i> Saved';
+                '<i class="bi bi-device-ssd"></i> Saved on this device';
+
             return;
         }
 
@@ -263,15 +271,243 @@ async function startMobileModuleEditor(editor) {
         return data;
     }
 
+    async function prepareModuleStorage() {
+        if (!window.N1OfflineDB) {
+            throw new Error("The offline database is unavailable.");
+        }
+
+        if (!moduleId) {
+            throw new Error("No offline module was selected.");
+        }
+
+        await window.N1OfflineDB.open();
+
+        let serverData = null;
+
+        if (!offlineMode && editor.dataset.offlineDataUrl) {
+            serverData = await requestJson(editor.dataset.offlineDataUrl);
+            const serverModule = serverData.module;
+            const previousModule = await window.N1OfflineDB.get(
+                "cached_modules",
+                moduleId
+            );
+
+            cachedModule = {
+                ...(previousModule || {}),
+                ...serverModule,
+                id: serverModule.id,
+                downloaded_at: previousModule?.downloaded_at || null,
+                updated_at: serverModule.published_at || new Date().toISOString()
+            };
+            await window.N1OfflineDB.put("cached_modules", cachedModule);
+
+            if (window.N1ModuleDownloads?.mergeServerDraft) {
+                await window.N1ModuleDownloads.mergeServerDraft(
+                    serverModule,
+                    serverData.draft
+                );
+            } else if (serverData.draft) {
+                const localId = `${serverModule.student_id}:${serverModule.id}`;
+                const localDraft = await window.N1OfflineDB.get(
+                    "draft_submissions",
+                    localId
+                );
+                const localPending = ["pending", "failed", "syncing"].includes(
+                    localDraft?.sync_status
+                );
+
+                if (!localPending) {
+                    const serverPages = (
+                        serverData.draft.extra_pages || []
+                    ).map((page) => ({
+                        ...page,
+                        local_id: page.local_id || `server-${page.id}`,
+                        local_only: false,
+                        sync_status: "synced"
+                    }));
+                    await window.N1OfflineDB.put("draft_submissions", {
+                        ...(localDraft || {}),
+                        ...serverData.draft,
+                        local_id: localId,
+                        annotations: serverData.draft.annotations || [],
+                        extra_pages: serverPages,
+                        sync_status: "synced",
+                        sync_error: "",
+                        created_at: localDraft?.created_at || new Date().toISOString(),
+                        updated_at:
+                            serverData.draft.server_updated_at ||
+                            new Date().toISOString()
+                    });
+                }
+            }
+        } else {
+            cachedModule = await window.N1OfflineDB.get(
+                "cached_modules",
+                moduleId
+            );
+        }
+
+        const identity = await window.N1OfflineDB.get(
+            "device_identity",
+            "current"
+        );
+
+        if (!cachedModule || (offlineMode && !cachedModule.pdf_blob)) {
+            throw new Error(
+                "This module has not been downloaded on this device."
+            );
+        }
+
+        if (offlineMode && (
+            String(identity?.account_role || "").toLowerCase() !==
+                "student" ||
+            !identity?.user_id ||
+            !cachedModule.user_id ||
+            Number(cachedModule.user_id) !== Number(identity.user_id)
+        )) {
+            throw new Error(
+                "This downloaded module belongs to another account. Sign in with the Student account that downloaded it."
+            );
+        }
+
+        if (!cachedModule.student_id) {
+            throw new Error(
+                "Please download this module again before answering offline."
+            );
+        }
+
+        const backToClassModules = document.getElementById(
+            "backToClassModules"
+        );
+
+        if (backToClassModules && cachedModule.class_id) {
+            backToClassModules.href = (
+                `/classroom/classes/${cachedModule.class_id}/?tab=modules`
+            );
+        }
+
+        offlineDraftKey = (
+            `${cachedModule.student_id}:${cachedModule.id}`
+        );
+
+        const title = document.getElementById("mobileEditorTitle");
+
+        if (title) {
+            title.textContent = cachedModule.title;
+        }
+
+        const deadlineClosed = Boolean(
+            cachedModule.due_at &&
+            Date.now() > new Date(cachedModule.due_at).getTime() &&
+            !cachedModule.allow_late
+        );
+
+        if (deadlineClosed) {
+            editable = false;
+
+            disableEditor(
+                "The deadline has passed. This downloaded module is now read only."
+            );
+        }
+    }
+
+    async function queueDraftSync() {
+        if (!offlineDraftKey || !cachedModule) {
+            return;
+        }
+
+        const queue = await window.N1OfflineDB.getAll("offline_queue");
+        const finalSubmissionQueued = queue.some((item) => (
+            item.action_type === "module_submission" &&
+            item.draft_local_id === offlineDraftKey &&
+            ["pending", "failed", "syncing"].includes(item.status)
+        ));
+
+        if (finalSubmissionQueued) {
+            return;
+        }
+
+        const existing = queue.find((item) => (
+            item.action_type === "module_draft_sync" &&
+            item.draft_local_id === offlineDraftKey
+        ));
+        const now = new Date().toISOString();
+
+        await window.N1OfflineDB.put("offline_queue", {
+            ...(existing || {}),
+            action_type: "module_draft_sync",
+            target_table: "module_submission",
+            target_id: cachedModule.id,
+            draft_local_id: offlineDraftKey,
+            user_id: cachedModule.user_id || null,
+            status: "pending",
+            retry_count: existing?.retry_count || 0,
+            error_message: "",
+            created_at: existing?.created_at || now,
+            updated_at: now,
+            synced_at: null
+        });
+    }
+
     async function loadDraft() {
         if (!editable) {
+            const previewState = document.getElementById(
+                "moduleReadOnlyDraftState"
+            );
+
+            if (previewState) {
+                try {
+                    const data = JSON.parse(previewState.textContent);
+                    annotations = Array.isArray(data.annotations)
+                        ? data.annotations
+                        : [];
+                    extraPages = Array.isArray(data.extra_pages)
+                        ? data.extra_pages
+                        : [];
+                    currentPage = Number(data.current_page) || 1;
+                    setDraftStatus("Draft preview");
+                } catch (error) {
+                    console.error("Draft preview loading failed:", error);
+                    showError("The Student draft preview could not be loaded.");
+                }
+            }
             return;
         }
 
         try {
-            const data = await requestJson(
-                editor.dataset.draftStateUrl
-            );
+            let data;
+
+            if (offlineDraftKey && window.N1OfflineDB) {
+                const localDraft = await window.N1OfflineDB.get(
+                    "draft_submissions",
+                    offlineDraftKey
+                );
+
+                if (!localDraft) {
+                    annotations = [];
+                    extraPages = [];
+                    currentPage = 1;
+
+                    renderExtraPages();
+                    updateUndoButton();
+                    setDraftStatus("Not saved yet");
+                    return;
+                }
+
+                data = {
+                    annotations: localDraft.annotations || [],
+                    extra_pages: localDraft.extra_pages || [],
+                    deleted_extra_pages:
+                        localDraft.deleted_extra_pages || [],
+                    current_page: localDraft.current_page || 1,
+                    editable: true,
+                    draft_saved_at: localDraft.updated_at
+                };
+            } else {
+                data = await requestJson(
+                    editor.dataset.draftStateUrl
+                );
+            }
 
             annotations = Array.isArray(data.annotations)
                 ? data.annotations
@@ -279,6 +515,9 @@ async function startMobileModuleEditor(editor) {
 
             extraPages = Array.isArray(data.extra_pages)
                 ? data.extra_pages
+                : [];
+            deletedExtraPages = Array.isArray(data.deleted_extra_pages)
+                ? data.deleted_extra_pages
                 : [];
 
             currentPage = Number(data.current_page) || 1;
@@ -298,6 +537,7 @@ async function startMobileModuleEditor(editor) {
                 setDraftStatus("Not saved yet");
             }
         } catch (error) {
+            console.error("Draft loading failed:", error);
             setDraftStatus("Draft unavailable", "error");
             showError(error.message);
         }
@@ -330,21 +570,101 @@ async function startMobileModuleEditor(editor) {
         saveAgain = false;
 
         try {
-            await requestJson(editor.dataset.annotationSaveUrl, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    current_page: currentPage,
-                    annotations,
-                }),
-            });
+            if (offlineDraftKey && cachedModule && window.N1OfflineDB) {
+                if (!window.N1OfflineDB) {
+                    throw new Error(
+                        "The offline database is unavailable."
+                    );
+                }
 
-            setDraftStatus("Saved", "saved");
+                if (!offlineDraftKey || !cachedModule) {
+                    throw new Error(
+                        "The downloaded module information is incomplete."
+                    );
+                }
+
+                const existingDraft = await window.N1OfflineDB.get(
+                    "draft_submissions",
+                    offlineDraftKey
+                );
+
+                const savedAt = new Date().toISOString();
+
+                await window.N1OfflineDB.put(
+                    "draft_submissions",
+                    {
+                        ...(existingDraft || {}),
+                        local_id: offlineDraftKey,
+                        module_id: cachedModule.id,
+                        student_id: cachedModule.student_id,
+                        user_id: cachedModule.user_id || null,
+                        class_id: cachedModule.class_id,
+                        current_page: currentPage,
+                        annotations: annotations,
+                        extra_pages: extraPages,
+                        deleted_extra_pages: deletedExtraPages,
+                        status: "draft",
+                        sync_status: "pending",
+                        created_at: (
+                            existingDraft?.created_at || savedAt
+                        ),
+                        updated_at: savedAt
+                    }
+                );
+
+                await queueDraftSync();
+
+                if (offlineSubmitButton) {
+                    offlineSubmitButton.disabled = false;
+                    offlineSubmitButton.textContent =
+                        "Submit module";
+                }
+                if (navigator.onLine && window.N1OfflineSync) {
+                    const result = await window.N1OfflineSync.syncNow();
+                    if (result?.failed) {
+                        setDraftStatus("Waiting to sync");
+                    }
+                }
+            } else {
+                await requestJson(
+                    editor.dataset.annotationSaveUrl,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            current_page: currentPage,
+                            annotations
+                        })
+                    }
+                );
+            }
+
+            const syncedDraft = offlineDraftKey
+                ? await window.N1OfflineDB.get(
+                    "draft_submissions",
+                    offlineDraftKey
+                )
+                : null;
+            if (syncedDraft?.sync_status === "synced") {
+                extraPages = Array.isArray(syncedDraft.extra_pages)
+                    ? syncedDraft.extra_pages
+                    : extraPages;
+                deletedExtraPages = Array.isArray(
+                    syncedDraft.deleted_extra_pages
+                ) ? syncedDraft.deleted_extra_pages : [];
+                renderExtraPages();
+                draftStatus.classList.add("is-saved");
+                draftStatus.innerHTML =
+                    '<i class="bi bi-cloud-check-fill"></i> Draft synchronized';
+            } else {
+                setDraftStatus("Saved", "saved");
+            }
             clearError();
             return true;
         } catch (error) {
+            console.error("Draft saving failed:", error);
             setDraftStatus("Save failed", "error");
             showError(error.message);
             return false;
@@ -1145,38 +1465,178 @@ async function startMobileModuleEditor(editor) {
     let drawingStroke = null;
     let savedEssayRange = null;
 
-    async function createExtraPage(pageType, file = null) {
-        const formData = new FormData();
-
-        formData.append("page_type", pageType);
-        formData.append("related_pdf_page", currentPage);
-
-        if (file) {
-            formData.append("file", file);
-            formData.append("title", file.name);
+    async function createExtraPage(pageType, uploadedFile = null) {
+        if (!editable) {
+            return;
         }
 
-        setDraftStatus("Saving", "saving");
+        const allowedPageTypes = [
+            "essay",
+            "drawing",
+            "upload",
+        ];
 
+        if (!allowedPageTypes.includes(pageType)) {
+            showError("Invalid answer page type.");
+            return;
+        }
+
+        if (pageType === "upload" && !uploadedFile) {
+            showError("Please select a PDF, JPG, or PNG file.");
+            return;
+        }
+
+        if (uploadedFile) {
+            const allowedTypes = [
+                "application/pdf",
+                "image/jpeg",
+                "image/png",
+            ];
+
+            const maximumFileSize = 20 * 1024 * 1024;
+
+            if (!allowedTypes.includes(uploadedFile.type)) {
+                showError("Only PDF, JPG, and PNG files are allowed.");
+                return;
+            }
+
+            if (uploadedFile.size > maximumFileSize) {
+                showError("The selected file must not exceed 20 MB.");
+                return;
+            }
+        }
+
+        /*
+        * When offline, save the new answer page directly into IndexedDB.
+        * Do not call fetch(), because the Django server is unavailable.
+        */
+        if (offlineDraftKey && cachedModule) {
+            if (!offlineDraftKey || !cachedModule) {
+                showError(
+                    "The downloaded module information is incomplete."
+                );
+                return;
+            }
+
+            const localPageId = `local-${Date.now()}-${createId()}`;
+
+            const localPage = {
+                id: localPageId,
+                local_id: localPageId,
+                local_only: true,
+                sync_status: "pending",
+
+                page_type: pageType,
+                title:
+                    pageType === "essay"
+                        ? "Answer page"
+                        : pageType === "drawing"
+                            ? "Drawing page"
+                            : uploadedFile.name,
+
+                related_pdf_page: currentPage,
+                position: extraPages.length + 1,
+
+                essay_text: "",
+                drawing_data: [],
+                caption: "",
+
+                uploaded_blob: uploadedFile || null,
+                uploaded_file_name: uploadedFile
+                    ? uploadedFile.name
+                    : "",
+                uploaded_file_type: uploadedFile
+                    ? uploadedFile.type
+                    : "",
+                uploaded_file_size: uploadedFile
+                    ? uploadedFile.size
+                    : 0,
+
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
+
+            extraPages.push(localPage);
+
+            renderExtraPages();
+
+            const saved = await saveAnnotationDraft();
+
+            if (!saved) {
+                showError(
+                    "The answer page could not be saved on this device."
+                );
+                return;
+            }
+
+            clearError();
+            setDraftStatus("Saved on this device");
+
+            if (pageType === "essay" || pageType === "drawing") {
+                const savedPage = extraPages.find((page) => (
+                    page.id === localPageId ||
+                    page.local_id === localPageId
+                ));
+                openExtraPageEditor(savedPage || localPage);
+            }
+
+            return;
+        }
+
+        /*
+        * Online mode: send the new page to Django.
+        */
         try {
-            const data = await requestJson(
+            const formData = new FormData();
+
+            formData.append("page_type", pageType);
+            formData.append(
+                "related_pdf_page",
+                String(currentPage)
+            );
+            formData.append(
+                "position",
+                String(extraPages.length + 1)
+            );
+
+            if (uploadedFile) {
+                formData.append("file", uploadedFile);
+                formData.append("title", uploadedFile.name);
+            }
+
+            const response = await fetch(
                 editor.dataset.extraPageCreateUrl,
                 {
                     method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "X-CSRFToken": csrfToken,
+                        Accept: "application/json",
+                    },
                     body: formData,
                 }
             );
 
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || "The answer page could not be created."
+                );
+            }
+
             extraPages.push(data.page);
             renderExtraPages();
-            setDraftStatus("Saved", "saved");
+            clearError();
 
-            if (pageType !== "upload") {
-                openExtraPageEditor(data.page.id);
+            if (pageType === "essay" || pageType === "drawing") {
+                openExtraPageEditor(data.page);
             }
         } catch (error) {
-            setDraftStatus("Save failed", "error");
-            showError(error.message);
+            showError(
+                error.message ||
+                "The answer page could not be created."
+            );
         }
     }
 
@@ -1184,14 +1644,50 @@ async function startMobileModuleEditor(editor) {
         setDraftStatus("Saving", "saving");
 
         try {
+            if (offlineDraftKey && cachedModule) {
+                const index = extraPages.findIndex(
+                    (item) => item.id === page.id
+                );
+
+                if (index === -1) {
+                    throw new Error(
+                        "The local answer page could not be found."
+                    );
+                }
+
+                const updatedPage = {
+                    ...extraPages[index],
+                    ...changes,
+                    sync_status: "pending",
+                    updated_at: new Date().toISOString()
+                };
+
+                extraPages[index] = updatedPage;
+                activeExtraPage = updatedPage;
+
+                renderExtraPages();
+
+                const saved = await saveAnnotationDraft();
+
+                if (!saved && !saving) {
+                    throw new Error(
+                        "The answer page could not be saved locally."
+                    );
+                }
+
+                setDraftStatus("Saved", "saved");
+                clearError();
+                return;
+            }
+
             const data = await requestJson(
                 page.update_url,
                 {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/json",
+                        "Content-Type": "application/json"
                     },
-                    body: JSON.stringify(changes),
+                    body: JSON.stringify(changes)
                 }
             );
 
@@ -1208,6 +1704,7 @@ async function startMobileModuleEditor(editor) {
             setDraftStatus("Saved", "saved");
             clearError();
         } catch (error) {
+            console.error("Answer-page update failed:", error);
             setDraftStatus("Save failed", "error");
             showError(error.message);
         }
@@ -1248,8 +1745,46 @@ async function startMobileModuleEditor(editor) {
         }
 
         try {
+            if (offlineDraftKey && cachedModule) {
+                if (page.local_only === false && page.delete_url) {
+                    deletedExtraPages.push({
+                        id: page.id,
+                        delete_url: page.delete_url
+                    });
+                }
+
+                extraPages = extraPages.filter(
+                    (item) => item.id !== page.id
+                );
+
+                if (
+                    activeExtraPage &&
+                    activeExtraPage.id === page.id
+                ) {
+                    activeExtraPage = null;
+
+                    if (editorDialog?.open) {
+                        editorDialog.close();
+                    }
+                }
+
+                renderExtraPages();
+
+                const saved = await saveAnnotationDraft();
+
+                if (!saved && !saving) {
+                    throw new Error(
+                        "The answer page could not be removed locally."
+                    );
+                }
+
+                setDraftStatus("Saved", "saved");
+                clearError();
+                return;
+            }
+
             await requestJson(page.delete_url, {
-                method: "POST",
+                method: "POST"
             });
 
             extraPages = extraPages.filter(
@@ -1258,7 +1793,9 @@ async function startMobileModuleEditor(editor) {
 
             renderExtraPages();
             setDraftStatus("Saved", "saved");
+            clearError();
         } catch (error) {
+            console.error("Answer-page deletion failed:", error);
             setDraftStatus("Delete failed", "error");
             showError(error.message);
         }
@@ -1310,10 +1847,34 @@ async function startMobileModuleEditor(editor) {
             const actions = document.createElement("div");
             actions.className = "mobile-extra-page-actions";
 
-            if (page.page_type === "upload" && page.file_url) {
+            if (
+                page.page_type === "upload" &&
+                (page.uploaded_blob || page.file_url)
+            ) {
                 const openLink = document.createElement("a");
-                openLink.href = page.file_url;
+
+                if (page.uploaded_blob) {
+                    const objectUrl = URL.createObjectURL(
+                        page.uploaded_blob
+                    );
+
+                    openLink.href = objectUrl;
+
+                    openLink.addEventListener(
+                        "click",
+                        () => {
+                            window.setTimeout(() => {
+                                URL.revokeObjectURL(objectUrl);
+                            }, 60000);
+                        },
+                        { once: true }
+                    );
+                } else {
+                    openLink.href = page.file_url;
+                }
+
                 openLink.target = "_blank";
+                openLink.rel = "noopener";
                 openLink.className =
                     "btn btn-sm btn-outline-primary";
                 openLink.innerHTML =
@@ -1745,6 +2306,16 @@ async function startMobileModuleEditor(editor) {
      * Load the saved draft before rendering the PDF.
      */
 
+    if (editable || offlineMode) {
+        try {
+            await prepareModuleStorage();
+        } catch (error) {
+            pageLabel.textContent = "Module unavailable";
+            showError(error.message);
+            return;
+        }
+    }
+
     await loadDraft();
 
     try {
@@ -1753,26 +2324,66 @@ async function startMobileModuleEditor(editor) {
         pdfjs.GlobalWorkerOptions.workerSrc =
             editor.dataset.worker;
 
-        const pdfResponse = await fetch(
-            editor.dataset.pdfUrl,
-            {
-                credentials: "same-origin",
-                cache: "no-store",
-                headers: {
-                    Accept: "application/pdf",
-                },
-            }
-        );
+        let pdfData;
+        let responseType = "cached PDF";
 
-        if (!pdfResponse.ok) {
-            throw new Error(
-                `The Module PDF request returned ${pdfResponse.status}.`
+        if (offlineMode) {
+            pdfData = new Uint8Array(
+                await cachedModule.pdf_blob.arrayBuffer()
             );
-        }
+        } else {
+            try {
+                const pdfResponse = await fetch(
+                    editor.dataset.pdfUrl,
+                    {
+                        credentials: "same-origin",
+                        cache: "no-store",
+                        headers: {
+                            Accept: "application/pdf"
+                        }
+                    }
+                );
 
-        const pdfData = new Uint8Array(
-            await pdfResponse.arrayBuffer()
-        );
+                if (!pdfResponse.ok) {
+                    throw new Error(
+                        `The Module PDF request returned ${pdfResponse.status}.`
+                    );
+                }
+
+                responseType = (
+                    pdfResponse.headers.get("Content-Type") ||
+                    "unknown content type"
+                );
+
+                pdfData = new Uint8Array(
+                    await pdfResponse.arrayBuffer()
+                );
+
+                if (cachedModule && window.N1OfflineDB) {
+                    cachedModule.pdf_blob = new Blob(
+                        [pdfData],
+                        { type: "application/pdf" }
+                    );
+                    cachedModule.pdf_type = "application/pdf";
+                    cachedModule.pdf_size = pdfData.byteLength;
+                    cachedModule.downloaded_at = new Date().toISOString();
+                    await window.N1OfflineDB.put(
+                        "cached_modules",
+                        cachedModule
+                    );
+                }
+            } catch (networkError) {
+                if (!cachedModule?.pdf_blob) {
+                    throw networkError;
+                }
+
+                responseType = "cached PDF";
+                pdfData = new Uint8Array(
+                    await cachedModule.pdf_blob.arrayBuffer()
+                );
+                setDraftStatus("Working from saved copy");
+            }
+        }
 
         if (pdfData.length === 0) {
             throw new Error("The Module PDF is empty.");
@@ -1783,12 +2394,8 @@ async function startMobileModuleEditor(editor) {
         );
 
         if (signature !== "%PDF-") {
-            const responseType =
-                pdfResponse.headers.get("Content-Type") ||
-                "unknown content type";
-
             throw new Error(
-                `The Module URL returned ${responseType} instead of PDF data.`
+                `The Module contains ${responseType} instead of PDF data.`
             );
         }
 
@@ -1820,19 +2427,33 @@ async function startMobileModuleEditor(editor) {
 
     let previousWidth = stage.clientWidth;
 
-    const observer = new ResizeObserver(() => {
-        const currentWidth = stage.clientWidth;
+    if ("ResizeObserver" in window) {
+        const observer = new ResizeObserver(() => {
+            const currentWidth = stage.clientWidth;
 
-        if (
-            currentWidth > 0 &&
-            currentWidth !== previousWidth
-        ) {
-            previousWidth = currentWidth;
-            renderCurrentPage();
-        }
-    });
+            if (
+                currentWidth > 0 &&
+                currentWidth !== previousWidth
+            ) {
+                previousWidth = currentWidth;
+                renderCurrentPage();
+            }
+        });
 
-    observer.observe(stage);
+        observer.observe(stage);
+    } else {
+        window.addEventListener("resize", () => {
+            const currentWidth = stage.clientWidth;
+
+            if (
+                currentWidth > 0 &&
+                currentWidth !== previousWidth
+            ) {
+                previousWidth = currentWidth;
+                renderCurrentPage();
+            }
+        });
+    }
 
     const submissionForm = document.getElementById(
         "moduleSubmissionForm"
@@ -1860,8 +2481,219 @@ async function startMobileModuleEditor(editor) {
             return;
         }
 
+        if (offlineDraftKey && navigator.onLine) {
+            const localDraft = await window.N1OfflineDB.get(
+                "draft_submissions",
+                offlineDraftKey
+            );
+            if (localDraft?.sync_status !== "synced") {
+                showError(
+                    "Your draft is safe on this device but has not synchronized yet. Try submitting again after synchronization finishes."
+                );
+                return;
+            }
+        }
+
         submissionForm.dataset.draftReady = "true";
         submissionForm.requestSubmit();
     });
+
+    const offlineSubmitButton = document.getElementById(
+        "queueOfflineSubmission"
+    );
+
+    async function updateOfflineSubmitButton() {
+        if (!offlineSubmitButton || !offlineDraftKey) {
+            return;
+        }
+
+        const draft = await window.N1OfflineDB.get(
+            "draft_submissions",
+            offlineDraftKey
+        );
+
+        if (draft?.status === "submitted") {
+            offlineSubmitButton.disabled = true;
+            offlineSubmitButton.textContent = "Submitted";
+        } else if (draft?.sync_status === "failed") {
+            offlineSubmitButton.disabled = false;
+            offlineSubmitButton.textContent = "Retry submission";
+        } else if (draft?.status === "queued") {
+            offlineSubmitButton.disabled = false;
+            offlineSubmitButton.textContent = navigator.onLine
+                ? "Synchronize submission"
+                : "Queued for submission";
+        }
+    }
+
+    offlineSubmitButton?.addEventListener("click", async () => {
+        if (!offlineMode || !offlineDraftKey || !cachedModule) {
+            showError("The offline module is not ready for submission.");
+            return;
+        }
+
+        window.clearTimeout(saveTimer);
+
+        while (saving) {
+            await new Promise((resolve) => {
+                window.setTimeout(resolve, 100);
+            });
+        }
+
+        const saved = await saveAnnotationDraft();
+        if (!saved) {
+            showError(
+                "Your latest offline changes could not be saved. Please try again."
+            );
+            return;
+        }
+
+        const draft = await window.N1OfflineDB.get(
+            "draft_submissions",
+            offlineDraftKey
+        );
+
+        const hasAnnotations = Array.isArray(draft?.annotations) &&
+            draft.annotations.length > 0;
+        const hasExtraPages = Array.isArray(draft?.extra_pages) &&
+            draft.extra_pages.length > 0;
+
+        if (!hasAnnotations && !hasExtraPages) {
+            showError(
+                "Add an answer, drawing, page, or photo before submitting."
+            );
+            return;
+        }
+
+        if (!window.confirm(
+            "Submit this complete module? Draft synchronization alone will not submit it."
+        )) {
+            return;
+        }
+
+        const queueItems = await window.N1OfflineDB.getAll(
+            "offline_queue"
+        );
+
+        for (const item of queueItems) {
+            if (
+                item.action_type === "module_draft_sync" &&
+                item.draft_local_id === offlineDraftKey
+            ) {
+                await window.N1OfflineDB.remove(
+                    "offline_queue",
+                    item.queue_id
+                );
+            }
+        }
+        
+        let existingQueue = queueItems.find((item) => (
+            item.action_type === "module_submission" &&
+            item.draft_local_id === offlineDraftKey &&
+            item.status !== "completed"
+        ));
+
+        if (existingQueue) {
+            /*
+            * Unlock an old queue record before retrying.
+            */
+            existingQueue.status = "pending";
+            existingQueue.error_message = "";
+            existingQueue.updated_at =
+                new Date().toISOString();
+
+            await window.N1OfflineDB.put(
+                "offline_queue",
+                existingQueue
+            );
+        } else {
+            existingQueue = {
+                action_type: "module_submission",
+                target_table: "module_submission",
+                target_id: cachedModule.id,
+                draft_local_id: offlineDraftKey,
+                user_id: cachedModule.user_id || null,
+                status: "pending",
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                synced_at: null,
+                retry_count: 0,
+                error_message: ""
+            };
+
+            await window.N1OfflineDB.put(
+                "offline_queue",
+                existingQueue
+            );
+        }
+
+        draft.status = "queued";
+        draft.sync_status = "pending";
+        draft.updated_at = new Date().toISOString();
+
+        await window.N1OfflineDB.put(
+            "draft_submissions",
+            draft
+        );
+
+        offlineSubmitButton.textContent = navigator.onLine
+            ? "Synchronizing..."
+            : "Queued for submission";
+        setDraftStatus(
+            navigator.onLine
+                ? "Synchronizing submission..."
+                : "Submission queued on this device"
+        );
+        clearError();
+
+        if (navigator.onLine && window.N1OfflineSync) {
+            try {
+                const syncResult = await window.N1OfflineSync.syncNow();
+                if (syncResult?.failed) {
+                    offlineSubmitButton.disabled = false;
+                    offlineSubmitButton.textContent = "Retry submission";
+                }
+            } catch (error) {
+                offlineSubmitButton.disabled = false;
+                offlineSubmitButton.textContent = "Retry submission";
+                showError(error.message || "Synchronization failed.");
+            }
+        }
+    });
+
+    window.addEventListener("n1:offline-sync", async (event) => {
+        if (
+            event.detail?.status === "draft-synced" &&
+            event.detail?.draftLocalId === offlineDraftKey
+        ) {
+            draftStatus.classList.add("is-saved");
+            draftStatus.innerHTML =
+                '<i class="bi bi-cloud-check-fill"></i> Draft synchronized';
+            clearError();
+        }
+
+        if (
+            !offlineSubmitButton ||
+            event.detail?.draftLocalId !== offlineDraftKey
+        ) {
+            return;
+        }
+
+        if (event.detail.status === "completed") {
+            offlineSubmitButton.disabled = true;
+            offlineSubmitButton.textContent = "Submitted";
+            setDraftStatus("Submitted and synchronized");
+            clearError();
+        } else if (event.detail.status === "failed") {
+            offlineSubmitButton.disabled = false;
+            offlineSubmitButton.textContent = "Retry submission";
+            showError(
+                event.detail.message ||
+                "The queued submission could not be synchronized."
+            );
+        }
+    });
+
+    await updateOfflineSubmitButton();
 
 }

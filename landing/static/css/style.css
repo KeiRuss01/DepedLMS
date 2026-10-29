@@ -44,7 +44,7 @@ a { text-decoration: none; }
     backdrop-filter: blur(14px);
 }
 
-.navbar { min-height: 82px; }
+.navbar { min-height: 70px; }
 
 .brand { display: flex; align-items: center; gap: .75rem; color: var(--navy); }
 .brand:hover { color: var(--navy); }
@@ -81,7 +81,7 @@ a { text-decoration: none; }
 .navbar-nav { gap: 1.3rem; }
 .navbar .nav-link {
     position: relative;
-    padding: 1.8rem .5rem 1.65rem !important;
+    padding: 1.15rem .5rem 1.05rem !important;
     color: var(--navy);
     font-size: .79rem;
     font-weight: 700;
@@ -90,7 +90,7 @@ a { text-decoration: none; }
 .navbar .nav-link::after {
     position: absolute;
     right: .5rem;
-    bottom: 1rem;
+    bottom: .55rem;
     left: .5rem;
     height: 2px;
     content: "";
@@ -215,13 +215,13 @@ a { text-decoration: none; }
 .role-card p { margin: 0; color: var(--muted); font-size: .72rem; line-height: 1.6; }
 
 .page-hero {
-    padding: 6.5rem 0;
+    padding: 3.75rem 0;
     text-align: center;
     background: radial-gradient(circle at 50% 100%, rgba(42, 133, 235, .2), transparent 42%), linear-gradient(135deg, #f8fcff, #e6f2ff);
 }
 .page-hero .site-container { max-width: 860px; }
-.page-hero h1 { font-size: clamp(2.4rem, 5vw, 4.5rem); font-weight: 800; letter-spacing: -.055em; }
-.page-hero p { margin: 1rem auto 0; color: var(--muted); font-size: 1.08rem; line-height: 1.75; }
+.page-hero h1 { font-size: clamp(2.2rem, 4vw, 3.6rem); font-weight: 800; letter-spacing: -.055em; }
+.page-hero p { margin: .75rem auto 0; color: var(--muted); font-size: 1rem; line-height: 1.6; }
 .content-section { min-height: 420px; }
 .content-card, .benefit-card {
     padding: 2rem;
@@ -268,7 +268,7 @@ a { text-decoration: none; }
 }
 
 @media (max-width: 991.98px) {
-    .navbar { min-height: 72px; }
+    .navbar { min-height: 64px; }
     .navbar-collapse { padding: .8rem 0 1.2rem; border-top: 1px solid var(--line); }
     .navbar-nav { gap: 0; align-items: stretch !important; }
     .navbar .nav-link { padding: .78rem .25rem !important; }
@@ -298,7 +298,7 @@ a { text-decoration: none; }
     .feature-strip { margin-top: 1.5rem; }
     .dashboard-image-wrap { width: 100%; }
     .community-section, .content-section { padding: 3.25rem 0; }
-    .page-hero { padding: 4.25rem 0; }
+    .page-hero { padding: 2.75rem 0; }
     .content-card { padding: 1.35rem; }
 }
 

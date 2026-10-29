@@ -1,23 +1,66 @@
-export function applyOpacity(color: any, opacity: any): any;
-export class ColorScheme {
-    static get isDarkMode(): any;
-}
-export function computeLuminance(x: any): number;
-export class CSSConstants {
-    static get commentForegroundColor(): any;
-}
+export type PageViewportParameters = {
+    /**
+     * - The xMin, yMin, xMax and
+     * yMax coordinates.
+     */
+    viewBox: Array<number>;
+    /**
+     * - The size of units.
+     */
+    userUnit: number;
+    /**
+     * - The scale of the viewport.
+     */
+    scale: number;
+    /**
+     * - The rotation, in degrees, of the viewport.
+     */
+    rotation: number;
+    /**
+     * - The horizontal, i.e. x-axis, offset. The
+     * default value is `0`.
+     */
+    offsetX?: number | undefined;
+    /**
+     * - The vertical, i.e. y-axis, offset. The
+     * default value is `0`.
+     */
+    offsetY?: number | undefined;
+    /**
+     * - If true, the y-axis will not be flipped.
+     * The default value is `false`.
+     */
+    dontFlip?: boolean | undefined;
+};
+export type PageViewportCloneParameters = {
+    /**
+     * - The scale, overriding the one in the cloned
+     * viewport. The default value is `this.scale`.
+     */
+    scale?: number | undefined;
+    /**
+     * - The rotation, in degrees, overriding the one
+     * in the cloned viewport. The default value is `this.rotation`.
+     */
+    rotation?: number | undefined;
+    /**
+     * - The horizontal, i.e. x-axis, offset.
+     * The default value is `this.offsetX`.
+     */
+    offsetX?: number | undefined;
+    /**
+     * - The vertical, i.e. y-axis, offset.
+     * The default value is `this.offsetY`.
+     */
+    offsetY?: number | undefined;
+    /**
+     * - If true, the x-axis will not be flipped.
+     * The default value is `false`.
+     */
+    dontFlip?: boolean | undefined;
+};
 export function deprecated(details: any): void;
 export function fetchData(url: any, type?: string): Promise<any>;
-/**
- * Find a color that has sufficient contrast against a fixed color.
- * The luminance (in HSL color space) of the base color is adjusted
- * until the contrast ratio between the base color and the fixed color
- * is at least the minimum contrast ratio required by WCAG 2.1.
- * @param {Array<number>} baseColor
- * @param {Array<number>} fixedColor
- * @returns {string}
- */
-export function findContrastColor(baseColor: Array<number>, fixedColor: Array<number>): string;
 export function getColorValues(colors: any): void;
 export function getCurrentTransform(ctx: any): any[];
 export function getCurrentTransformInverse(ctx: any): any[];
@@ -35,12 +78,17 @@ export function getFilenameFromUrl(url: string): string;
  * @returns {string} Guessed PDF filename.
  */
 export function getPdfFilenameFromUrl(url: string, defaultFilename?: string): string;
-export function getRGB(color: any): any[];
-export function getRGBA(color: any): any[] | null;
+export function getRGB(color: any): any;
+/**
+ * NOTE: This is (mostly) intended to support printing of XFA forms.
+ */
+export function getXfaPageViewport(xfaPage: any, { scale, rotation }: {
+    scale?: number | undefined;
+    rotation?: number | undefined;
+}): PageViewport;
 export function isDataScheme(url: any): boolean;
 export function isPdfFile(filename: any): boolean;
 export function isValidFetchUrl(url: any, baseUrl: any): boolean;
-export function makePathFromDrawOPS(data: any): Path2D;
 /**
  * Event handler to suppress context menu.
  */
@@ -49,8 +97,6 @@ export function noContextMenu(e: any): void;
  * Scale factors for the canvas, necessary with HiDPI displays.
  */
 export class OutputScale {
-    static get pixelRatio(): number;
-    static capPixels(maxPixels: any, capAreaFactor: any): any;
     /**
      * @type {number} Horizontal scale.
      */
@@ -63,19 +109,95 @@ export class OutputScale {
      * @type {boolean} Returns `true` when scaling is required, `false` otherwise.
      */
     get scaled(): boolean;
-    /**
-     * @type {boolean} Returns `true` when scaling is symmetric,
-     *   `false` otherwise.
-     */
     get symmetric(): boolean;
+}
+/**
+ * @typedef {Object} PageViewportParameters
+ * @property {Array<number>} viewBox - The xMin, yMin, xMax and
+ *   yMax coordinates.
+ * @property {number} userUnit - The size of units.
+ * @property {number} scale - The scale of the viewport.
+ * @property {number} rotation - The rotation, in degrees, of the viewport.
+ * @property {number} [offsetX] - The horizontal, i.e. x-axis, offset. The
+ *   default value is `0`.
+ * @property {number} [offsetY] - The vertical, i.e. y-axis, offset. The
+ *   default value is `0`.
+ * @property {boolean} [dontFlip] - If true, the y-axis will not be flipped.
+ *   The default value is `false`.
+ */
+/**
+ * @typedef {Object} PageViewportCloneParameters
+ * @property {number} [scale] - The scale, overriding the one in the cloned
+ *   viewport. The default value is `this.scale`.
+ * @property {number} [rotation] - The rotation, in degrees, overriding the one
+ *   in the cloned viewport. The default value is `this.rotation`.
+ * @property {number} [offsetX] - The horizontal, i.e. x-axis, offset.
+ *   The default value is `this.offsetX`.
+ * @property {number} [offsetY] - The vertical, i.e. y-axis, offset.
+ *   The default value is `this.offsetY`.
+ * @property {boolean} [dontFlip] - If true, the x-axis will not be flipped.
+ *   The default value is `false`.
+ */
+/**
+ * PDF page viewport created based on scale, rotation and offset.
+ */
+export class PageViewport {
     /**
-     * @returns {boolean} Returns `true` if scaling was limited,
-     *   `false` otherwise.
+     * @param {PageViewportParameters}
      */
-    limitCanvas(width: any, height: any, maxPixels: any, maxDim: any, capAreaFactor?: number): boolean;
+    constructor({ viewBox, userUnit, scale, rotation, offsetX, offsetY, dontFlip, }: PageViewportParameters);
+    viewBox: number[];
+    userUnit: number;
+    scale: number;
+    rotation: number;
+    offsetX: number;
+    offsetY: number;
+    transform: number[];
+    width: number;
+    height: number;
+    /**
+     * The original, un-scaled, viewport dimensions.
+     * @type {Object}
+     */
+    get rawDims(): Object;
+    /**
+     * Clones viewport, with optional additional properties.
+     * @param {PageViewportCloneParameters} [params]
+     * @returns {PageViewport} Cloned viewport.
+     */
+    clone({ scale, rotation, offsetX, offsetY, dontFlip, }?: PageViewportCloneParameters): PageViewport;
+    /**
+     * Converts PDF point to the viewport coordinates. For examples, useful for
+     * converting PDF location into canvas pixel coordinates.
+     * @param {number} x - The x-coordinate.
+     * @param {number} y - The y-coordinate.
+     * @returns {Array} Array containing `x`- and `y`-coordinates of the
+     *   point in the viewport coordinate space.
+     * @see {@link convertToPdfPoint}
+     * @see {@link convertToViewportRectangle}
+     */
+    convertToViewportPoint(x: number, y: number): any[];
+    /**
+     * Converts PDF rectangle to the viewport coordinates.
+     * @param {Array} rect - The xMin, yMin, xMax and yMax coordinates.
+     * @returns {Array} Array containing corresponding coordinates of the
+     *   rectangle in the viewport coordinate space.
+     * @see {@link convertToViewportPoint}
+     */
+    convertToViewportRectangle(rect: any[]): any[];
+    /**
+     * Converts viewport coordinates to the PDF location. For examples, useful
+     * for converting canvas pixel location into PDF one.
+     * @param {number} x - The x-coordinate.
+     * @param {number} y - The y-coordinate.
+     * @returns {Array} Array containing `x`- and `y`-coordinates of the
+     *   point in the PDF coordinate space.
+     * @see {@link convertToViewportPoint}
+     */
+    convertToPdfPoint(x: number, y: number): any[];
 }
 export class PDFDateString {
-    static #regex: any;
+    static "__#2@#regex": any;
     /**
      * Convert a PDF date string to a JavaScript `Date` object.
      *
@@ -105,11 +227,6 @@ export class RenderingCancelledException extends RenderingCancelledException_bas
     constructor(msg: any, extraDelay?: number);
     extraDelay: number;
 }
-export function renderRichText({ html, dir, className }: {
-    html: any;
-    dir: any;
-    className: any;
-}, container: any): void;
 /**
  * @param {HTMLDivElement} div
  * @param {PageViewport} viewport
@@ -118,13 +235,12 @@ export function renderRichText({ html, dir, className }: {
  */
 export function setLayerDimensions(div: HTMLDivElement, viewport: PageViewport, mustFlip?: boolean, mustRotate?: boolean): void;
 export class StatTimer {
+    started: any;
     times: any[];
     time(name: any): void;
     timeEnd(name: any): void;
     toString(): string;
-    #private;
 }
 export function stopEvent(e: any): void;
-export const SupportedImageMimeTypes: string[];
-import { PageViewport } from "./page_viewport.js";
+export const SVG_NS: "http://www.w3.org/2000/svg";
 export {};

@@ -14,7 +14,6 @@ from classroom.models import (
     Classroom,
     ClassEnrollment,
     Module,
-    ModuleAnswerSection,
     ModuleSubmission,
     SubmissionExtraPage,
     GradeItem,
@@ -24,8 +23,6 @@ from classroom.models import (
     Announcement,
     ActivitySubmission,
     ClassPost,
-    SectionResponse,
-    SectionQuestion,
 )
 
 
@@ -169,6 +166,81 @@ class ModuleSubmissionFlowTests(TestCase):
         module.refresh_from_db()
         self.assertEqual(module.status, Module.Status.PUBLISHED)
 
+    def test_late_module_stays_downloadable_when_teacher_allows_late_work(self):
+        self.module.due_at = timezone.now() - timedelta(days=1)
+        self.module.allow_late = True
+        self.module.save(update_fields=["due_at", "allow_late"])
+
+        self.client.force_login(self.student_user)
+        page = self.client.get(
+            reverse("classroom:class_page", args=[self.classroom.pk])
+            + "?tab=modules"
+        )
+        row = next(
+            item for item in page.context["rows"]
+            if item["module"].pk == self.module.pk
+        )
+        self.assertTrue(row["can_download"])
+        self.assertEqual(page.headers["Cache-Control"], "no-store")
+
+        download = self.client.get(
+            reverse("classroom:module_offline_data", args=[self.module.pk])
+        )
+        self.assertEqual(download.status_code, 200)
+
+    def test_returned_module_can_be_downloaded_for_revision(self):
+        ModuleSubmission.objects.create(
+            module=self.module,
+            student=self.student,
+            status=ModuleSubmission.Status.RETURNED,
+        )
+        self.client.force_login(self.student_user)
+
+        download = self.client.get(
+            reverse("classroom:module_offline_data", args=[self.module.pk])
+        )
+
+        self.assertEqual(download.status_code, 200)
+
+    def test_teacher_can_edit_module_details_without_replacing_pdf(self):
+        self.client.force_login(self.teacher_user)
+        response = self.client.post(
+            reverse("classroom:module_edit", args=[self.module.pk]),
+            {
+                "title": "Updated Module",
+                "instructions": "Updated instructions",
+                "term": Module.Term.SECOND,
+                "week": "Week 4",
+                "due_at": "",
+                "allow_late": "on",
+                "hidden_pages": "",
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("classroom:module_manage", args=[self.module.pk]),
+        )
+        self.module.refresh_from_db()
+        self.assertEqual(self.module.title, "Updated Module")
+        self.assertTrue(self.module.allow_late)
+        self.assertEqual(self.module.term, Module.Term.SECOND)
+
+    def test_teacher_can_delete_module(self):
+        self.client.force_login(self.teacher_user)
+        response = self.client.post(
+            reverse("classroom:module_delete", args=[self.module.pk])
+        )
+
+        self.assertRedirects(
+            response,
+            (
+                reverse("classroom:class_page", args=[self.classroom.pk])
+                + "?tab=modules"
+            ),
+        )
+        self.assertFalse(Module.objects.filter(pk=self.module.pk).exists())
+
     def test_student_saves_and_loads_mobile_annotations(self):
         self.client.force_login(self.student_user)
         save_url = reverse(
@@ -209,6 +281,99 @@ class ModuleSubmissionFlowTests(TestCase):
         self.assertEqual(state.json()["current_page"], 3)
         self.assertEqual(len(state.json()["annotations"]), 1)
 
+    def test_teacher_can_preview_module_draft_but_cannot_grade_it(self):
+        submission = ModuleSubmission.objects.create(
+            module=self.module,
+            student=self.student,
+            status=ModuleSubmission.Status.DRAFT,
+            annotation_data=[{
+                "id": "draft-answer-1",
+                "page": 1,
+                "tool": "type",
+                "x": 0.2,
+                "y": 0.3,
+                "text": "Work in progress",
+            }],
+            draft_saved_at=timezone.now(),
+        )
+        SubmissionExtraPage.objects.create(
+            submission=submission,
+            page_type=SubmissionExtraPage.PageType.ESSAY,
+            title="Draft reflection",
+            essay_text="My unfinished reflection",
+        )
+        self.client.force_login(self.teacher_user)
+
+        listing = self.client.get(
+            reverse("classroom:module_submissions", args=[self.module.pk])
+        )
+        self.assertEqual(listing.status_code, 200)
+        self.assertContains(listing, "In progress")
+        self.assertContains(listing, "Preview draft")
+
+        preview_url = reverse("classroom:module_review", args=[submission.pk])
+        preview = self.client.get(preview_url)
+        self.assertEqual(preview.status_code, 200)
+        self.assertContains(preview, "Read-only draft preview")
+        self.assertContains(preview, "Work in progress")
+        self.assertContains(preview, "My unfinished reflection")
+
+        denied = self.client.post(
+            preview_url,
+            {"score": "10", "feedback": "Too early"},
+        )
+        self.assertEqual(denied.status_code, 403)
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, ModuleSubmission.Status.DRAFT)
+        self.assertIsNone(submission.score)
+
+    def test_teacher_people_page_shows_only_approved_parent_link(self):
+        approved_user = User.objects.create_user(
+            email="approved-parent@example.com",
+            password="TestPass123!",
+            role=User.Role.PARENT,
+        )
+        approved_parent = Parent.objects.create(
+            user=approved_user,
+            firstname="Approved",
+            lastname="Guardian",
+            relationship=Parent.Relationship.GUARDIAN,
+        )
+        ParentStudentLink.objects.create(
+            parent=approved_parent,
+            student=self.student,
+            relationship=ParentStudentLink.Relationship.GUARDIAN,
+            status=ParentStudentLink.Status.APPROVED,
+        )
+        pending_user = User.objects.create_user(
+            email="pending-parent@example.com",
+            password="TestPass123!",
+            role=User.Role.PARENT,
+        )
+        pending_parent = Parent.objects.create(
+            user=pending_user,
+            firstname="Pending",
+            lastname="Parent",
+            relationship=Parent.Relationship.OTHER,
+        )
+        ParentStudentLink.objects.create(
+            parent=pending_parent,
+            student=self.student,
+            relationship=ParentStudentLink.Relationship.OTHER,
+            status=ParentStudentLink.Status.PENDING,
+        )
+        self.client.force_login(self.teacher_user)
+
+        response = self.client.get(
+            reverse("classroom:class_page", args=[self.classroom.pk])
+            + "?tab=people"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Approved Guardian")
+        self.assertContains(response, "approved-parent@example.com")
+        self.assertNotContains(response, "pending-parent@example.com")
+
     def test_student_creates_updates_and_deletes_extra_answer_page(self):
         self.client.force_login(self.student_user)
         create_response = self.client.post(
@@ -240,123 +405,7 @@ class ModuleSubmissionFlowTests(TestCase):
         )
         self.assertEqual(delete_response.status_code, 200)
         self.assertFalse(SubmissionExtraPage.objects.filter(pk=page_id).exists())
-
-    def test_teacher_cannot_open_student_mobile_draft_state(self):
-        ModuleSubmission.objects.create(
-            module=self.module,
-            student=self.student,
-        )
-        self.client.force_login(self.teacher_user)
-        response = self.client.get(
-            reverse("classroom:module_mobile_draft", args=[self.module.pk])
-        )
-        self.assertEqual(response.status_code, 403)
-
-    def test_teacher_can_add_sections_to_published_module_before_submission(self):
-        self.client.force_login(self.teacher_user)
-        response = self.client.get(
-            reverse("classroom:module_section_create", args=[self.module.pk])
-        )
-        self.assertEqual(response.status_code, 200)
-
-    def test_section_scores_sum_into_one_written_work_module_score(self):
-        first = ModuleAnswerSection.objects.create(
-            module=self.module,
-            title="What I Know",
-            max_score=10,
-            answer_method=ModuleAnswerSection.AnswerMethod.STRUCTURED,
-        )
-        second = ModuleAnswerSection.objects.create(
-            module=self.module,
-            title="Reflection",
-            max_score=20,
-            answer_method=ModuleAnswerSection.AnswerMethod.WRITTEN,
-            grading_component=ModuleAnswerSection.GradingComponent.PERFORMANCE_TASK,
-            include_in_grade=False,
-        )
-        submission = ModuleSubmission.objects.create(
-            module=self.module,
-            student=self.student,
-            status=ModuleSubmission.Status.SUBMITTED,
-        )
-        SectionResponse.objects.create(
-            submission=submission, section=first, is_complete=True, score=8,
-        )
-        SectionResponse.objects.create(
-            submission=submission, section=second, is_complete=True, score=17,
-        )
-
-        submission.update_total_score()
-        submission.refresh_from_db()
-        second.refresh_from_db()
-
-        self.assertEqual(self.module.total_points, 30)
-        self.assertEqual(submission.score, 25)
-        self.assertTrue(second.include_in_grade)
-        self.assertEqual(
-            second.grading_component,
-            ModuleAnswerSection.GradingComponent.WRITTEN_WORK,
-        )
-
-    def test_objective_section_is_scored_and_submitted_once(self):
-        section = ModuleAnswerSection.objects.create(
-            module=self.module, title="What I Know", max_score=2,
-            answer_method=ModuleAnswerSection.AnswerMethod.STRUCTURED,
-        )
-        question = SectionQuestion.objects.create(
-            section=section, prompt="The Earth is round.",
-            question_type=SectionQuestion.QuestionType.TRUE_FALSE,
-            correct_answer="True", points=2,
-        )
-        self.client.force_login(self.student_user)
-        response = self.client.post(
-            reverse("classroom:module_section_work", args=[section.pk]),
-            {"action": "complete", f"question_{question.pk}": "True"},
-        )
-        self.assertRedirects(response, reverse("classroom:module_work", args=[self.module.pk]))
-        response = self.client.post(reverse("classroom:module_work", args=[self.module.pk]))
-        self.assertRedirects(response, reverse("classroom:module_work", args=[self.module.pk]))
-        submission = ModuleSubmission.objects.get(module=self.module, student=self.student)
-        self.assertEqual(submission.status, ModuleSubmission.Status.GRADED)
-        self.assertEqual(submission.score, 2)
-
-        self.client.force_login(self.teacher_user)
-        editable_response = self.client.get(
-            reverse("classroom:module_section_create", args=[self.module.pk])
-        )
-        self.assertEqual(editable_response.status_code, 200)
-
-    def test_teacher_manually_grades_essay_against_section_total(self):
-        section = ModuleAnswerSection.objects.create(
-            module=self.module, title="Reflection", max_score=20,
-            answer_method=ModuleAnswerSection.AnswerMethod.WRITTEN,
-        )
-        self.client.force_login(self.student_user)
-        self.client.post(
-            reverse("classroom:module_section_work", args=[section.pk]),
-            {"action": "complete", "written_answer": "My reflection."},
-        )
-        self.client.post(reverse("classroom:module_work", args=[self.module.pk]))
-        submission = ModuleSubmission.objects.get(module=self.module, student=self.student)
-        response = submission.section_responses.get(section=section)
-        self.assertEqual(submission.status, ModuleSubmission.Status.SUBMITTED)
-
-        self.client.force_login(self.teacher_user)
-        grade_response = self.client.post(
-            reverse("classroom:module_review", args=[submission.pk]),
-            {
-                "response_id": str(response.pk),
-                f"grade-{response.pk}-score": "17",
-                f"grade-{response.pk}-feedback": "Good explanation.",
-            },
-        )
-        self.assertRedirects(
-            grade_response, reverse("classroom:module_review", args=[submission.pk])
-        )
-        submission.refresh_from_db()
-        self.assertEqual(submission.status, ModuleSubmission.Status.GRADED)
-        self.assertEqual(submission.score, 17)
-
+  
     def test_teacher_announcement_and_published_module_appear_in_stream(self):
         self.client.force_login(self.teacher_user)
         response = self.client.post(
@@ -484,6 +533,46 @@ class ModuleSubmissionFlowTests(TestCase):
         )
         self.assertIn(activity, tasks.context["review_activities"])
         self.assertContains(tasks, "Reflection Activity")
+
+    def test_teacher_can_preview_activity_draft_but_cannot_grade_it(self):
+        activity = ClassPost.objects.create(
+            classroom=self.classroom,
+            teacher=self.teacher,
+            post_type=ClassPost.PostType.ACTIVITY,
+            title="Draft Activity",
+            content="Write a response.",
+            score=10,
+            is_published=True,
+        )
+        submission = ActivitySubmission.objects.create(
+            activity=activity,
+            student=self.student,
+            method=ActivitySubmission.Method.TEXT,
+            text_response="My unfinished activity answer.",
+            status=ActivitySubmission.Status.DRAFT,
+        )
+        self.client.force_login(self.teacher_user)
+
+        detail = self.client.get(
+            reverse("classroom:activity_detail", args=[activity.pk])
+        )
+        self.assertEqual(detail.status_code, 200)
+        self.assertContains(detail, "In progress")
+
+        preview_url = reverse("classroom:activity_review", args=[submission.pk])
+        preview = self.client.get(preview_url)
+        self.assertEqual(preview.status_code, 200)
+        self.assertContains(preview, "Read-only draft preview")
+        self.assertContains(preview, "My unfinished activity answer.")
+
+        denied = self.client.post(
+            preview_url,
+            {"score": "10", "feedback": "Too early", "status": "graded"},
+        )
+        self.assertEqual(denied.status_code, 403)
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, ActivitySubmission.Status.DRAFT)
+        self.assertIsNone(submission.score)
 
 
     def test_student_generates_combined_pdf_and_teacher_grades_it(self):
@@ -650,20 +739,28 @@ class GradebookTests(TestCase):
 
     def test_gradebook_backfills_one_written_work_column_for_module(self):
         module = Module.objects.create(
-            classroom=self.classroom, title="Module 1", pdf="modules/test.pdf",
-            term=Module.Term.FIRST, status=Module.Status.PUBLISHED,
+            classroom=self.classroom,
+            title="Module 1",
+            pdf="modules/test.pdf",
+            term=Module.Term.FIRST,
+            status=Module.Status.PUBLISHED,
+            max_score=20,
         )
-        ModuleAnswerSection.objects.create(
-            module=module, title="Assessment", max_score=20,
-            answer_method=ModuleAnswerSection.AnswerMethod.STRUCTURED,
-        )
+
         self.client.force_login(self.teacher_user)
+
         response = self.client.get(
             reverse("classroom:gradebook", args=[self.classroom.pk])
         )
+
         self.assertEqual(response.status_code, 200)
+
         item = GradeItem.objects.get(module=module)
-        self.assertEqual(item.component, GradeItem.Component.WRITTEN_WORK)
+
+        self.assertEqual(
+            item.component,
+            GradeItem.Component.WRITTEN_WORK,
+        )
         self.assertEqual(item.position, 1)
         self.assertEqual(item.highest_possible_score, 20)
 
@@ -994,3 +1091,56 @@ class ClassLifecycleTests(TestCase):
             )
         )
         self.assertFalse(Classroom.objects.filter(pk=empty_class.pk).exists())
+
+    def test_teacher_can_remove_student_without_deleting_enrollment(self):
+        enrollment = ClassEnrollment.objects.get(
+            classroom=self.classroom,
+            student=self.student,
+        )
+        self.client.force_login(self.teacher_user)
+
+        response = self.client.post(
+            reverse("classroom:remove_student", args=[enrollment.pk])
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("classroom:class_page", args=[self.classroom.pk])
+            + "?tab=people",
+        )
+        enrollment.refresh_from_db()
+        self.assertEqual(enrollment.status, ClassEnrollment.Status.REJECTED)
+        self.assertIsNone(enrollment.enrolled_at)
+        self.assertTrue(
+            Notification.objects.filter(
+                recipient=self.student_user,
+                title="Removed from class",
+            ).exists()
+        )
+
+    def test_other_teacher_cannot_remove_student(self):
+        other_user = User.objects.create_user(
+            email="other.teacher@example.com",
+            password="TestPass123!",
+            role=User.Role.TEACHER,
+        )
+        Teacher.objects.create(
+            user=other_user,
+            school=self.school,
+            employee_id="T-OTHER",
+            firstname="Other",
+            lastname="Teacher",
+        )
+        enrollment = ClassEnrollment.objects.get(
+            classroom=self.classroom,
+            student=self.student,
+        )
+        self.client.force_login(other_user)
+
+        response = self.client.post(
+            reverse("classroom:remove_student", args=[enrollment.pk])
+        )
+
+        self.assertEqual(response.status_code, 404)
+        enrollment.refresh_from_db()
+        self.assertEqual(enrollment.status, ClassEnrollment.Status.APPROVED)

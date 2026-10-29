@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="North 1 District HLMS">
+  <rect width="512" height="512" rx="104" fill="#ffffff"/>
+  <circle cx="256" cy="256" r="192" fill="#eaf3ff" stroke="#0e4a92" stroke-width="22"/>
+  <circle cx="256" cy="256" r="140" fill="#075dce"/>
+  <path d="M116 256a140 140 0 0 1 280-3L256 256Z" fill="#df2935"/>
+  <text x="256" y="302" text-anchor="middle" font-family="Arial, sans-serif" font-size="128" font-weight="700" fill="#ffffff">N1</text>
+</svg>

@@ -1,6 +1,6 @@
 {% extends auth_base_template %}
 
-{% block title %}Classroom Login | District 1 LMS{% endblock %}
+ {% block title %}Classroom Login | North 1 District LMS{% endblock %}
 {% block auth_card_class %}login-auth-card{% endblock %}
 {% block visual_heading %}Teach, learn, and stay connected.{% endblock %}
 {% block visual_text %}Classroom access for Teachers, Students, and Parents.{% endblock %}
@@ -12,7 +12,7 @@
             <i class="bi bi-mortarboard-fill"></i>
         </span>
         <h1>Classroom Portal</h1>
-        <p>Sign in using your District 1 LMS account</p>
+ <p>Sign in using your North 1 District LMS account</p>
     </div>
 
     {% if form.non_field_errors %}
@@ -73,7 +73,17 @@
         </div>
 
         <div class="login-options">
-            <span></span>
+            <label class="form-check d-flex align-items-center gap-2 mb-0">
+                <input
+                    class="form-check-input mt-0"
+                    type="checkbox"
+                    name="remember_me"
+                    value="1"
+                    {% if form.remember_me.value %}checked{% endif %}
+                >
+                <span>Remember me</span>
+            </label>
+
             <span class="muted-link">Forgot password?</span>
         </div>
 
@@ -89,7 +99,7 @@
         </div>
 
         <div class="signup-prompt-content">
-            <strong>New to District 1 LMS?</strong>
+ <strong>New to North 1 District LMS?</strong>
             <p>Create an account as a Student or Parent.</p>
         </div>
 

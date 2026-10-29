@@ -10,17 +10,10 @@
 <div class="module-live">
 
     <div class="mb-4">
-        {% if request.resolver_match.url_name == "module_list" %}
-        <a href="{% url 'classroom:class_page' classroom.class_id %}"
+        <a href="{% url 'classroom:class_page' classroom.class_id %}?tab=modules"
            class="d-inline-block mb-2 text-decoration-none">
-            &larr; Back to class stream
+            &larr; Back to class modules
         </a>
-        {% else %}
-        <a href="{% url 'classroom:module_list' classroom.class_id %}"
-           class="d-inline-block mb-2 text-decoration-none">
-            &larr; Back to all modules
-        </a>
-        {% endif %}
         <div class="small text-muted">
             {{ classroom.class_name }} &middot; Academic year {{ classroom.school_year }}
         </div>

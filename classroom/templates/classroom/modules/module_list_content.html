@@ -1,113 +1,47 @@
-<div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
-    <div>
-        <h2 class="h3">Learning modules</h2>
-        <p class="text-muted mb-0">
-            Read the module and answer inside your classroom.
-        </p>
+<div class="module-library-heading">
+    <div><h2>Learning modules</h2><p>Read, answer, and keep downloaded work available on this device.</p></div>
+    <div class="module-library-actions">
+        {% if is_student %}<a href="{% url 'offline_modules' %}?class={{ classroom.pk }}" class="btn btn-outline-primary"><i class="bi bi-folder2-open me-1"></i>Downloaded modules</a>{% endif %}
+        {% if is_teacher %}<a href="{% url 'classroom:module_create' classroom.pk %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i>Add module</a>{% endif %}
     </div>
-
-    {% if is_teacher %}
-    <a href="{% url 'classroom:module_create' classroom.pk %}"
-       class="btn btn-primary align-self-start">
-        <i class="bi bi-plus-lg me-2"></i>Add module
-    </a>
-    {% endif %}
 </div>
 
-<form method="get" class="row g-2 mb-4">
+<form method="get" class="module-filter-bar" role="search">
     <input type="hidden" name="tab" value="modules">
-
-    <div class="col-sm-4">
-        <label for="term" class="visually-hidden">Term</label>
-        <select name="term" id="term" class="form-select">
-            <option value="">All terms</option>
-            <option value="1" {% if selected_term == "1" %}selected{% endif %}>Term 1</option>
-            <option value="2" {% if selected_term == "2" %}selected{% endif %}>Term 2</option>
-            <option value="3" {% if selected_term == "3" %}selected{% endif %}>Term 3</option>
-        </select>
-    </div>
-
-    <div class="col-sm">
-        <label for="search" class="visually-hidden">Search modules</label>
-        <input type="search" name="q" id="search"
-               class="form-control" value="{{ search }}"
-               placeholder="Search modules">
-    </div>
-
-    <div class="col-sm-auto">
-        <button class="btn btn-outline-primary" type="submit">Filter</button>
-    </div>
+    <label for="moduleTerm" class="visually-hidden">Filter by term</label>
+    <select name="term" id="moduleTerm" class="form-select">
+        <option value="">All terms</option>
+        <option value="1" {% if selected_term == "1" %}selected{% endif %}>Term 1</option>
+        <option value="2" {% if selected_term == "2" %}selected{% endif %}>Term 2</option>
+        <option value="3" {% if selected_term == "3" %}selected{% endif %}>Term 3</option>
+    </select>
+    <label for="moduleSearch" class="visually-hidden">Search modules</label>
+    <input type="search" name="q" id="moduleSearch" class="form-control" value="{{ search }}" placeholder="Search modules by title">
+    <button class="btn btn-outline-primary" type="submit"><i class="bi bi-search me-1"></i>Search</button>
 </form>
 
-<div class="row g-3">
-    {% for row in rows %}
-    <div class="col-md-6">
-        <article class="card h-100">
-            <div class="card-body">
-                <small class="text-primary">
-                    {{ row.module.get_term_display }}
-                </small>
-
-                <h3 class="h5 mt-2">{{ row.module.title }}</h3>
-
-                <p class="text-muted">
-                    Written Work
-                    &middot; {{ row.module.answer_sections.count }} answer section{{ row.module.answer_sections.count|pluralize }}
-                    &middot; {% if row.module.total_points %}{{ row.module.total_points }} total points{% else %}Score not set{% endif %}
-                </p>
-
-                <p class="small">
-                    Due:
-                    {{ row.module.due_at|date:"M d, Y g:i A"|default:"No deadline" }}
-                </p>
-
-                {% if is_teacher %}
-                <span class="badge text-bg-light border">
-                    {{ row.module.get_status_display }}
-                </span>
-
-                <div class="d-flex flex-wrap gap-2 mt-3">
-                    <a class="btn btn-primary"
-                       href="{% url 'classroom:module_manage' row.module.pk %}">
-                        Manage
-                    </a>
-                    <a class="btn btn-outline-primary"
-                       href="{% url 'classroom:module_submissions' row.module.pk %}">
-                        Submissions
-                    </a>
-                </div>
-                {% else %}
-                <p class="small">
-                    Status:
-                    {% if row.submission %}
-                        {{ row.submission.get_status_display }}
-                    {% else %}
-                        Not started
-                    {% endif %}
-                </p>
-
-                <a class="btn btn-primary"
-                   href="{% url 'classroom:module_work' row.module.pk %}">
-                    Open module
-                </a>
-                {% endif %}
-            </div>
-        </article>
+{% if module_active_rows %}
+<section class="module-library-section" aria-labelledby="activeModulesHeading">
+    <div class="module-section-heading">
+        <div><span class="module-section-kicker">Current work</span><h3 id="activeModulesHeading">To do and in progress</h3></div>
+        <span class="module-count">{{ module_active_rows|length }}</span>
     </div>
-    {% empty %}
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body text-center py-5">
-                <h3 class="h5">No modules found</h3>
-                <p class="text-muted mb-0">
-                    {% if is_teacher %}
-                        Add a module or change your filters.
-                    {% else %}
-                        Published modules will appear here.
-                    {% endif %}
-                </p>
-            </div>
-        </div>
+    <div class="module-compact-grid">
+        {% for row in module_active_rows %}
+            {% include "classroom/modules/_module_card.html" with row=row %}
+        {% empty %}
+        <div class="module-empty-state"><i class="bi bi-check2-circle"></i><strong>No active modules</strong><span>{% if search or selected_term %}Try another search or term.{% else %}New modules will appear here.{% endif %}</span></div>
+        {% endfor %}
     </div>
-    {% endfor %}
-</div>
+</section>
+{% endif %}
+
+{% if module_completed_rows %}
+<details class="module-completed-section" open>
+    <summary><span><i class="bi bi-check2-circle me-2"></i>Done</span><span class="module-count">{{ module_completed_rows|length }}</span></summary>
+    <p class="module-completed-help">Submitted and graded modules are kept below your current work.</p>
+    <div class="module-compact-grid">
+        {% for row in module_completed_rows %}{% include "classroom/modules/_module_card.html" with row=row %}{% endfor %}
+    </div>
+</details>
+{% endif %}

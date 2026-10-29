@@ -26,6 +26,14 @@
                 <span>AY {{ classroom.school_year }}</span>
                 <span>{{ classroom.enrollments.all|length }} enrolled/requested</span>
             </div>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+                <a class="btn btn-primary btn-sm" href="{% url 'supervisor:principal_class_detail' classroom.pk %}">
+                    <i class="bi bi-people me-1"></i> Open class
+                </a>
+                <a class="btn btn-outline-primary btn-sm" href="{% url 'supervisor:principal_class_attendance' classroom.pk %}">
+                    <i class="bi bi-calendar2-check me-1"></i> Attendance / SF2
+                </a>
+            </div>
         </article>
     </div>
     {% empty %}

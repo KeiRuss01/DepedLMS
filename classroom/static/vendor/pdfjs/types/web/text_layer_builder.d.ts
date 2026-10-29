@@ -1,6 +1,5 @@
 export type PDFPageProxy = import("../src/display/api").PDFPageProxy;
-export type PageViewport = import("../src/display/page_viewport").PageViewport;
-export type TextLayerImages = import("../src/display/text_layer_images.js").TextLayerImages;
+export type PageViewport = import("../src/display/display_utils").PageViewport;
 export type TextHighlighter = import("./text_highlighter").TextHighlighter;
 export type TextAccessibilityManager = import("./text_accessibility.js").TextAccessibilityManager;
 export type TextLayerBuilderOptions = {
@@ -11,14 +10,7 @@ export type TextLayerBuilderOptions = {
      */
     highlighter?: import("./text_highlighter").TextHighlighter | undefined;
     accessibilityManager?: import("./text_accessibility.js").TextAccessibilityManager | undefined;
-    enablePermissions?: boolean | undefined;
     onAppend?: Function | undefined;
-    abortSignal?: AbortSignal | undefined;
-};
-export type TextLayerBuilderRenderOptions = {
-    viewport: PageViewport;
-    images: TextLayerImages;
-    textContentParams?: Object | undefined;
 };
 /**
  * @typedef {Object} TextLayerBuilderOptions
@@ -26,15 +18,7 @@ export type TextLayerBuilderRenderOptions = {
  * @property {TextHighlighter} [highlighter] - Optional object that will handle
  *   highlighting text from the find controller.
  * @property {TextAccessibilityManager} [accessibilityManager]
- * @property {boolean} [enablePermissions]
  * @property {function} [onAppend]
- * @property {AbortSignal} [abortSignal]
- */
-/**
- * @typedef {Object} TextLayerBuilderRenderOptions
- * @property {PageViewport} viewport
- * @property {TextLayerImages} images
- * @property {Object} [textContentParams]
  */
 /**
  * The text layer builder provides text selection functionality for the PDF.
@@ -42,24 +26,27 @@ export type TextLayerBuilderRenderOptions = {
  * contain text that matches the PDF text they are overlaying.
  */
 export class TextLayerBuilder {
-    static #textLayers: Map<any, any>;
-    static #selectionChangeAC: null;
-    static #removeGlobalSelectionListener(textLayerDiv: any): void;
-    static #enableGlobalSelectionListener(globalAbortSignal: any): void;
-    /**
-     * @param {TextLayerBuilderOptions} options
-     */
-    constructor({ pdfPage, highlighter, accessibilityManager, enablePermissions, onAppend, abortSignal, }: TextLayerBuilderOptions);
-    pdfPage: import("../src/display/api").PDFPageProxy;
-    highlighter: import("./text_highlighter").TextHighlighter;
-    accessibilityManager: import("./text_accessibility.js").TextAccessibilityManager;
+    static "__#75@#textLayers": Map<any, any>;
+    static "__#75@#selectionChangeAbortController": null;
+    static "__#75@#removeGlobalSelectionListener"(textLayerDiv: any): void;
+    static "__#75@#enableGlobalSelectionListener"(): void;
+    constructor({ pdfPage, highlighter, accessibilityManager, enablePermissions, onAppend, }: {
+        pdfPage: any;
+        highlighter?: null | undefined;
+        accessibilityManager?: null | undefined;
+        enablePermissions?: boolean | undefined;
+        onAppend?: null | undefined;
+    });
+    pdfPage: any;
+    highlighter: any;
+    accessibilityManager: any;
     div: HTMLDivElement;
     /**
      * Renders the text layer.
-     * @param {TextLayerBuilderRenderOptions} options
-     * @returns {Promise<void>}
+     * @param {PageViewport} viewport
+     * @param {Object} [textContentParams]
      */
-    render({ viewport, images, textContentParams }: TextLayerBuilderRenderOptions): Promise<void>;
+    render(viewport: PageViewport, textContentParams?: Object): Promise<void>;
     hide(): void;
     show(): void;
     /**

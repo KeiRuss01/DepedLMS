@@ -112,18 +112,44 @@ def _page_overlay(page_width, page_height, annotations):
 
         elif tool == "highlight":
             pdf.saveState()
-            if hasattr(pdf, "setFillAlpha"):
-                pdf.setFillAlpha(min(max(_number(annotation.get("opacity"), 0.35), 0.05), 1))
-            pdf.setFillColor(_color(annotation.get("color"), "#ffe066"))
-            pdf.rect(
-                x,
-                page_height - top_y - height,
-                width,
-                height,
-                stroke=0,
-                fill=1,
-            )
-            pdf.restoreState()
+            try:
+                # Set the color before applying transparency because
+                # ReportLab may reset the alpha when the color changes.
+                pdf.setFillColor(
+                    _color(
+                        annotation.get("color"),
+                        "#ffe066",
+                    )
+                )
+
+                opacity = min(
+                    max(
+                        _number(
+                            annotation.get("opacity"),
+                            0.35,
+                        ),
+                        0.05,
+                    ),
+                    0.60,
+                )
+
+                if hasattr(pdf, "setFillAlpha"):
+                    pdf.setFillAlpha(opacity)
+
+                # Multiply preserves dark PDF text below the highlight.
+                if hasattr(pdf, "setBlendMode"):
+                    pdf.setBlendMode("Multiply")
+
+                pdf.rect(
+                    x,
+                    page_height - top_y - height,
+                    width,
+                    height,
+                    stroke=0,
+                    fill=1,
+                )
+            finally:
+                pdf.restoreState()
 
     pdf.save()
     output.seek(0)
@@ -339,11 +365,18 @@ def build_final_submission_pdf(submission):
                 if not extra_page.uploaded_file:
                     continue
                 file_bytes = _field_bytes(extra_page.uploaded_file)
-                extension = Path(extra_page.original_name).suffix.lower()
+                extension = Path(
+                    extra_page.original_name or extra_page.uploaded_file.name
+                ).suffix.lower()
                 if extension == ".pdf":
                     _append_reader(writer, BytesIO(file_bytes))
                 elif extension in {".jpg", ".jpeg", ".png"}:
                     _append_reader(writer, _image_pdf(extra_page, file_bytes))
+                else:
+                    raise ValidationError(
+                        f'The uploaded answer page "{extra_page.title}" '
+                        "is not a supported PDF or image file."
+                    )
 
         output = BytesIO()
         writer.write(output)

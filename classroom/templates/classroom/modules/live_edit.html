@@ -1,0 +1,52 @@
+{% extends "classroom/modules/live_base.html" %}
+
+{% block title %}Edit {{ module.title }}{% endblock %}
+
+{% block module_content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+    <div>
+        <h1 class="h3 mb-1">Edit module</h1>
+        <p class="text-muted mb-0">
+            Update the title, instructions, term, deadline, late-submission rule,
+            or replace the PDF.
+        </p>
+    </div>
+    <a class="btn btn-outline-secondary"
+       href="{% url 'classroom:module_manage' module.pk %}">
+        Cancel
+    </a>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="card">
+    {% csrf_token %}
+
+    <div class="card-body">
+        {{ form.non_field_errors }}
+
+        <div class="row g-3">
+            {% for field in form %}
+            <div class="{% if field.name == 'instructions' %}col-12{% else %}col-md-6{% endif %}">
+                <label class="form-label" for="{{ field.id_for_label }}">
+                    {{ field.label }}
+                </label>
+                {{ field }}
+                {% if field.help_text %}
+                    <div class="form-text">{{ field.help_text }}</div>
+                {% endif %}
+                <div class="text-danger small">{{ field.errors }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="d-flex gap-2 mt-4">
+            <button class="btn btn-primary" type="submit">
+                <i class="bi bi-check-lg me-1"></i>Save changes
+            </button>
+            <a class="btn btn-outline-secondary"
+               href="{% url 'classroom:module_manage' module.pk %}">
+                Cancel
+            </a>
+        </div>
+    </div>
+</form>
+{% endblock %}

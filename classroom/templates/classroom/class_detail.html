@@ -1,7 +1,7 @@
 {% extends "classroom/master.html" %}
 
 {% block title %}
-    {{ classroom.class_name }} | District 1 Classroom
+ {{ classroom.class_name }} | North 1 District Classroom
 {% endblock %}
 
 {% block content %}
@@ -14,7 +14,7 @@
     <a href="{% url 'classroom:classes' %}"
        class="back-link mb-0">
         <i class="bi bi-arrow-left"></i>
-        Back to Dashboard
+        Back to Classes
     </a>
 
     {% if classroom.is_archived %}

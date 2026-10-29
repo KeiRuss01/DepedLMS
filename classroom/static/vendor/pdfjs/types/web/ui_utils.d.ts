@@ -173,7 +173,7 @@ export function isValidRotation(angle: any): boolean;
 export function isValidScrollMode(mode: any): boolean;
 export function isValidSpreadMode(mode: any): boolean;
 export const MAX_AUTO_SCALE: 1.25;
-export const MAX_SCALE: 25;
+export const MAX_SCALE: 10;
 export const MIN_SCALE: 0.1;
 export function normalizeWheelEventDelta(evt: any): number;
 export function normalizeWheelEventDirection(evt: any): number;
@@ -204,6 +204,12 @@ export class ProgressBar {
  * @param {boolean} [replaceInvisible]
  */
 export function removeNullCharacters(str: string, replaceInvisible?: boolean): string;
+export namespace RenderingStates {
+    let INITIAL: number;
+    let RUNNING: number;
+    let PAUSED: number;
+    let FINISHED: number;
+}
 export const SCROLLBAR_PADDING: 40;
 /**
  * Scrolls specified element into view of its parent.
@@ -212,11 +218,14 @@ export const SCROLLBAR_PADDING: 40;
  *   specifying the offset from the top left edge.
  * @param {number} [spot.left]
  * @param {number} [spot.top]
+ * @param {boolean} [scrollMatches] - When scrolling search results into view,
+ *   ignore elements that either: Contains marked content identifiers,
+ *   or have the CSS-rule `overflow: hidden;` set. The default value is `false`.
  */
 export function scrollIntoView(element: HTMLElement, spot?: {
     left?: number | undefined;
     top?: number | undefined;
-}): void;
+}, scrollMatches?: boolean): void;
 export namespace ScrollMode {
     let UNKNOWN_1: number;
     export { UNKNOWN_1 as UNKNOWN };
@@ -249,7 +258,6 @@ export namespace TextLayerMode {
 }
 export function toggleCheckedBtn(button: any, toggle: any, view?: null): void;
 export function toggleExpandedBtn(button: any, toggle: any, view?: null): void;
-export function toggleSelectedBtn(button: any, toggle: any, view?: null): void;
 export const UNKNOWN_SCALE: 0;
 export const VERTICAL_PADDING: 5;
 /**
@@ -261,4 +269,5 @@ export function watchScroll(viewAreaElement: any, callback: any, abortSignal?: u
     down: boolean;
     lastX: any;
     lastY: any;
+    _eventHandler: (evt: any) => void;
 };
