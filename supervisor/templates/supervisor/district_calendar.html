@@ -162,7 +162,35 @@
 
                     {% for field in event_form %}
                         <div class="calendar-form-field">
-                            {% if field.field.widget.input_type == "checkbox" %}
+                            {% if field.name == "target_schools" %}
+                                <label>{{ field.label }}</label>
+
+                                <details
+                                    class="school-dropdown"
+                                    id="target-schools-dropdown"
+                                >
+                                    <summary
+                                        class="form-select"
+                                        id="target-schools-summary"
+                                    >
+                                        Select target schools
+                                    </summary>
+
+                                    <div class="school-dropdown-menu">
+                                        <input
+                                            type="search"
+                                            id="target-school-search"
+                                            class="form-control mb-2"
+                                            placeholder="Search schools..."
+                                            autocomplete="off"
+                                        >
+
+                                        <div id="target-school-options">
+                                            {{ field }}
+                                        </div>
+                                    </div>
+                                </details>
+                            {% elif field.field.widget.input_type == "checkbox" %}
                                 <div class="form-check">
                                     {{ field }}
                                     <label
@@ -265,4 +293,138 @@
     </div>
 </section>
 {% endblock %}
-{% block extra_js %}<script src="{% static 'js/calendar-all-day.js' %}?v=1"></script>{% endblock %}
+{% block extra_js %}
+<style>
+    .school-dropdown {
+        position: relative;
+    }
+
+    .school-dropdown > summary {
+        cursor: pointer;
+        list-style: none;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+    }
+
+    .school-dropdown > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .school-dropdown-menu {
+        margin-top: 0.4rem;
+        padding: 0.8rem;
+        max-height: 310px;
+        overflow-y: auto;
+        border: 1px solid #ced4da;
+        border-radius: 0.5rem;
+        background: var(--bs-body-bg, #fff);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.12);
+    }
+
+    #target-school-options > div {
+        padding: 0.35rem 0;
+    }
+
+    #target-school-options label {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        cursor: pointer;
+    }
+</style>
+
+<script src="{% static 'js/calendar-all-day.js' %}?v=1"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const dropdown = document.getElementById(
+            "target-schools-dropdown"
+        );
+        const summary = document.getElementById(
+            "target-schools-summary"
+        );
+        const search = document.getElementById(
+            "target-school-search"
+        );
+        const allSchools = document.getElementById(
+            "id_applies_to_all_schools"
+        );
+
+        if (!dropdown || !summary) {
+            return;
+        }
+
+        const schoolInputs = Array.from(
+            dropdown.querySelectorAll(
+                'input[name="target_schools"]'
+            )
+        );
+
+        function updateSummary() {
+            const selected = schoolInputs.filter(
+                input => input.checked
+            );
+
+            if (selected.length === 0) {
+                summary.textContent = "Select target schools";
+            } else if (selected.length === 1) {
+                const label = selected[0].closest("label");
+                summary.textContent = label
+                    ? label.textContent.trim()
+                    : "1 school selected";
+            } else {
+                summary.textContent =
+                    `${selected.length} schools selected`;
+            }
+        }
+
+        function updateAvailability() {
+            const appliesToAll = Boolean(
+                allSchools && allSchools.checked
+            );
+
+            dropdown.hidden = appliesToAll;
+
+            schoolInputs.forEach(input => {
+                input.disabled = appliesToAll;
+            });
+        }
+
+        schoolInputs.forEach(input => {
+            input.addEventListener("change", updateSummary);
+        });
+
+        if (search) {
+            search.addEventListener("input", () => {
+                const query = search.value
+                    .trim()
+                    .toLowerCase();
+
+                schoolInputs.forEach(input => {
+                    const label = input.closest("label");
+                    const row = label
+                        ? label.parentElement
+                        : null;
+                    const schoolName = label
+                        ? label.textContent.trim().toLowerCase()
+                        : "";
+
+                    if (row) {
+                        row.hidden = !schoolName.includes(query);
+                    }
+                });
+            });
+        }
+
+        if (allSchools) {
+            allSchools.addEventListener(
+                "change",
+                updateAvailability
+            );
+        }
+
+        updateSummary();
+        updateAvailability();
+    });
+</script>
+{% endblock %}
