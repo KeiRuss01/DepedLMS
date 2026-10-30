@@ -4,7 +4,7 @@
 {% block title %}Attendance | {{ classroom.class_name }}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'classroom/css/attendance.css' %}?v=1">
+<link rel="stylesheet" href="{% static 'classroom/css/attendance.css' %}?v=2">
 {% endblock %}
 
 {% block content %}
@@ -110,7 +110,15 @@
 
         <div class="daily-table-wrap" id="studentAttendanceFields">
             <table class="daily-attendance-table">
-                <thead><tr><th>#</th><th>Learner</th><th>Status</th><th>Remarks</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Learner</th>
+                        <th>Status</th>
+                        <th>Remarks</th>
+                        <th>Record status</th>
+                    </tr>
+                </thead>
                 <tbody>
                     {% for row in daily_rows %}
                     <tr>
@@ -120,8 +128,24 @@
                             {% for value, label in status_choices %}<option value="{{ value }}" {% if row.record and row.record.status == value or not row.record and value == 'present' %}selected{% endif %}>{{ label }}</option>{% endfor %}
                         </select></td>
                         <td><input class="form-control" name="remarks_{{ row.student.pk }}" maxlength="200" value="{{ row.record.remarks|default:'' }}" placeholder="Optional"></td>
+                        <td class="attendance-record-state">
+                            {% if row.record %}
+                                <span class="attendance-recorded-badge">
+                                    <i class="bi bi-check-circle-fill"></i>
+                                    Recorded
+                                </span>
+                                <small>
+                                    Updated {{ row.record.recorded_at|date:"M d, Y g:i A" }}
+                                </small>
+                            {% else %}
+                                <span class="attendance-unrecorded-badge">
+                                    <i class="bi bi-circle"></i>
+                                    Not recorded
+                                </span>
+                            {% endif %}
+                        </td>
                     </tr>
-                    {% empty %}<tr><td colspan="4" class="attendance-empty">No approved Students are enrolled in this Class.</td></tr>{% endfor %}
+                    {% empty %}<tr><td colspan="5" class="attendance-empty">No approved Students are enrolled in this Class.</td></tr>{% endfor %}
                 </tbody>
             </table>
         </div>
