@@ -22,6 +22,7 @@ async function startMobileModuleEditor(editor) {
     const annotationContext = annotationCanvas.getContext("2d");
 
     const stage = document.getElementById("mobilePdfStage");
+    const pdfPage = document.getElementById("mobilePdfPage");
     const pageLabels = [
         document.getElementById("mobilePdfPageLabel"),
         document.getElementById("mobilePdfPageLabelBottom"),
@@ -34,6 +35,10 @@ async function startMobileModuleEditor(editor) {
         document.getElementById("mobilePdfNext"),
         document.getElementById("mobilePdfNextBottom"),
     ].filter(Boolean);
+    const zoomOutButton = document.getElementById("mobilePdfZoomOut");
+    const zoomInButton = document.getElementById("mobilePdfZoomIn");
+    const zoomFitButton = document.getElementById("mobilePdfZoomFit");
+    const zoomLabel = document.getElementById("mobilePdfZoomLabel");
     const errorBox = document.getElementById("mobilePdfError");
     const draftStatus = document.getElementById("mobileDraftStatus");
     const undoButton = document.getElementById("mobileUndo");
@@ -49,6 +54,9 @@ async function startMobileModuleEditor(editor) {
     let activePointer = null;
     let previewAnnotation = null;
     let rendering = false;
+    let renderQueued = false;
+    const zoomLevels = [0.75, 1, 1.25, 1.5, 2];
+    let zoomIndex = 1;
     let saveTimer = null;
     let saving = false;
     let saveAgain = false;
@@ -688,13 +696,24 @@ async function startMobileModuleEditor(editor) {
 
     function updateNavigation() {
         previousButtons.forEach((button) => {
-            button.disabled = !pdfDocument || currentPage <= 1;
+            button.disabled =
+                rendering || !pdfDocument || currentPage <= 1;
         });
 
         nextButtons.forEach((button) => {
             button.disabled =
-                !pdfDocument || currentPage >= pdfDocument.numPages;
+                rendering ||
+                !pdfDocument ||
+                currentPage >= pdfDocument.numPages;
         });
+
+        zoomOutButton.disabled = rendering || zoomIndex === 0;
+        zoomInButton.disabled =
+            rendering || zoomIndex === zoomLevels.length - 1;
+        zoomFitButton.disabled = rendering || zoomIndex === 1;
+
+        zoomLabel.textContent =
+            `${Math.round(zoomLevels[zoomIndex] * 100)}%`;
     }
 
     function setPageLabel(message) {
@@ -713,19 +732,41 @@ async function startMobileModuleEditor(editor) {
             pdfDocument.numPages
         );
 
-        await renderCurrentPage();
+        await renderCurrentPage({ animate: true, resetScroll: true });
 
         if (editable) {
             scheduleAnnotationSave();
         }
     }
 
-    async function renderCurrentPage() {
-        if (!pdfDocument || rendering) {
+    async function renderCurrentPage(options = {}) {
+        const {
+            animate = false,
+            resetScroll = false,
+        } = options;
+
+        if (!pdfDocument) {
+            return;
+        }
+
+        if (rendering) {
+            renderQueued = true;
             return;
         }
 
         rendering = true;
+        updateNavigation();
+        stage.setAttribute("aria-busy", "true");
+
+        if (animate) {
+            pdfPage.classList.add("is-page-changing");
+
+            await new Promise((resolve) => {
+                window.requestAnimationFrame(() => {
+                    window.requestAnimationFrame(resolve);
+                });
+            });
+        }
 
         try {
             const page = await pdfDocument.getPage(currentPage);
@@ -737,7 +778,8 @@ async function startMobileModuleEditor(editor) {
             );
 
             const scale =
-                availableWidth / originalViewport.width;
+                (availableWidth / originalViewport.width) *
+                zoomLevels[zoomIndex];
 
             const viewport = page.getViewport({ scale });
 
@@ -784,6 +826,15 @@ async function startMobileModuleEditor(editor) {
             );
 
             drawAnnotations();
+
+            if (resetScroll) {
+                stage.scrollTo({
+                    top: 0,
+                    left: 0,
+                    behavior: "smooth",
+                });
+            }
+
             updateNavigation();
             clearError();
         } catch (error) {
@@ -792,7 +843,33 @@ async function startMobileModuleEditor(editor) {
             );
         } finally {
             rendering = false;
+            stage.setAttribute("aria-busy", "false");
+
+            window.requestAnimationFrame(() => {
+                pdfPage.classList.remove("is-page-changing");
+            });
+
+            updateNavigation();
+
+            if (renderQueued) {
+                renderQueued = false;
+                renderCurrentPage();
+            }
         }
+    }
+
+    async function changeZoom(newZoomIndex) {
+        const nextZoomIndex = Math.min(
+            Math.max(newZoomIndex, 0),
+            zoomLevels.length - 1
+        );
+
+        if (nextZoomIndex === zoomIndex || rendering) {
+            return;
+        }
+
+        zoomIndex = nextZoomIndex;
+        await renderCurrentPage({ animate: true });
     }
 
     function normalizedPointer(event, canvas = annotationCanvas) {
@@ -2320,6 +2397,18 @@ async function startMobileModuleEditor(editor) {
         button.addEventListener("click", () => {
             changePage(currentPage + 1);
         });
+    });
+
+    zoomOutButton.addEventListener("click", () => {
+        changeZoom(zoomIndex - 1);
+    });
+
+    zoomInButton.addEventListener("click", () => {
+        changeZoom(zoomIndex + 1);
+    });
+
+    zoomFitButton.addEventListener("click", () => {
+        changeZoom(1);
     });
 
     initializeToolButtons();

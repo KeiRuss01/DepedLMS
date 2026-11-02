@@ -104,6 +104,37 @@
         </button>
     </nav>
 
+    <div class="mobile-zoom-navigation" aria-label="PDF zoom controls">
+        <button
+            id="mobilePdfZoomOut"
+            type="button"
+            class="mobile-zoom-button"
+            aria-label="Zoom out"
+        >
+            <i class="bi bi-dash-lg"></i>
+        </button>
+
+        <strong id="mobilePdfZoomLabel" aria-live="polite">100%</strong>
+
+        <button
+            id="mobilePdfZoomIn"
+            type="button"
+            class="mobile-zoom-button"
+            aria-label="Zoom in"
+        >
+            <i class="bi bi-plus-lg"></i>
+        </button>
+
+        <button
+            id="mobilePdfZoomFit"
+            type="button"
+            class="mobile-zoom-fit-button"
+        >
+            <i class="bi bi-arrows-angle-contract"></i>
+            Fit
+        </button>
+    </div>
+
     {% if can_edit %}
     <section class="mobile-action-sheet">
         <div class="mobile-action-handle"></div>
