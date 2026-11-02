@@ -67,6 +67,11 @@
         text-align: center;
     }
 
+    .mobile-page-navigation-bottom {
+        border-top: 1px solid #dce4ef;
+        border-bottom: 0;
+    }
+
     .mobile-page-button {
         width: 44px;
         height: 44px;

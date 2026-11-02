@@ -22,9 +22,18 @@ async function startMobileModuleEditor(editor) {
     const annotationContext = annotationCanvas.getContext("2d");
 
     const stage = document.getElementById("mobilePdfStage");
-    const pageLabel = document.getElementById("mobilePdfPageLabel");
-    const previousButton = document.getElementById("mobilePdfPrevious");
-    const nextButton = document.getElementById("mobilePdfNext");
+    const pageLabels = [
+        document.getElementById("mobilePdfPageLabel"),
+        document.getElementById("mobilePdfPageLabelBottom"),
+    ].filter(Boolean);
+    const previousButtons = [
+        document.getElementById("mobilePdfPrevious"),
+        document.getElementById("mobilePdfPreviousBottom"),
+    ].filter(Boolean);
+    const nextButtons = [
+        document.getElementById("mobilePdfNext"),
+        document.getElementById("mobilePdfNextBottom"),
+    ].filter(Boolean);
     const errorBox = document.getElementById("mobilePdfError");
     const draftStatus = document.getElementById("mobileDraftStatus");
     const undoButton = document.getElementById("mobileUndo");
@@ -678,12 +687,20 @@ async function startMobileModuleEditor(editor) {
     }
 
     function updateNavigation() {
-        previousButton.disabled =
-            !pdfDocument || currentPage <= 1;
+        previousButtons.forEach((button) => {
+            button.disabled = !pdfDocument || currentPage <= 1;
+        });
 
-        nextButton.disabled =
-            !pdfDocument ||
-            currentPage >= pdfDocument.numPages;
+        nextButtons.forEach((button) => {
+            button.disabled =
+                !pdfDocument || currentPage >= pdfDocument.numPages;
+        });
+    }
+
+    function setPageLabel(message) {
+        pageLabels.forEach((label) => {
+            label.textContent = message;
+        });
     }
 
     async function changePage(newPage) {
@@ -762,8 +779,9 @@ async function startMobileModuleEditor(editor) {
                 ],
             }).promise;
 
-            pageLabel.textContent =
-                `Page ${currentPage} of ${pdfDocument.numPages}`;
+            setPageLabel(
+                `Page ${currentPage} of ${pdfDocument.numPages}`
+            );
 
             drawAnnotations();
             updateNavigation();
@@ -2292,12 +2310,16 @@ async function startMobileModuleEditor(editor) {
         );
     }
 
-    previousButton.addEventListener("click", () => {
-        changePage(currentPage - 1);
+    previousButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            changePage(currentPage - 1);
+        });
     });
 
-    nextButton.addEventListener("click", () => {
-        changePage(currentPage + 1);
+    nextButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+            changePage(currentPage + 1);
+        });
     });
 
     initializeToolButtons();
@@ -2310,7 +2332,7 @@ async function startMobileModuleEditor(editor) {
         try {
             await prepareModuleStorage();
         } catch (error) {
-            pageLabel.textContent = "Module unavailable";
+            setPageLabel("Module unavailable");
             showError(error.message);
             return;
         }
@@ -2416,7 +2438,7 @@ async function startMobileModuleEditor(editor) {
 
         await renderCurrentPage();
     } catch (error) {
-        pageLabel.textContent = "PDF unavailable";
+        setPageLabel("PDF unavailable");
 
         console.error("PDF.js Module loading failed:", error);
 
