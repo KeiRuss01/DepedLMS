@@ -1,4 +1,4 @@
-const CACHE_VERSION = "n1-hlms-shell-v32";
+const CACHE_VERSION = "n1-hlms-shell-v33";
 const OFFLINE_URL = "/offline/";
 const OFFLINE_MODULES_URL = "/offline/modules/";
 
@@ -20,8 +20,8 @@ const APP_SHELL = [
     "/offline/modules/editor/",
     "/static/vendor/bootstrap-icons/font/bootstrap-icons.min.css",
     "/static/vendor/bootstrap-icons/font/fonts/bootstrap-icons.woff2",
-    "/static/classroom/css/mobile_module_editor.css?v=20261102-3",
-    "/static/classroom/js/mobile_module_editor.js?v=local-first-15",
+    "/static/classroom/css/mobile_module_editor.css?v=20261102-4",
+    "/static/classroom/js/mobile_module_editor.js?v=local-first-16",
     "/static/pwa/js/device-registry.js?v=2",
     "/static/classroom/js/offline-attendance-roster.js?v=2",
     "/offline/attendance/",

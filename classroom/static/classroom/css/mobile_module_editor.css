@@ -87,44 +87,6 @@
         background: #f1f3f5;
     }
 
-    .mobile-zoom-navigation {
-        display: grid;
-        grid-template-columns: 44px minmax(56px, 1fr) 44px 76px;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.55rem 0.75rem 0.7rem;
-        background: #ffffff;
-        border-top: 1px solid #edf0f5;
-    }
-
-    .mobile-zoom-navigation strong {
-        text-align: center;
-        font-size: 0.9rem;
-    }
-
-    .mobile-zoom-button,
-    .mobile-zoom-fit-button {
-        min-height: 44px;
-        color: #0d6efd;
-        background: #ffffff;
-        border: 1px solid #cfd8e6;
-        border-radius: 12px;
-        font-weight: 600;
-    }
-
-    .mobile-zoom-fit-button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.35rem;
-    }
-
-    .mobile-zoom-button:disabled,
-    .mobile-zoom-fit-button:disabled {
-        color: #a0a8b5;
-        background: #f1f3f5;
-    }
-
     .mobile-pdf-stage {
         position: relative;
         max-height: 56vh;
