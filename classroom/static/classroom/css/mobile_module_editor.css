@@ -94,7 +94,28 @@
         padding: 0.75rem;
         overflow: auto;
         background: #9ba1a8;
+        scrollbar-color: #315b91 #d8dde4;
+        scrollbar-width: auto;
         touch-action: pan-x pan-y;
+    }
+
+    .mobile-pdf-stage::-webkit-scrollbar {
+        width: 14px;
+        height: 14px;
+    }
+
+    .mobile-pdf-stage::-webkit-scrollbar-track {
+        background: #d8dde4;
+    }
+
+    .mobile-pdf-stage::-webkit-scrollbar-thumb {
+        background: #315b91;
+        border: 3px solid #d8dde4;
+        border-radius: 999px;
+    }
+
+    .mobile-pdf-stage::-webkit-scrollbar-thumb:hover {
+        background: #244b7d;
     }
 
     .mobile-pdf-page {
@@ -132,6 +153,11 @@
         display: block;
         cursor: crosshair;
         touch-action: none;
+    }
+
+    #mobileAnnotationCanvas.allows-page-scroll {
+        cursor: text;
+        touch-action: pan-x pan-y;
     }
 
     .mobile-save-status.is-saving {

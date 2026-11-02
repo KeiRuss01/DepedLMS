@@ -1165,38 +1165,56 @@ async function startMobileModuleEditor(editor) {
         }
     }
 
+    function addTypedAnswer(point) {
+        const answer = window.prompt(
+            "Enter your answer:"
+        );
+
+        if (answer && answer.trim()) {
+            addAnnotation({
+                id: createId(),
+                page: currentPage,
+                tool: "type",
+                x: point.x,
+                y: point.y,
+                width: 0.3,
+                height: 0.05,
+                size: DEFAULT_PDF_TEXT_SIZE,
+                color: "#0b57d0",
+                text: answer.trim(),
+            });
+        }
+    }
+
+    function updateAnnotationTouchMode() {
+        annotationCanvas.classList.toggle(
+            "allows-page-scroll",
+            activeTool === "type"
+        );
+    }
+
     function handlePointerDown(event) {
         if (!editable) {
             return;
         }
 
-        event.preventDefault();
-        annotationCanvas.setPointerCapture(event.pointerId);
-
         const point = normalizedPointer(event);
 
         if (activeTool === "type") {
-            const answer = window.prompt(
-                "Enter your answer:"
-            );
-
-            if (answer && answer.trim()) {
-                addAnnotation({
-                    id: createId(),
-                    page: currentPage,
-                    tool: "type",
-                    x: point.x,
-                    y: point.y,
-                    width: 0.3,
-                    height: 0.05,
-                    size: DEFAULT_PDF_TEXT_SIZE,
-                    color: "#0b57d0",
-                    text: answer.trim(),
-                });
-            }
+            activePointer = {
+                pointerId: event.pointerId,
+                start: point,
+                startClientX: event.clientX,
+                startClientY: event.clientY,
+                mode: "type-tap",
+                moved: false,
+            };
 
             return;
         }
+
+        event.preventDefault();
+        annotationCanvas.setPointerCapture(event.pointerId);
 
         if (activeTool === "check") {
             addAnnotation({
@@ -1290,6 +1308,19 @@ async function startMobileModuleEditor(editor) {
             return;
         }
 
+        if (activePointer.mode === "type-tap") {
+            const distance = Math.hypot(
+                event.clientX - activePointer.startClientX,
+                event.clientY - activePointer.startClientY
+            );
+
+            if (distance > 8) {
+                activePointer.moved = true;
+            }
+
+            return;
+        }
+
         event.preventDefault();
 
         const point = normalizedPointer(event);
@@ -1365,6 +1396,20 @@ async function startMobileModuleEditor(editor) {
             return;
         }
 
+        if (activePointer.mode === "type-tap") {
+            const typedPointer = activePointer;
+            activePointer = null;
+
+            if (
+                event.type !== "pointercancel" &&
+                !typedPointer.moved
+            ) {
+                addTypedAnswer(typedPointer.start);
+            }
+
+            return;
+        }
+
         event.preventDefault();
 
         if (activePointer.mode === "move") {
@@ -1416,7 +1461,7 @@ async function startMobileModuleEditor(editor) {
         );
 
         const instructions = {
-            type: "Tap the answer space where your text should appear.",
+            type: "Swipe to scroll. Tap the answer space to add text.",
             draw: "Drag your finger over the Module to draw.",
             check: "Tap the location where you want a check mark.",
             circle: "Drag around the answer you want to mark.",
@@ -1428,6 +1473,7 @@ async function startMobileModuleEditor(editor) {
         buttons.forEach((button) => {
             button.addEventListener("click", () => {
                 activeTool = button.dataset.mobileTool;
+                updateAnnotationTouchMode();
 
                 buttons.forEach((otherButton) => {
                     const selected = otherButton === button;
@@ -1447,6 +1493,8 @@ async function startMobileModuleEditor(editor) {
                     instructions[activeTool];
             });
         });
+
+        updateAnnotationTouchMode();
 
         undoButton?.addEventListener("click", () => {
             const previousAnnotations = undoHistory.pop();
