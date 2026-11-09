@@ -61,27 +61,9 @@
                         </a>
                         {% endif %}
                     {% else %}
-                    <div class="dropdown">
-                        <button class="btn btn-primary login-btn dropdown-toggle" type="button"
-                                data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-person me-2" aria-hidden="true"></i> Login
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end login-portal-menu">
-                            <li>
-                                <a class="dropdown-item d-flex gap-3" href="{% url 'supervisor:login' %}">
-                                    <i class="bi bi-shield-lock fs-5 text-primary"></i>
-                                    <span><strong class="d-block">Administration Portal</strong><small class="text-muted">Supervisor and Principal</small></span>
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <a class="dropdown-item d-flex gap-3" href="{% url 'accounts:login' %}">
-                                    <i class="bi bi-mortarboard fs-5 text-primary"></i>
-                                    <span><strong class="d-block">Classroom Portal</strong><small class="text-muted">Teacher, Student, and Parent</small></span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
+                    <a class="btn btn-primary login-btn" href="{% url 'accounts:login' %}">
+                        <i class="bi bi-mortarboard me-2" aria-hidden="true"></i> Classroom Login
+                    </a>
                     {% endif %}
                 </div>
             </div>
