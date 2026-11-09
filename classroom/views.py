@@ -48,6 +48,46 @@ from .models import (
 )
 from .module_validators import validate_answer_file
 
+
+def _student_enrollment_conflict(student, classroom, exclude_enrollment_id=None):
+    """Return a message when a student is assigned to another grade/section
+    in the same school year.
+
+    Students may join multiple subject classrooms, but all active classrooms
+    in one school year must use the same grade level and section.
+    """
+    active_statuses = [
+        ClassEnrollment.Status.APPROVED,
+        ClassEnrollment.Status.PENDING_STUDENT,
+        ClassEnrollment.Status.PENDING_TEACHER,
+    ]
+    enrollments = ClassEnrollment.objects.filter(
+        student=student,
+        status__in=active_statuses,
+        classroom__school_year=classroom.school_year,
+    ).select_related("classroom")
+
+    if exclude_enrollment_id is not None:
+        enrollments = enrollments.exclude(
+            enrollment_id=exclude_enrollment_id
+        )
+
+    conflict = enrollments.exclude(
+        classroom__grade_level=classroom.grade_level,
+        classroom__section=classroom.section,
+    ).first()
+
+    if conflict:
+        return (
+            "This student is already assigned to "
+            f"{conflict.classroom.grade_level}, "
+            f"{conflict.classroom.section} for school year "
+            f"{classroom.school_year}. Students may join another subject "
+            "only when the grade level and section are the same."
+        )
+
+    return ""
+
 from .module_forms import (
     ModuleCreateForm,
     ModuleEditForm,
@@ -847,6 +887,14 @@ def invite_student_view(request, classroom_id):
             classroom_id=classroom.class_id,
         )
 
+    conflict_message = _student_enrollment_conflict(student, classroom)
+    if conflict_message:
+        messages.error(request, conflict_message)
+        return redirect(
+            "classroom:class_detail",
+            classroom_id=classroom.class_id,
+        )
+
     enrollment = ClassEnrollment.objects.filter(
         classroom=classroom,
         student=student,
@@ -940,6 +988,18 @@ def join_class_view(request):
             )
 
         else:
+            conflict_message = _student_enrollment_conflict(
+                student,
+                classroom,
+            )
+            if conflict_message:
+                form.add_error("class_code", conflict_message)
+                return render(
+                    request,
+                    "classroom/join_class.html",
+                    {"form": form},
+                )
+
             enrollment = ClassEnrollment.objects.filter(
                 classroom=classroom,
                 student=student,
@@ -1035,6 +1095,15 @@ def respond_to_invitation_view(request, enrollment_id, action):
     )
 
     if action == "accept":
+        conflict_message = _student_enrollment_conflict(
+            student,
+            enrollment.classroom,
+            exclude_enrollment_id=enrollment.enrollment_id,
+        )
+        if conflict_message:
+            messages.error(request, conflict_message)
+            return redirect("classroom:dashboard")
+
         enrollment.status = ClassEnrollment.Status.APPROVED
         enrollment.enrolled_at = timezone.now()
         enrollment.save(
@@ -1080,6 +1149,18 @@ def respond_to_join_request_view(request, enrollment_id, action):
     )
 
     if action == "approve":
+        conflict_message = _student_enrollment_conflict(
+            enrollment.student,
+            enrollment.classroom,
+            exclude_enrollment_id=enrollment.enrollment_id,
+        )
+        if conflict_message:
+            messages.error(request, conflict_message)
+            return redirect(
+                "classroom:class_detail",
+                classroom_id=enrollment.classroom_id,
+            )
+
         enrollment.status = ClassEnrollment.Status.APPROVED
         enrollment.enrolled_at = timezone.now()
         enrollment.save(

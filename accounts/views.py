@@ -140,34 +140,42 @@ def profile_view(request):
             .select_related("classroom")
         )
 
-        grade_levels = list(
+        # A student can have several subject classrooms, but the profile
+        # should show only the current school year's grade and section.
+        current_school_year = (
             approved_enrollments
-            .values_list(
-                "classroom__grade_level",
-                flat=True,
-            )
+            .values_list("classroom__school_year", flat=True)
+            .distinct()
+            .order_by("-classroom__school_year")
+            .first()
+        )
+
+        current_enrollments = approved_enrollments.filter(
+            classroom__school_year=current_school_year,
+        ) if current_school_year else approved_enrollments.none()
+
+        grade_levels = list(
+            current_enrollments
+            .values_list("classroom__grade_level", flat=True)
             .distinct()
             .order_by("classroom__grade_level")
         )
 
         sections = list(
-            approved_enrollments
-            .values_list(
-                "classroom__section",
-                flat=True,
-            )
+            current_enrollments
+            .values_list("classroom__section", flat=True)
             .distinct()
             .order_by("classroom__section")
         )
 
         student_grade_level = (
-            ", ".join(grade_levels)
+            grade_levels[0]
             if grade_levels
             else "Not assigned"
         )
 
         student_section = (
-            ", ".join(sections)
+            sections[0]
             if sections
             else "Not assigned"
         )
