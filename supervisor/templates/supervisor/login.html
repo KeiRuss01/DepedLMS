@@ -37,6 +37,35 @@
             font-weight: 800;
             margin-bottom: 1rem;
         }
+        .sv-password-field {
+            position: relative;
+        }
+        .sv-password-field input {
+            padding-right: 3rem;
+        }
+        .sv-password-toggle {
+            position: absolute;
+            top: 50%;
+            right: .75rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            background: transparent;
+            color: #64748b;
+            transform: translateY(-50%);
+            cursor: pointer;
+        }
+        .sv-password-toggle:hover,
+        .sv-password-toggle:focus-visible {
+            background: #eef4ff;
+            color: var(--royal);
+            outline: none;
+        }
     </style>
 </head>
 <body class="sv-login-body">
@@ -65,7 +94,19 @@
             </div>
             <div class="mb-3">
                 <label class="form-label" for="{{ form.password.id_for_label }}">Password</label>
-                {{ form.password }}
+                <div class="sv-password-field">
+                    {{ form.password }}
+                    <button
+                        class="sv-password-toggle"
+                        type="button"
+                        data-password-toggle
+                        data-target="{{ form.password.id_for_label }}"
+                        aria-label="Show password"
+                        aria-pressed="false"
+                    >
+                        <i class="bi bi-eye" aria-hidden="true"></i>
+                    </button>
+                </div>
             </div>
             <div class="form-check mb-3">
                 {{ form.remember_me }}
@@ -87,5 +128,19 @@
         </p>
     </div>
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <script>
+        document.querySelectorAll("[data-password-toggle]").forEach((toggle) => {
+            const input = document.getElementById(toggle.dataset.target);
+            if (!input) return;
+
+            toggle.addEventListener("click", () => {
+                const isVisible = input.type === "text";
+                input.type = isVisible ? "password" : "text";
+                toggle.setAttribute("aria-pressed", String(!isVisible));
+                toggle.setAttribute("aria-label", isVisible ? "Show password" : "Hide password");
+                toggle.innerHTML = `<i class="bi bi-eye${isVisible ? "" : "-slash"}" aria-hidden="true"></i>`;
+            });
+        });
+    </script>
 </body>
 </html>
