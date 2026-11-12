@@ -2,7 +2,7 @@
     "use strict";
     const params = new URLSearchParams(location.search);
     const classId = Number(params.get("class"));
-    const term = String(params.get("term") || "1");
+    let term = String(params.get("term") || "1");
     const table = document.getElementById("offlineGradeTable");
     const head = document.getElementById("gradeTableHead");
     const body = document.getElementById("gradeTableBody");
@@ -14,6 +14,7 @@
     const activityForm = document.getElementById("offlineActivityForm");
     const activityModal = document.getElementById("offlineActivityModal");
     const activityError = document.getElementById("offlineActivityError");
+    const termSwitcher = document.getElementById("termSwitcher");
 
     function status() {
         connection.textContent = navigator.onLine ? "Online" : "Offline";
@@ -21,6 +22,12 @@
     }
     function show(text, type="info") { message.textContent = text; message.className = `alert alert-${type}`; }
     function localId(itemId, studentId) { return `grade:${classId}:${term}:${itemId}:${studentId}`; }
+
+    function updateTermButtons() {
+        termSwitcher?.querySelectorAll("[data-term]").forEach((button) => {
+            button.classList.toggle("active", button.dataset.term === term);
+        });
+    }
 
     async function queueSync() {
         const queue = await N1OfflineDB.getAll("offline_queue");
@@ -88,6 +95,7 @@
         if (!cachedClass || !items.length || !students.length) { table.hidden = true; empty.hidden = false; show("Download this term’s gradebook while online first.", "warning"); return; }
         document.getElementById("pageTitle").textContent = `${cachedClass.class_name} — Term ${term}`;
         document.getElementById("pageDescription").textContent = `${cachedClass.subject || ""} · ${students.length} learners`;
+        updateTermButtons();
         addButton.hidden = Boolean(cachedClass.gradebook_locked);
         head.innerHTML = `<tr><th class="student-name">Learner</th>${items.map((item) => `<th>${item.title}${item.offline_pending ? " <small>(pending)</small>" : ""}<br><small>${item.component_label || item.component} · ${item.highest_possible_score} pts</small></th>`).join("")}</tr>`;
         body.innerHTML = "";
@@ -109,6 +117,14 @@
         finally { syncButton.disabled = false; }
     }
     syncButton.addEventListener("click", sync);
+    termSwitcher?.querySelectorAll("[data-term]").forEach((button) => button.addEventListener("click", () => {
+        term = String(button.dataset.term);
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set("term", term);
+        window.history.replaceState({}, "", nextUrl);
+        updateTermButtons();
+        render().catch((error) => { console.error(error); show("The selected term could not be opened.", "danger"); });
+    }));
     addButton?.addEventListener("click", () => {
         activityError.hidden = true;
         if (window.bootstrap?.Modal) {
@@ -116,7 +132,7 @@
         }
     });
     activityForm?.addEventListener("submit", addActivity);
-    addEventListener("online", status); addEventListener("offline", status); status();
+    addEventListener("online", status); addEventListener("offline", status); status(); updateTermButtons();
     addEventListener("n1:grade-sync", (event) => { if (Number(event.detail?.classId) === classId && String(event.detail?.term) === term) render(); });
     render().catch((error) => { console.error(error); show("The offline gradebook could not be opened.", "danger"); });
 })();

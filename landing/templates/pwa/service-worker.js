@@ -6,7 +6,7 @@ const APP_SHELL = [
     "/static/accounts/js/appearance.js?v=1",
     "/static/accounts/css/appearance.css?v=1",
     OFFLINE_URL,
-    "/static/pwa/js/offline-home.js?v=4",
+    "/static/pwa/js/offline-home.js?v=5",
     OFFLINE_MODULES_URL,
     "/static/vendor/bootstrap/css/bootstrap.min.css",
     "/static/vendor/bootstrap/js/bootstrap.bundle.min.js",
@@ -28,7 +28,7 @@ const APP_SHELL = [
     "/static/pwa/js/offline-attendance-entry.js?v=3",
     "/static/pwa/js/offline-attendance-sync.js?v=1",
     "/offline/grades/",
-    "/static/pwa/js/offline-gradebook.js?v=3",
+    "/static/pwa/js/offline-gradebook.js?v=4",
     "/static/pwa/js/offline-grade-sync.js?v=2",
     "/static/classroom/js/offline-gradebook-download.js?v=3",
 ];
