@@ -2,7 +2,11 @@ import re
 
 from django import forms
 from django.contrib.auth import authenticate
-from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
+from django.contrib.auth.forms import (
+    PasswordChangeForm,
+    PasswordResetForm,
+    SetPasswordForm,
+)
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -79,6 +83,20 @@ class AccountPasswordResetForm(PasswordResetForm):
             for user in active_users
             if user.has_usable_password()
         )
+
+
+class AccountSetPasswordForm(SetPasswordForm):
+    """Styled password fields for the password-reset confirmation page."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.update(
+                {
+                    "class": "form-control",
+                    "autocomplete": "new-password",
+                }
+            )
 
 
 class AccountSignupForm(forms.Form):
