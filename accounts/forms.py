@@ -2,7 +2,7 @@ import re
 
 from django import forms
 from django.contrib.auth import authenticate
-from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib.auth.forms import PasswordChangeForm, PasswordResetForm
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -64,6 +64,21 @@ class AccountLoginForm(forms.Form):
 
     def get_user(self):
         return self.user_cache
+
+
+class AccountPasswordResetForm(PasswordResetForm):
+    """Password-reset form compatible with the custom status-based user."""
+
+    def get_users(self, email):
+        active_users = User._default_manager.filter(
+            email__iexact=email,
+            status=User.Status.ACTIVE,
+        )
+        return (
+            user
+            for user in active_users
+            if user.has_usable_password()
+        )
 
 
 class AccountSignupForm(forms.Form):

@@ -15,6 +15,8 @@ from django.shortcuts import (
     render,
 )
 from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.cache import never_cache
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.urls import reverse
 from django.utils import timezone
 
@@ -29,6 +31,8 @@ from .models import Notification, User, UserPreference
 from django.http import JsonResponse
 
 
+@never_cache
+@ensure_csrf_cookie
 def login_view(request):
     classroom_roles = {
         User.Role.TEACHER,
