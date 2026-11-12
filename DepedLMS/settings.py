@@ -196,6 +196,28 @@ PRIVATE_LEARNING_ROOT = Path(
     os.getenv("PRIVATE_LEARNING_ROOT", BASE_DIR.parent / "DepedLMS-private")
 )
 
+# Email verification. Configure the SMTP credentials in .env; the default
+# backend is intentionally SMTP so verification also works in production.
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in {
+    "1", "true", "yes"
+}
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+DEFAULT_FROM_EMAIL = os.getenv(
+    "DEFAULT_FROM_EMAIL",
+    EMAIL_HOST_USER,
+)
+SITE_URL = os.getenv("SITE_URL", "http://127.0.0.1:8000")
+EMAIL_VERIFICATION_TIMEOUT = int(
+    os.getenv("EMAIL_VERIFICATION_TIMEOUT", "86400")
+)
+
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
 
 # PythonAnywhere and other HTTPS reverse proxies terminate TLS before Django.

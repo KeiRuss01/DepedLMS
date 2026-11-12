@@ -15,6 +15,16 @@ urlpatterns = [
         views.profile_view,
         name="profile",
     ),
+    path(
+        "verify-email/send/",
+        views.send_email_verification,
+        name="send_email_verification",
+    ),
+    path(
+        "verify-email/<str:token>/",
+        views.verify_email,
+        name="verify_email",
+    ),
 
     path(
         "settings/",

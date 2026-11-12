@@ -45,6 +45,15 @@
 
 <body class="classroom-body">
 
+    {% if request.user.is_authenticated and not request.user.email_verified and request.user.role == "student" or request.user.is_authenticated and not request.user.email_verified and request.user.role == "parent" %}
+        <div class="container-fluid classroom-container">
+            <div class="alert alert-warning d-flex align-items-center justify-content-between gap-3 mt-3 mb-0" role="status">
+                <span><i class="bi bi-envelope-exclamation me-2"></i>Please verify your email address from your profile.</span>
+                <a class="btn btn-sm btn-outline-dark" href="{% url 'accounts:profile' %}">Open profile</a>
+            </div>
+        </div>
+    {% endif %}
+
     <!-- Desktop and tablet header -->
     <header class="classroom-header">
         <div class="container-fluid classroom-container">

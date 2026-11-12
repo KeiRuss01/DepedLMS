@@ -123,12 +123,26 @@
                         <div class="account-field">
                             <div class="field-heading">
                                 <label>Email address</label>
-                                <span>Official record</span>
+                                {% if request.user.email_verified %}
+                                    <span class="text-success">Verified</span>
+                                {% else %}
+                                    <span class="text-warning">Not verified</span>
+                                {% endif %}
                             </div>
 
                             <div class="readonly-field">
                                 {{ request.user.email }}
                             </div>
+
+                            {% if not request.user.email_verified %}
+                                <button
+                                    type="submit"
+                                    form="emailVerificationForm"
+                                    class="account-secondary-button"
+                                >
+                                    Send verification email
+                                </button>
+                            {% endif %}
                         </div>
 
                         <div class="account-field">
@@ -296,6 +310,16 @@
             </div>
 
         </form>
+
+        {% if not request.user.email_verified %}
+            <form
+                id="emailVerificationForm"
+                method="post"
+                action="{% url 'accounts:send_email_verification' %}"
+            >
+                {% csrf_token %}
+            </form>
+        {% endif %}
     </section>
 </div>
 {% endblock %}

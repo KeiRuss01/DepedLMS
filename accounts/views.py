@@ -5,6 +5,10 @@ from django.contrib.auth import (
     update_session_auth_hash,
 )
 from django.contrib.auth.decorators import login_required
+from django.core import signing
+from django.core.mail import send_mail
+from django.conf import settings
+from django.core.signing import BadSignature, SignatureExpired
 from django.shortcuts import (
     get_object_or_404,
     redirect,
@@ -127,6 +131,13 @@ def profile_view(request):
     student_grade_level = ""
     student_section = ""
     student_class_warning = False
+    context = {
+        "profile": profile,
+        "profile_form": form,
+        "student_grade_level": student_grade_level,
+        "student_section": student_section,
+        "student_class_warning": student_class_warning,
+    }
 
     if user.role == User.Role.STUDENT and profile:
         from classroom.models import ClassEnrollment
@@ -185,19 +196,86 @@ def profile_view(request):
             or len(sections) > 1
         )
 
-        context = {
-            "profile": profile,
-            "profile_form": form,
-            "student_grade_level": student_grade_level,
-            "student_section": student_section,
-            "student_class_warning": student_class_warning,
-        }
-
     return render(
         request,
         "accounts/profile.html",
         context,
     )
+
+
+@login_required(login_url="accounts:login")
+@require_POST
+def send_email_verification(request):
+    user = request.user
+
+    if user.email_verified:
+        messages.info(request, "Your email address is already verified.")
+        return redirect("accounts:profile")
+
+    token = signing.dumps(
+        {"user_id": user.pk, "email": user.email},
+        salt="accounts.email-verification",
+    )
+    verify_path = reverse(
+        "accounts:verify_email",
+        kwargs={"token": token},
+    )
+    verify_url = f"{settings.SITE_URL.rstrip('/')}{verify_path}"
+
+    try:
+        send_mail(
+            "Verify your North 1 District LMS email",
+            (
+                f"Hello {user.full_name},\n\n"
+                "Please verify your email address by opening this link:\n"
+                f"{verify_url}\n\n"
+                "This link expires in 24 hours."
+            ),
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+    except Exception:
+        messages.error(
+            request,
+            "The verification email could not be sent. Please try again later.",
+        )
+    else:
+        messages.success(
+            request,
+            "A verification link was sent to your email address.",
+        )
+
+    return redirect("accounts:profile")
+
+
+def verify_email(request, token):
+    try:
+        payload = signing.loads(
+            token,
+            salt="accounts.email-verification",
+            max_age=settings.EMAIL_VERIFICATION_TIMEOUT,
+        )
+        user = User.objects.get(
+            pk=payload["user_id"],
+            email__iexact=payload["email"],
+        )
+    except (BadSignature, SignatureExpired, KeyError, User.DoesNotExist):
+        messages.error(
+            request,
+            "That verification link is invalid or has expired.",
+        )
+        return redirect("accounts:login")
+
+    if not user.email_verified:
+        user.email_verified = True
+        user.email_verified_at = timezone.now()
+        user.save(update_fields=["email_verified", "email_verified_at"])
+
+    messages.success(request, "Your email address has been verified.")
+    if request.user.is_authenticated and request.user.pk == user.pk:
+        return redirect("accounts:profile")
+    return redirect("accounts:login")
 
 @login_required(login_url="accounts:login")
 def settings_view(request):

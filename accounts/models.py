@@ -111,6 +111,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     user_id = models.AutoField(primary_key=True)
     email = models.EmailField("email address", max_length=100, unique=True)
+    email_verified = models.BooleanField(default=False)
+    email_verified_at = models.DateTimeField(blank=True, null=True)
     # NOTE: `password` field (max_length=128) is provided by AbstractBaseUser.
     role = models.CharField(max_length=20, choices=Role.choices)
     phone_number = models.CharField(max_length=11, blank=True, null=True)
