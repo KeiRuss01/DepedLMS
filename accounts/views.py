@@ -435,12 +435,11 @@ def mark_all_notifications_read_view(request):
 @login_required(login_url="accounts:login")
 @require_GET
 def notification_status_view(request):
-    preference, created = UserPreference.objects.get_or_create(
-        user=request.user
-    )
-
     notifications = request.user.notifications.all()
-    latest_notification = notifications.first()
+    latest_notification = (
+        notifications.filter(is_read=False).first()
+        or notifications.first()
+    )
 
     response_data = {
         "unread_count": notifications.filter(
@@ -449,8 +448,6 @@ def notification_status_view(request):
         "latest_id": None,
         "latest_title": "",
         "latest_message": "",
-        "sound_enabled": preference.sound_enabled,
-        "vibration_enabled": preference.vibration_enabled,
     }
 
     if latest_notification:

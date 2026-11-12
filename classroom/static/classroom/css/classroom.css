@@ -23,21 +23,31 @@ body.classroom-body {
     font-family: Arial, Helvetica, sans-serif;
 }
 
+.classroom-main {
+    animation: classroom-page-enter .18s ease-out both;
+}
+
+@keyframes classroom-page-enter {
+    from { opacity: .72; transform: translateY(3px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .classroom-container {
     max-width: 1380px;
     margin: 0 auto;
 }
 
 .verification-reminder-wrap {
-    padding-top: 14px;
+    padding-top: 8px;
+    padding-bottom: 8px;
 }
 
 .verification-reminder {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 18px;
-    padding: 12px 16px;
+    gap: 12px;
+    padding: 8px 10px;
     border: 1px solid #cfe0f7;
     border-radius: 12px;
     background: #f4f8ff;
@@ -53,12 +63,12 @@ body.classroom-body {
 
 .verification-reminder-icon {
     display: grid;
-    width: 34px;
-    height: 34px;
-    flex: 0 0 34px;
+    width: 28px;
+    height: 28px;
+    flex: 0 0 28px;
     place-items: center;
     color: #075fd3;
-    border-radius: 9px;
+    border-radius: 7px;
     background: #e1edff;
 }
 
@@ -69,13 +79,20 @@ body.classroom-body {
 
 .verification-reminder-copy strong {
     color: #102448;
-    font-size: .86rem;
+    font-size: .78rem;
 }
 
 .verification-reminder-copy small {
     margin-top: 2px;
     color: #63738d;
-    font-size: .74rem;
+    font-size: .68rem;
+}
+
+.verification-reminder-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
 }
 
 .verification-reminder-action {
@@ -83,7 +100,7 @@ body.classroom-body {
     align-items: center;
     gap: 7px;
     flex: 0 0 auto;
-    padding: 8px 12px;
+    padding: 6px 9px;
     color: #075fd3;
     font-size: .76rem;
     font-weight: 700;
@@ -99,6 +116,22 @@ body.classroom-body {
     background: #075fd3;
 }
 
+.verification-reminder-dismiss {
+    display: inline-grid;
+    width: 26px;
+    height: 26px;
+    place-items: center;
+    color: #63738d;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+}
+
+.verification-reminder-dismiss:hover {
+    color: #102448;
+    background: #e5edf9;
+}
+
 @media (max-width: 600px) {
     .verification-reminder {
         align-items: stretch;
@@ -106,10 +139,10 @@ body.classroom-body {
         gap: 10px;
     }
 
-    .verification-reminder-action {
-        justify-content: center;
-    }
+    .verification-reminder-actions { align-self: flex-end; }
 }
+
+html { scroll-behavior: smooth; }
 
 /* Header */
 

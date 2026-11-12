@@ -123,29 +123,19 @@
                         <div class="account-field">
                             <div class="field-heading">
                                 <label>Email address</label>
+                                <span>Email used for account recovery</span>
+                            </div>
+
+                            <div class="email-display-row {% if request.user.email_verified %}is-verified{% endif %}">
+                                <div class="readonly-field">{{ request.user.email }}</div>
                                 {% if request.user.email_verified %}
-                                    <span class="text-success">Verified</span>
+                                    <span class="email-inline-status verified"><i class="bi bi-check-circle-fill"></i> Verified</span>
                                 {% else %}
-                                    <span class="text-warning">Not verified</span>
+                                    <button type="submit" form="emailVerificationForm" class="email-inline-status verify-button">
+                                        <i class="bi bi-shield-check"></i> Verify email
+                                    </button>
                                 {% endif %}
                             </div>
-
-                            <div class="readonly-field">
-                                {{ request.user.email }}
-                            </div>
-
-                            {% if not request.user.email_verified %}
-                                <div class="email-verification-action">
-                                    <span><i class="bi bi-shield-exclamation"></i> Email not verified</span>
-                                    <button
-                                        type="submit"
-                                        form="emailVerificationForm"
-                                        class="email-verification-button"
-                                    >
-                                        Send verification email
-                                    </button>
-                                </div>
-                            {% endif %}
                         </div>
 
                         <div class="account-field">

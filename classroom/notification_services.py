@@ -569,7 +569,7 @@ def notify_join_request(enrollment):
         return 0
 
     target_url = reverse(
-        "classroom:class_detail",
+        "classroom:class_page",
         args=[enrollment.classroom_id],
     )
 
@@ -580,6 +580,28 @@ def notify_join_request(enrollment):
         message=(
             f"{enrollment.student} requested to join "
             f"{enrollment.classroom.class_name}."
+        ),
+        target_url=target_url,
+    )
+    return int(created)
+
+
+def notify_enrollment_status(enrollment):
+    """Notify a learner when a teacher accepts or rejects a join request."""
+    student_user = enrollment.student.user
+    approved = enrollment.status == ClassEnrollment.Status.APPROVED
+    target_url = reverse(
+        "classroom:class_page",
+        args=[enrollment.classroom_id],
+    )
+    created = _create_notification(
+        user=student_user,
+        notification_type=Notification.Type.GENERAL,
+        title=("Class enrollment approved" if approved else "Class enrollment update"),
+        message=(
+            f"Your request to join {enrollment.classroom.class_name} was approved."
+            if approved
+            else f"Your request to join {enrollment.classroom.class_name} was not approved."
         ),
         target_url=target_url,
     )

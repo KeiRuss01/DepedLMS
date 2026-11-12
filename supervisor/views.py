@@ -1,5 +1,6 @@
 from django.contrib.auth import login as auth_login
 from django.contrib.auth import logout as auth_logout
+from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
@@ -1162,6 +1163,24 @@ def teacher_create_view(request):
 
 
 @login_required(login_url="supervisor:login")
+@require_POST
+def teacher_reset_password_view(request, teacher_id):
+    """Allow a Principal to set a Teacher's temporary password."""
+    teacher = get_object_or_404(Teacher.objects.select_related("user", "school"), pk=teacher_id)
+    principal = getattr(request.user, "principal_profile", None)
+    if not (_is_supervisor(request.user) or (principal and principal.school_id == teacher.school_id)):
+        messages.error(request, "You do not have permission to reset this Teacher's password.")
+        return _administration_redirect(request.user)
+    form = SetPasswordForm(teacher.user, request.POST)
+    if form.is_valid():
+        form.save()
+        messages.success(request, f"Password reset successfully for {teacher.firstname} {teacher.lastname}.")
+    else:
+        messages.error(request, "The new passwords did not match or were invalid.")
+    return redirect("supervisor:teacher_detail", teacher_id=teacher.pk)
+
+
+@login_required(login_url="supervisor:login")
 def principal_list_view(request):
     if not _is_supervisor(request.user):
         messages.error(request, "Only the District Supervisor can manage Principal accounts.")
@@ -1218,6 +1237,23 @@ def principal_detail_view(request, principal_id):
             "announcement_count": SchoolAnnouncement.objects.filter(school=school).count(),
         },
     )
+
+
+@login_required(login_url="supervisor:login")
+@require_POST
+def principal_reset_password_view(request, principal_id):
+    """Allow the District Supervisor to set a Principal's temporary password."""
+    if not _is_supervisor(request.user):
+        messages.error(request, "Only the District Supervisor can reset Principal passwords.")
+        return _administration_redirect(request.user)
+    principal = get_object_or_404(Principal.objects.select_related("user"), pk=principal_id)
+    form = SetPasswordForm(principal.user, request.POST)
+    if form.is_valid():
+        form.save()
+        messages.success(request, f"Password reset successfully for {principal.firstname} {principal.lastname}.")
+    else:
+        messages.error(request, "The new passwords did not match or were invalid.")
+    return redirect("supervisor:principal_detail", principal_id=principal.pk)
 
 
 @login_required(login_url="supervisor:login")

@@ -26,7 +26,7 @@
 
     <!-- Classroom design -->
     <link rel="stylesheet"
-          href="{% static 'classroom/css/classroom.css' %}?v=3">
+          href="{% static 'classroom/css/classroom.css' %}?v=4">
 
     <link rel="stylesheet"
           href="{% static 'accounts/css/user-preferences.css' %}">
@@ -44,23 +44,6 @@
 </head>
 
 <body class="classroom-body">
-
-    {% if request.user.is_authenticated and not request.user.email_verified and request.user.role == "student" or request.user.is_authenticated and not request.user.email_verified and request.user.role == "parent" %}
-        <div class="container-fluid classroom-container verification-reminder-wrap">
-            <div class="verification-reminder" role="status">
-                <div class="verification-reminder-copy">
-                    <span class="verification-reminder-icon"><i class="bi bi-shield-exclamation"></i></span>
-                    <span>
-                        <strong>Email verification recommended</strong>
-                        <small>Verify your email to make account recovery easier.</small>
-                    </span>
-                </div>
-                <a class="verification-reminder-action" href="{% url 'accounts:profile' %}">
-                    Verify email <i class="bi bi-arrow-right"></i>
-                </a>
-            </div>
-        </div>
-    {% endif %}
 
     <!-- Desktop and tablet header -->
     <header class="classroom-header">
@@ -350,6 +333,28 @@
         </div>
     </header>
 
+    {% if request.user.is_authenticated and not request.user.email_verified and request.user.role in "student,parent" %}
+        <div class="container-fluid classroom-container verification-reminder-wrap">
+            <div class="verification-reminder" role="status" data-verification-reminder>
+                <div class="verification-reminder-copy">
+                    <span class="verification-reminder-icon"><i class="bi bi-shield-exclamation"></i></span>
+                    <span>
+                        <strong>Verify your email</strong>
+                        <small>Helps with account recovery.</small>
+                    </span>
+                </div>
+                <div class="verification-reminder-actions">
+                    <a class="verification-reminder-action" href="{% url 'accounts:profile' %}">
+                        Verify <i class="bi bi-arrow-right"></i>
+                    </a>
+                    <button type="button" class="verification-reminder-dismiss" data-dismiss-verification aria-label="Dismiss email verification reminder">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
     {% if messaging_enabled %}
     <aside class="message-floating-panel" id="messageFloatingPanel" hidden aria-label="Messages panel">
         <div class="message-panel-list" id="messagePanelList">
@@ -482,7 +487,15 @@
 
     <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
     <script src="{% static 'pwa/js/pwa-register.js' %}" defer></script>
-    <script src="{% static 'accounts/js/notification-bell.js' %}"></script>
+    <script src="{% static 'accounts/js/notification-bell.js' %}?v=2"></script>
+    <script>
+        document.querySelectorAll("[data-dismiss-verification]").forEach((button) => {
+            button.addEventListener("click", () => {
+                const reminder = button.closest("[data-verification-reminder]");
+                if (reminder) reminder.remove();
+            });
+        });
+    </script>
     {% if messaging_enabled %}<script src="{% static 'classroom/js/messages.js' %}?v=1"></script>{% endif %}
 
     {% block extra_js %}{% endblock %}

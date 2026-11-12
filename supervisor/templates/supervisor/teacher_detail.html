@@ -23,6 +23,17 @@
                 <dt class="col-sm-5">Specialization</dt><dd class="col-sm-7">{{ teacher.specialization|default:"—" }}</dd>
                 <dt class="col-sm-5">Designation</dt><dd class="col-sm-7">{{ teacher.designation|default:"Teacher" }}</dd>
             </dl>
+            {% if request.user.role == "principal" or request.user.role == "supervisor" %}
+            <hr>
+            <h2 class="h6 fw-bold mb-2">Reset account password</h2>
+            <p class="small text-muted">Set a temporary password for this Teacher.</p>
+            <form method="post" action="{% url 'supervisor:teacher_reset_password' teacher.teacher_id %}">
+                {% csrf_token %}
+                <input class="form-control mb-2" type="password" name="new_password1" placeholder="New password" minlength="8" required>
+                <input class="form-control mb-2" type="password" name="new_password2" placeholder="Confirm new password" minlength="8" required>
+                <button class="btn btn-outline-primary btn-sm" type="submit">Reset Teacher password</button>
+            </form>
+            {% endif %}
         </div>
     </div>
 

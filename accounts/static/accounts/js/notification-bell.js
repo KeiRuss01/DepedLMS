@@ -14,42 +14,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const userId = bell.dataset.userId;
     const storageKey = `north1-last-notification-${userId}`;
 
-    let userHasInteracted = false;
-
-    document.addEventListener(
-        "pointerdown",
-        function () {
-            userHasInteracted = true;
-        },
-        { once: true }
-    );
-
-    function playNotificationSound() {
-        if (!userHasInteracted) {
-            return;
-        }
-
-        const AudioContext =
-            window.AudioContext || window.webkitAudioContext;
-
-        if (!AudioContext) {
-            return;
-        }
-
-        const context = new AudioContext();
-        const oscillator = context.createOscillator();
-        const gain = context.createGain();
-
-        oscillator.frequency.value = 720;
-        gain.gain.value = 0.06;
-
-        oscillator.connect(gain);
-        gain.connect(context.destination);
-
-        oscillator.start();
-        oscillator.stop(context.currentTime + 0.15);
-    }
-
     function showToast(title, message) {
         const existingToast = document.querySelector(
             ".notification-live-toast"
@@ -133,16 +97,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     data.latest_message
                 );
 
-                if (data.sound_enabled) {
-                    playNotificationSound();
-                }
-
-                if (
-                    data.vibration_enabled &&
-                    "vibrate" in navigator
-                ) {
-                    navigator.vibrate([120, 60, 120]);
-                }
             }
         } catch (error) {
             console.debug(
@@ -154,8 +108,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     checkNotifications();
 
-    window.setInterval(
-        checkNotifications,
-        30000
-    );
+    // Keep the in-app alert responsive during live classroom activity.
+    window.setInterval(checkNotifications, 10000);
 });

@@ -55,6 +55,11 @@ urlpatterns = [
         views.teacher_detail_view,
         name="teacher_detail",
     ),
+    path(
+        "teachers/<int:teacher_id>/reset-password/",
+        views.teacher_reset_password_view,
+        name="teacher_reset_password",
+    ),
     path("teachers/create/", views.teacher_create_view, name="teacher_create"),
     path("students/", views.student_list_view, name="students"),
     path(
@@ -94,6 +99,11 @@ urlpatterns = [
         "principals/<int:principal_id>/",
         views.principal_detail_view,
         name="principal_detail",
+    ),
+    path(
+        "principals/<int:principal_id>/reset-password/",
+        views.principal_reset_password_view,
+        name="principal_reset_password",
     ),
     path("principals/create/", views.principal_create_view, name="principal_create"),
     path("schools/", views.school_list_view, name="schools"),

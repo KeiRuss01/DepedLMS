@@ -422,8 +422,6 @@ class UserPreferenceForm(forms.ModelForm):
         fields = [
             "theme",
             "text_size",
-            "sound_enabled",
-            "vibration_enabled",
             "new_submission_alerts",
             "pending_join_request_alerts",
             "deadline_reminder_alerts",
@@ -434,8 +432,6 @@ class UserPreferenceForm(forms.ModelForm):
         labels = {
             "theme": "Theme",
             "text_size": "Text size",
-            "sound_enabled": "Sound",
-            "vibration_enabled": "Vibration",
             "new_submission_alerts": "New student submissions",
             "pending_join_request_alerts": "Pending join requests",
             "deadline_reminder_alerts": "Submission deadline reminders",
@@ -462,8 +458,6 @@ class UserPreferenceForm(forms.ModelForm):
                 )
 
         checkbox_fields = [
-            "sound_enabled",
-            "vibration_enabled",
             "new_submission_alerts",
             "pending_join_request_alerts",
             "deadline_reminder_alerts",

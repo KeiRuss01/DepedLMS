@@ -103,6 +103,7 @@ from .notification_services import (
     notify_class_announcement,
     notify_final_grade_report_submitted,
     notify_join_request,
+    notify_enrollment_status,
     notify_module_published,
     notify_student_removed,
     notify_submission,
@@ -1167,6 +1168,8 @@ def respond_to_join_request_view(request, enrollment_id, action):
             update_fields=["status", "enrolled_at"]
         )
 
+        notify_enrollment_status(enrollment)
+
         messages.success(
             request,
             f"{enrollment.student} was enrolled successfully.",
@@ -1178,6 +1181,8 @@ def respond_to_join_request_view(request, enrollment_id, action):
         enrollment.save(
             update_fields=["status", "enrolled_at"]
         )
+
+        notify_enrollment_status(enrollment)
 
         messages.info(request, "The join request was rejected.")
 

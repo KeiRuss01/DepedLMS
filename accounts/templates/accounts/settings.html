@@ -70,32 +70,6 @@
 
                     <div class="setting-rows">
 
-                        <label class="setting-row">
-                            <span>
-                                <strong>Sound</strong>
-                                <small>
-                                    Play a sound for new in-app notifications.
-                                </small>
-                            </span>
-
-                            <span class="form-check form-switch">
-                                {{ preference_form.sound_enabled }}
-                            </span>
-                        </label>
-
-                        <label class="setting-row">
-                            <span>
-                                <strong>Vibration</strong>
-                                <small>
-                                    Vibrate on supported mobile devices.
-                                </small>
-                            </span>
-
-                            <span class="form-check form-switch">
-                                {{ preference_form.vibration_enabled }}
-                            </span>
-                        </label>
-
                         {% if request.user.role == "teacher" %}
 
                             <label class="setting-row">
