@@ -270,6 +270,11 @@ body.sv-sidebar-collapsed .sv-content { margin-left: 0; }
     padding: 1.25rem;
 }
 
+/* Keep administration add/edit forms centered in the content area. */
+.sv-content form.sv-card:not([role="search"]) {
+    margin-inline: auto;
+}
+
 .sv-stats-grid {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
