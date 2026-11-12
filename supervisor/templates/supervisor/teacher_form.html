@@ -12,7 +12,7 @@
     <p class="sv-page-subtitle">Create a basic Classroom Portal account for {{ school.school_name }}.</p>
 </div>
 
-<form method="post" class="sv-card principal-form generated-account-form" data-current-year="{% now 'Y' %}" novalidate>
+<form method="post" class="sv-card principal-form generated-account-form mx-auto" data-current-year="{% now 'Y' %}" novalidate>
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
 

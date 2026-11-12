@@ -12,7 +12,7 @@
     <p class="sv-page-subtitle">Enter the school name now. All other information is optional and can be completed later.</p>
 </div>
 
-<form method="post" enctype="multipart/form-data" class="sv-card sv-school-form" novalidate>
+<form method="post" enctype="multipart/form-data" class="sv-card sv-school-form mx-auto" novalidate>
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
 

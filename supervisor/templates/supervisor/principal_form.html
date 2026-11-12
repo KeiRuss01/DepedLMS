@@ -19,7 +19,7 @@
 </div>
 {% endif %}
 
-<form method="post" class="sv-card principal-form generated-account-form" data-current-year="{% now 'Y' %}" novalidate>
+<form method="post" class="sv-card principal-form generated-account-form mx-auto" data-current-year="{% now 'Y' %}" novalidate>
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
 

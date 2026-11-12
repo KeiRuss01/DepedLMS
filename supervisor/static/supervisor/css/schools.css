@@ -19,7 +19,7 @@
 .sv-empty-state h2 { margin-top: 1rem; font-size: 1.2rem; font-weight: 800; }
 .sv-empty-state p { color: var(--muted); }
 .sv-back-link { display: inline-flex; align-items: center; gap: .45rem; color: var(--royal); font-size: .8rem; font-weight: 700; text-decoration: none; }
-.sv-school-form { max-width: 900px; }
+.sv-school-form { width: min(100%, 900px); max-width: 900px; margin-inline: auto; }
 .school-form-section { margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--line); }
 .school-form-section h2 { font-size: .95rem; font-weight: 800; }
 .school-form-section label { display: block; margin-bottom: .4rem; font-size: .75rem; font-weight: 700; }
