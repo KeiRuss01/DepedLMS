@@ -28,6 +28,89 @@ body.classroom-body {
     margin: 0 auto;
 }
 
+.verification-reminder-wrap {
+    padding-top: 14px;
+}
+
+.verification-reminder {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 12px 16px;
+    border: 1px solid #cfe0f7;
+    border-radius: 12px;
+    background: #f4f8ff;
+    box-shadow: 0 2px 8px rgba(16, 36, 72, .04);
+}
+
+.verification-reminder-copy {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    min-width: 0;
+}
+
+.verification-reminder-icon {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    place-items: center;
+    color: #075fd3;
+    border-radius: 9px;
+    background: #e1edff;
+}
+
+.verification-reminder-copy strong,
+.verification-reminder-copy small {
+    display: block;
+}
+
+.verification-reminder-copy strong {
+    color: #102448;
+    font-size: .86rem;
+}
+
+.verification-reminder-copy small {
+    margin-top: 2px;
+    color: #63738d;
+    font-size: .74rem;
+}
+
+.verification-reminder-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    color: #075fd3;
+    font-size: .76rem;
+    font-weight: 700;
+    border: 1px solid #9bc4fa;
+    border-radius: 8px;
+    background: #ffffff;
+    text-decoration: none;
+}
+
+.verification-reminder-action:hover {
+    color: #ffffff;
+    border-color: #075fd3;
+    background: #075fd3;
+}
+
+@media (max-width: 600px) {
+    .verification-reminder {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .verification-reminder-action {
+        justify-content: center;
+    }
+}
+
 /* Header */
 
 .classroom-header {

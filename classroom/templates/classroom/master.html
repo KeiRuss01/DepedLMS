@@ -26,7 +26,7 @@
 
     <!-- Classroom design -->
     <link rel="stylesheet"
-          href="{% static 'classroom/css/classroom.css' %}?v=2">
+          href="{% static 'classroom/css/classroom.css' %}?v=3">
 
     <link rel="stylesheet"
           href="{% static 'accounts/css/user-preferences.css' %}">
@@ -46,10 +46,18 @@
 <body class="classroom-body">
 
     {% if request.user.is_authenticated and not request.user.email_verified and request.user.role == "student" or request.user.is_authenticated and not request.user.email_verified and request.user.role == "parent" %}
-        <div class="container-fluid classroom-container">
-            <div class="alert alert-warning d-flex align-items-center justify-content-between gap-3 mt-3 mb-0" role="status">
-                <span><i class="bi bi-envelope-exclamation me-2"></i>Please verify your email address from your profile.</span>
-                <a class="btn btn-sm btn-outline-dark" href="{% url 'accounts:profile' %}">Open profile</a>
+        <div class="container-fluid classroom-container verification-reminder-wrap">
+            <div class="verification-reminder" role="status">
+                <div class="verification-reminder-copy">
+                    <span class="verification-reminder-icon"><i class="bi bi-shield-exclamation"></i></span>
+                    <span>
+                        <strong>Email verification recommended</strong>
+                        <small>Verify your email to make account recovery easier.</small>
+                    </span>
+                </div>
+                <a class="verification-reminder-action" href="{% url 'accounts:profile' %}">
+                    Verify email <i class="bi bi-arrow-right"></i>
+                </a>
             </div>
         </div>
     {% endif %}

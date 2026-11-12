@@ -5,7 +5,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet"
-      href="{% static 'accounts/css/account-pages.css' %}">
+      href="{% static 'accounts/css/account-pages.css' %}?v=2">
 {% endblock %}
 
 {% block content %}
@@ -135,13 +135,16 @@
                             </div>
 
                             {% if not request.user.email_verified %}
-                                <button
-                                    type="submit"
-                                    form="emailVerificationForm"
-                                    class="account-secondary-button"
-                                >
-                                    Send verification email
-                                </button>
+                                <div class="email-verification-action">
+                                    <span><i class="bi bi-shield-exclamation"></i> Email not verified</span>
+                                    <button
+                                        type="submit"
+                                        form="emailVerificationForm"
+                                        class="email-verification-button"
+                                    >
+                                        Send verification email
+                                    </button>
+                                </div>
                             {% endif %}
                         </div>
 
