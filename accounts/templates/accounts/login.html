@@ -84,7 +84,9 @@
                 <span>Remember me</span>
             </label>
 
-            <span class="muted-link">Forgot password?</span>
+            <a class="muted-link" href="{% url 'accounts:password_reset' %}">
+                Forgot password?
+            </a>
         </div>
 
         <button class="btn btn-auth-primary w-100" type="submit">
