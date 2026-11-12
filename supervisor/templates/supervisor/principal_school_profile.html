@@ -16,7 +16,7 @@
     </a>
 </div>
 
-<form method="post" enctype="multipart/form-data" class="sv-card sv-school-form" novalidate>
+<form method="post" enctype="multipart/form-data" class="sv-card sv-school-form mx-auto" novalidate>
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
 
@@ -30,9 +30,26 @@
             <div class="col-md-4">
                 <label for="{{ form.logo.id_for_label }}">School logo <span>Optional</span></label>
                 {% if school.logo %}
-                <div class="mb-2"><img src="{{ school.logo.url }}" alt="{{ school.school_name }} logo" style="width:64px;height:64px;object-fit:contain"></div>
+                <div class="school-logo-current">
+                    <img src="{{ school.logo.url }}" alt="{{ school.school_name }} logo">
+                    <label class="school-logo-remove" for="{{ form.logo.id_for_label }}-clear_id">
+                        <input
+                            type="checkbox"
+                            name="{{ form.logo.html_name }}-clear"
+                            id="{{ form.logo.id_for_label }}-clear_id"
+                        >
+                        Remove current logo
+                    </label>
+                </div>
                 {% endif %}
-                {{ form.logo }}{{ form.logo.errors }}
+                <input
+                    type="file"
+                    name="{{ form.logo.html_name }}"
+                    id="{{ form.logo.id_for_label }}"
+                    class="form-control"
+                    accept="image/jpeg,image/png,image/webp"
+                >
+                {{ form.logo.errors }}
                 <small class="form-text">JPG, PNG, or WebP</small>
             </div>
         </div>

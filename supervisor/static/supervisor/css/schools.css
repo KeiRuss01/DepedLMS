@@ -26,6 +26,34 @@
 .school-form-section label span { color: var(--muted); font-size: .65rem; font-weight: 500; }
 .school-form-section .form-control { min-height: 46px; border-color: var(--line); }
 .school-form-section textarea.form-control { min-height: 100px; }
+.school-logo-current {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-bottom: .75rem;
+    padding: .6rem;
+    border: 1px solid var(--line);
+    border-radius: .65rem;
+    background: #f7f9fc;
+}
+.school-logo-current img {
+    width: 64px;
+    height: 64px;
+    flex: 0 0 64px;
+    object-fit: contain;
+    border-radius: .45rem;
+    background: #fff;
+}
+.school-logo-remove {
+    display: inline-flex !important;
+    align-items: center;
+    gap: .45rem;
+    margin: 0 !important;
+    color: #59677a;
+    font-size: .72rem !important;
+    font-weight: 600 !important;
+}
+.school-logo-remove input { accent-color: var(--royal); }
 .form-text { color: var(--muted); font-size: .65rem; }
 .optional-badge { padding: .3rem .55rem; color: var(--royal); font-size: .65rem; font-weight: 700; border-radius: 999px; background: var(--sky); }
 .errorlist { margin: .35rem 0 0; padding: 0; color: #c63e4d; font-size: .7rem; list-style: none; }
