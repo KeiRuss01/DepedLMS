@@ -202,6 +202,16 @@ def profile_view(request):
             or len(sections) > 1
         )
 
+        # The values above are calculated after the initial context is built.
+        # Copy them back into the context before rendering the profile page.
+        context.update(
+            {
+                "student_grade_level": student_grade_level,
+                "student_section": student_section,
+                "student_class_warning": student_class_warning,
+            }
+        )
+
     return render(
         request,
         "accounts/profile.html",
