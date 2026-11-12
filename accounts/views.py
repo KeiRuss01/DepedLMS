@@ -132,8 +132,10 @@ def profile_view(request):
     else:
         form = ProfileUpdateForm(instance=user)
 
-    student_grade_level = ""
-    student_section = ""
+    # Keep the fields explicit even when the learner has not joined an
+    # approved class yet; empty boxes are confusing on mobile.
+    student_grade_level = "Not assigned"
+    student_section = "Not assigned"
     student_class_warning = False
     context = {
         "profile": profile,

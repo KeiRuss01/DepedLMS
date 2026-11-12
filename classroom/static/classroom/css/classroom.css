@@ -134,12 +134,19 @@ body.classroom-body {
 
 @media (max-width: 600px) {
     .verification-reminder {
-        align-items: stretch;
-        flex-direction: column;
-        gap: 10px;
+        align-items: center;
+        flex-direction: row;
+        gap: 7px;
+        padding: 7px 8px;
     }
 
-    .verification-reminder-actions { align-self: flex-end; }
+    .verification-reminder-copy { gap: 7px; }
+    .verification-reminder-icon { width: 24px; height: 24px; flex-basis: 24px; }
+    .verification-reminder-copy strong { font-size: .72rem; }
+    .verification-reminder-copy small { font-size: .6rem; }
+    .verification-reminder-actions { align-self: center; gap: 3px; }
+    .verification-reminder-action { padding: 5px 7px; font-size: .66rem; }
+    .verification-reminder-dismiss { width: 23px; height: 23px; }
 }
 
 html { scroll-behavior: smooth; }
